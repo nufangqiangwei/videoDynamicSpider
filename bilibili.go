@@ -212,7 +212,7 @@ func (b *bilibiliDynamicVideoUrl) getNextUrl() string {
 }
 
 func (b *bilibiliDynamicVideoUrl) getRequest() *http.Request {
-	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?type=video&page=1", nil)
+	request, _ := http.NewRequest("GET", b.getNextUrl(), nil)
 	if b.cookies == "" {
 		b.flushCookies()
 	}
@@ -328,13 +328,15 @@ func (bilibili bilibiliSpider) getVideoList() []VideoInfo {
 		result[index] = VideoInfo{
 			WebSite:    "bilibili",
 			Title:      info.Modules.ModuleDynamic.Major.Archive.Title,
-			Uuid:       info.Modules.ModuleDynamic.Major.Archive.Bvid,
+			VideoUuid:  info.Modules.ModuleDynamic.Major.Archive.Bvid,
 			Url:        info.Modules.ModuleDynamic.Major.Archive.JumpUrl,
 			CoverUrl:   info.Modules.ModuleDynamic.Major.Archive.Cover,
+			AuthorUuid: strconv.Itoa(info.Modules.ModuleAuthor.Mid),
 			AuthorName: info.Modules.ModuleAuthor.Name,
 			AuthorUrl:  info.Modules.ModuleAuthor.JumpUrl,
-			PushTime:   time.Unix(info.Modules.ModuleAuthor.PubTs, 0),
+			PushTime:   info.Modules.ModuleAuthor.PubTs,
 		}
 	}
+	//PushTime:   time.Unix(info.Modules.ModuleAuthor.PubTs, 0),
 	return result
 }

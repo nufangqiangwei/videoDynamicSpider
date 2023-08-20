@@ -17,8 +17,8 @@ type WebSite struct {
 
 func (w *WebSite) CreateTale() string {
 	return `CREATE TABLE IF NOT EXISTS website (
-				id INTEGER PRIMARY KEY AUTO_INCREMENT, 
-				web_name VARCHAR(255) UNIQUE,
+				id INTEGER PRIMARY KEY AUTOINCREMENT, 
+				web_name VARCHAR(255) unique,
 				web_host VARCHAR(255), 
 				web_author_base_url VARCHAR(255), 
 				web_video_base_url VARCHAR(255), 
@@ -33,7 +33,8 @@ func (w *WebSite) GetOrCreate(db *sql.DB) {
 		w.Id, _ = r.LastInsertId()
 		w.CreateTime = time.Now()
 	} else {
-		queryResult := db.QueryRow("SELECT * FROM website WHERE web_name = ?", w.WebName)
+		queryResult := db.QueryRow("SELECT id,create_time FROM website WHERE web_name = ? and web_host=?", w.WebName, w.WebHost)
 		queryResult.Scan(&w.Id, &w.CreateTime)
+
 	}
 }
