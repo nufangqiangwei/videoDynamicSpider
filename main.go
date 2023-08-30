@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/nufangqiangwei/timewheel"
+	"net/http"
 	"path"
 	"strconv"
 	"videoDynamicAcquisition/models"
@@ -87,19 +88,44 @@ func getVideoList(ctx *gin.Context) {
 	if err != nil {
 		size = 30
 	}
-	rows, err := db.Query("select v.uuid, v.cover_url, v.url, a.author_name, a.author_web_uid,v.upload_time from video v left join author a on v.author_id = a.id where v.web_site_id = (select id from website where web_name = '%s') order by v.upload_time desc limit %d,%d;", webSiteName, (page-1)*size, page*size)
+	rows, err := db.Query("select v.uuid, v.cover_url, v.url, a.author_name, a.author_web_uid,v.upload_time from video v left join author a on v.author_id = a.id where v.web_site_id = (select id from website where web_name = ?) order by v.upload_time desc limit ?,?;", webSiteName, (page-1)*size, page*size)
 	result := map[string][]VideoInfo{"data": []VideoInfo{}}
 	if err != nil {
+		println(err.Error())
 		ctx.JSONP(200, result)
 		return
 	}
 	for rows.Next() {
-		rows.Scan()
+		v := VideoInfo{}
+		err = rows.Scan(&v.VideoUuid, &v.CoverUrl, &v.Url, &v.AuthorName, &v.AuthorUuid, &v.PushTime)
+		if err != nil {
+			println(err.Error())
+		}
+		println(1)
+		result["data"] = append(result["data"], v)
 	}
+	ctx.JSON(200, result)
 }
 
 func updateCookies(ctx *gin.Context) {
 
+}
+func Cors() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		method := c.Request.Method
+		origin := c.Request.Header.Get("Origin")
+		if origin != "" {
+			c.Header("Access-Control-Allow-Origin", "*") // 可将将 * 替换为指定的域名
+			c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
+			c.Header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
+			c.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type")
+			c.Header("Access-Control-Allow-Credentials", "true")
+		}
+		if method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+		}
+		c.Next()
+	}
 }
 
 func main() {
@@ -114,8 +140,9 @@ func main() {
 	//	Log:   timewheelLog,
 	//})
 	//wheel.AppendOnceFunc(spider.run, nil, "VideoSpider", timeWheel.Crontab{ExpiredTime: spider.interval})
-	spider.getVideoInfo()
+	//spider.getVideoInfo()
 	server := gin.Default()
+	server.Use(Cors())
 	server.GET("/getVideoList", getVideoList)
 	server.GET("/updateCookies", updateCookies)
 	server.Run("localhost:8000")
