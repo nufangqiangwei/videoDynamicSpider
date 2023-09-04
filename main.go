@@ -10,7 +10,6 @@ import (
 	"path"
 	"strconv"
 	"videoDynamicAcquisition/baseStruct"
-	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/models"
 )
 
@@ -126,17 +125,17 @@ func Cors() gin.HandlerFunc {
 
 func main() {
 	//InitLog("E:\\GoCode\\videoDynamicAcquisition")
-	//models.InitDB(path.Join(rootPath, sqliteDaName))
-	videoCollection = []VideoCollection{
-		bilibili.MakeBilibiliSpider(),
-	}
-	spider = &Spider{interval: 60 * 5}
+	models.InitDB(path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
+	//videoCollection = []VideoCollection{
+	//	bilibili.MakeBilibiliSpider(),
+	//}
+	//spider = &Spider{interval: 60 * 5}
 	//wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
 	//	IsRun: true,
 	//	Log:   timewheelLog,
 	//})
 	//wheel.AppendOnceFunc(spider.run, nil, "VideoSpider", timeWheel.Crontab{ExpiredTime: spider.interval})
-	spider.getVideoInfo()
+	//spider.getVideoInfo()
 	//server := gin.Default()
 	//server.Use(Cors())
 	//server.GET("/getVideoList", getVideoList)

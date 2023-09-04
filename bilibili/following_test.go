@@ -3,15 +3,15 @@ package bilibili
 import (
 	"database/sql"
 	"encoding/json"
+	"math/rand"
 	"os"
 	"path"
 	"strconv"
 	"testing"
+	"time"
+	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/models"
 )
-
-const sqliteDaName = "videoInfo.db"
-const rootPath = "E:\\GoCode\\videoDynamicAcquisition"
 
 func TestFollowings(t *testing.T) {
 	f := followings{}
@@ -22,7 +22,7 @@ func TestFollowings(t *testing.T) {
 		println(err.Error())
 	}
 	os.WriteFile("E:\\GoCode\\videoDynamicAcquisition\\bilibili-followings.json", data, 0666)
-	db, _ := sql.Open("sqlite3", path.Join(rootPath, sqliteDaName))
+	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
 	for _, author := range allFollowing {
 		author.GetOrCreate(db)
 	}
@@ -40,7 +40,7 @@ type JSONDATA struct {
 }
 
 func TestImportFollowingJSON(t *testing.T) {
-	data, err := os.ReadFile("E:\\GoCode\\videoDynamicAcquisition\\bilibili\\bilibili-followings.json")
+	data, err := os.ReadFile("C:\\Code\\GO\\videoDynamicSpider\\bilibili\\bilibili-followings.json")
 	if err != nil {
 		println(err.Error())
 		return
@@ -51,7 +51,7 @@ func TestImportFollowingJSON(t *testing.T) {
 		println(err.Error())
 		return
 	}
-	db, _ := sql.Open("sqlite3", path.Join(rootPath, sqliteDaName))
+	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
 	total := 0
 	saveData(jsonData.Page1, db, 1)
 	saveData(jsonData.Page2, db, 1)
@@ -75,4 +75,17 @@ func saveData(data followingsResponse, db *sql.DB, webSiteId int64) {
 		}
 		m.GetOrCreate(db)
 	}
+}
+
+func TestGOTO(t *testing.T) {
+	getNotFollowAuthorDynamic()
+}
+
+func TestCreateDir(t *testing.T) {
+	rand.Seed(time.Now().Unix())
+	println(rand.Intn(160) + 60)
+	println(rand.Intn(160) + 60)
+	println(rand.Intn(160) + 60)
+	println(rand.Intn(160) + 60)
+	println(rand.Intn(160) + 60)
 }

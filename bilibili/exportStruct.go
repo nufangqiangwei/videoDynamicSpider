@@ -61,6 +61,14 @@ func (bilibili BilibiliSpider) GetVideoList() []baseStruct.VideoInfo {
 		}
 
 		for _, info := range response.Data.Items {
+			var Baseline string
+			Baseline, ok := info.IdStr.(string)
+			if !ok {
+				a, ok := info.IdStr.(int)
+				if ok {
+					Baseline = strconv.Itoa(a)
+				}
+			}
 			result = append(result, baseStruct.VideoInfo{
 				WebSite:    "bilibili",
 				Title:      info.Modules.ModuleDynamic.Major.Archive.Title,
@@ -73,7 +81,7 @@ func (bilibili BilibiliSpider) GetVideoList() []baseStruct.VideoInfo {
 				AuthorName: info.Modules.ModuleAuthor.Name,
 				AuthorUrl:  info.Modules.ModuleAuthor.JumpUrl,
 				PushTime:   time.Unix(info.Modules.ModuleAuthor.PubTs, 0),
-				Baseline:   info.IdStr,
+				Baseline:   Baseline,
 			})
 			updateNumber--
 			if updateNumber == 0 {

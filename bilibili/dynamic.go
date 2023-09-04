@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"videoDynamicAcquisition/baseStruct"
 )
 
 type videoInfoTypeEnum struct {
@@ -68,7 +69,7 @@ type dynamicVideoInfo struct {
 		} `json:"like_icon"`
 		RidStr string `json:"rid_str"`
 	} `json:"basic"`
-	IdStr   string `json:"id_str"`
+	IdStr   interface{} `json:"id_str"`
 	Modules struct {
 		ModuleAuthor struct {
 			Avatar struct {
@@ -245,8 +246,8 @@ func (b *dynamicVideo) getRequest(mid int, offset string) *http.Request {
 	}
 	request, _ := http.NewRequest("GET", url, nil)
 	q := request.URL.Query()
+	q.Add("offset", offset)
 	if mid == 0 {
-		q.Add("offset", offset)
 		q.Add("type", "video")
 	} else {
 		q.Add("host_mid", strconv.Itoa(mid))
@@ -300,16 +301,17 @@ func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (d
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 
-	fileName := fmt.Sprintf("E:\\GoCode\\videoDynamicAcquisition\\bilibili-%s.json", offset)
+	os.Mkdir(fmt.Sprintf("%s\\%d", baseStruct.RootPath, mid), os.ModePerm)
+	fileName := fmt.Sprintf("%s\\%d\\bilibili-%s.json", baseStruct.RootPath, mid, offset)
 	os.WriteFile(fileName, body, 0666)
 
 	if response.StatusCode != 200 {
-		print("响应状态码错误", response.StatusCode)
+		println("响应状态码错误", response.StatusCode)
 		print(string(body))
 		return nil
 	}
 	if err != nil {
-		print("读取响应失败")
+		println("读取响应失败")
 		println(err.Error())
 		return
 	}
