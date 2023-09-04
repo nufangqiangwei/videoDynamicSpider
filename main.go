@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/nufangqiangwei/timewheel"
+	timeWheel "github.com/nufangqiangwei/timewheel"
 	"net/http"
 	"path"
 	"strconv"
+	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/models"
 )
 
@@ -18,24 +20,9 @@ var (
 	spider          *Spider
 )
 
-type VideoInfo struct {
-	WebSite    string
-	Title      string
-	VideoUuid  string
-	Url        string
-	CoverUrl   string
-	AuthorUuid string
-	AuthorName string
-	AuthorUrl  string
-	PushTime   int64
-}
-
-const sqliteDaName = "videoInfo.db"
-const rootPath = "C:\\Code\\GO\\videoDynamicSpider"
-
 type VideoCollection interface {
-	getWebSiteName() models.WebSite
-	getVideoList() []VideoInfo
+	GetWebSiteName() models.WebSite
+	GetVideoList() []baseStruct.VideoInfo
 }
 
 type Spider struct {
@@ -43,11 +30,12 @@ type Spider struct {
 }
 
 func (s *Spider) getVideoInfo() {
-	db, _ := sql.Open("sqlite3", path.Join(rootPath, sqliteDaName))
+	println("getVideoInfo")
+	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
 	for _, v := range videoCollection {
-		website := v.getWebSiteName()
+		website := v.GetWebSiteName()
 		website.GetOrCreate(db)
-		for _, video := range v.getVideoList() {
+		for _, video := range v.GetVideoList() {
 			//fmt.Printf("video: %v\n", video)
 			author := models.Author{AuthorName: video.AuthorName, WebSiteId: website.Id, AuthorWebUid: video.AuthorUuid}
 			author.GetOrCreate(db)
@@ -55,10 +43,13 @@ func (s *Spider) getVideoInfo() {
 				WebSiteId:  website.Id,
 				AuthorId:   author.Id,
 				Title:      video.Title,
+				Desc:       video.Desc,
+				Duration:   video.Duration,
 				Url:        video.Url,
 				Uuid:       video.VideoUuid,
 				CoverUrl:   video.CoverUrl,
 				UploadTime: video.PushTime,
+				BiliOffset: video.Baseline,
 			}
 			videoModel.Save(db)
 		}
@@ -67,7 +58,7 @@ func (s *Spider) getVideoInfo() {
 
 func (s *Spider) run(interface{}) {
 	for _, v := range videoCollection {
-		videoList := v.getVideoList()
+		videoList := v.GetVideoList()
 		for _, video := range videoList {
 			fmt.Printf("video: %v\n", video)
 		}
@@ -76,7 +67,12 @@ func (s *Spider) run(interface{}) {
 }
 
 func getVideoList(ctx *gin.Context) {
-	db, _ := sql.Open("sqlite3", path.Join(rootPath, sqliteDaName))
+	db, err := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
+	if err != nil {
+		println(err.Error())
+		ctx.JSONP(http.StatusInternalServerError, map[string]string{"msg": "数据库打开失败"})
+		return
+	}
 	webSiteName := ctx.DefaultQuery("webSite", "bilibili")
 	pageSTR := ctx.DefaultQuery("page", "1")
 	sizeSTR := ctx.DefaultQuery("size", "30")
@@ -88,20 +84,20 @@ func getVideoList(ctx *gin.Context) {
 	if err != nil {
 		size = 30
 	}
-	rows, err := db.Query("select v.uuid, v.cover_url, v.url, a.author_name, a.author_web_uid,v.upload_time from video v left join author a on v.author_id = a.id where v.web_site_id = (select id from website where web_name = ?) order by v.upload_time desc limit ?,?;", webSiteName, (page-1)*size, page*size)
-	result := map[string][]VideoInfo{"data": []VideoInfo{}}
+	rows, err := db.Query("select v.uuid, v.cover_url,v.title, v.video_desc,v.duration, a.author_name, a.author_web_uid,v.upload_time from video v left join author a on v.author_id = a.id where v.web_site_id = (select id from website where web_name = ?) order by v.upload_time desc limit ?,?;", webSiteName, (page-1)*size, page*size)
+	result := map[string][]baseStruct.VideoInfo{"data": []baseStruct.VideoInfo{}}
 	if err != nil {
 		println(err.Error())
 		ctx.JSONP(200, result)
 		return
 	}
 	for rows.Next() {
-		v := VideoInfo{}
-		err = rows.Scan(&v.VideoUuid, &v.CoverUrl, &v.Url, &v.AuthorName, &v.AuthorUuid, &v.PushTime)
+		v := baseStruct.VideoInfo{}
+		err = rows.Scan(&v.VideoUuid, &v.CoverUrl, &v.Title, &v.Desc, &v.Duration, &v.AuthorName, &v.AuthorUuid, &v.PushTime)
 		if err != nil {
+			print("scan error")
 			println(err.Error())
 		}
-		println(1)
 		result["data"] = append(result["data"], v)
 	}
 	ctx.JSON(200, result)
@@ -130,9 +126,9 @@ func Cors() gin.HandlerFunc {
 
 func main() {
 	//InitLog("E:\\GoCode\\videoDynamicAcquisition")
-	models.InitDB(path.Join("C:\\Code\\GO\\videoDynamicSpider", sqliteDaName))
+	//models.InitDB(path.Join(rootPath, sqliteDaName))
 	videoCollection = []VideoCollection{
-		makeBilibiliSpider(),
+		bilibili.MakeBilibiliSpider(),
 	}
 	spider = &Spider{interval: 60 * 5}
 	//wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
@@ -140,10 +136,10 @@ func main() {
 	//	Log:   timewheelLog,
 	//})
 	//wheel.AppendOnceFunc(spider.run, nil, "VideoSpider", timeWheel.Crontab{ExpiredTime: spider.interval})
-	//spider.getVideoInfo()
-	server := gin.Default()
-	server.Use(Cors())
-	server.GET("/getVideoList", getVideoList)
-	server.GET("/updateCookies", updateCookies)
-	server.Run("localhost:8000")
+	spider.getVideoInfo()
+	//server := gin.Default()
+	//server.Use(Cors())
+	//server.GET("/getVideoList", getVideoList)
+	//server.GET("/updateCookies", updateCookies)
+	//server.Run("localhost:8001")
 }

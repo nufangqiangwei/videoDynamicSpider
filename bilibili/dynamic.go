@@ -1,30 +1,62 @@
-package main
+package bilibili
 
 import (
 	"encoding/json"
-	"io"
-	"log"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
-	"time"
-	"videoDynamicAcquisition/models"
 )
 
-type bilbilDynamicResponse struct {
+type videoInfoTypeEnum struct {
+	DYNAMIC_TYPE_NONE             string // 无效动态
+	DYNAMIC_TYPE_FORWARD          string // 动态转发
+	DYNAMIC_TYPE_AV               string // 投稿视频
+	DYNAMIC_TYPE_PGC              string // 剧集（番剧、电影、纪录片）
+	DYNAMIC_TYPE_COURSES          string //
+	DYNAMIC_TYPE_WORD             string // 纯文字动态
+	DYNAMIC_TYPE_DRAW             string // 带图动态
+	DYNAMIC_TYPE_ARTICLE          string // 投稿专栏
+	DYNAMIC_TYPE_MUSIC            string // 音乐
+	DYNAMIC_TYPE_COMMON_SQUARE    string // 装扮,剧集点评,普通分享
+	DYNAMIC_TYPE_COMMON_VERTICAL  string //
+	DYNAMIC_TYPE_LIVE             string // 直播间分享
+	DYNAMIC_TYPE_MEDIALIST        string // 收藏夹
+	DYNAMIC_TYPE_COURSES_SEASON   string // 课程
+	DYNAMIC_TYPE_COURSES_BATCH    string //
+	DYNAMIC_TYPE_AD               string //
+	DYNAMIC_TYPE_APPLET           string //
+	DYNAMIC_TYPE_SUBSCRIPTION     string //
+	DYNAMIC_TYPE_LIVE_RCMD        string // 直播开播
+	DYNAMIC_TYPE_BANNER           string //
+	DYNAMIC_TYPE_UGC_SEASON       string // 合集更新
+	DYNAMIC_TYPE_SUBSCRIPTION_NEW string //
+}
+
+type updateVideoNumberResponse struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Ttl     int    `json:"ttl"`
 	Data    struct {
-		HasMore        bool              `json:"has_more"`
-		Items          []bilbilVideoInfo `json:"items"`
-		Offset         string            `json:"offset"`
-		UpdateBaseline string            `json:"update_baseline"`
-		UpdateNum      int               `json:"update_num"`
+		UpdateNum int `json:"update_num"`
 	} `json:"data"`
 }
 
-type bilbilVideoInfo struct {
+type dynamicResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Ttl     int    `json:"ttl"`
+	Data    struct {
+		HasMore        bool               `json:"has_more"` // 是否有更多数据
+		Items          []dynamicVideoInfo `json:"items"`
+		Offset         string             `json:"offset"`          // 偏移量 等于items中最后一条记录的id 获取下一页时使用
+		UpdateBaseline string             `json:"update_baseline"` // 更新基线	等于items中第一条记录的id
+		UpdateNum      int                `json:"update_num"`      // 本次获取获取到了多少条新动态,在更新基线以上的动态条数
+	} `json:"data"`
+}
+
+type dynamicVideoInfo struct {
 	Basic struct {
 		CommentIdStr string `json:"comment_id_str"`
 		CommentType  int    `json:"comment_type"`
@@ -197,146 +229,113 @@ type bilbilVideoInfo struct {
 	Visible bool   `json:"visible"`
 }
 
-type bilibiliDynamicVideoUrl struct {
-	baseUrl     string
-	pageIndex   int
-	dynamicType string
-	cookies     string
+type dynamicVideo struct {
 }
 
-func (b *bilibiliDynamicVideoUrl) getNextUrl() string {
-	// https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?type=video&page=1
-	url := b.baseUrl + "?type=" + b.dynamicType + "&page=" + strconv.Itoa(b.pageIndex)
-	b.pageIndex++
-	return url
-}
-
-func (b *bilibiliDynamicVideoUrl) getRequest() *http.Request {
-	request, _ := http.NewRequest("GET", b.getNextUrl(), nil)
-	if b.cookies == "" {
-		b.flushCookies()
+// getRequest 设置请求头
+// mid 用户的id,不传入的时候获取自己的关注动态
+// https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?offset=&host_mid=591402619&timezone_offset=-480&features=itemOpusStyle,listOnlyfans
+// https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?offset=836201790065082504&timezone_offset=-480&type=video&features=itemOpusStyle,listOnlyfans
+func (b *dynamicVideo) getRequest(mid int, offset string) *http.Request {
+	url := ""
+	if mid == 0 {
+		url = dynamicBaseUrl + "/all"
+	} else {
+		url = dynamicBaseUrl + "/space"
 	}
-	request.Header.Add("Cookie", b.cookies)
+	request, _ := http.NewRequest("GET", url, nil)
+	q := request.URL.Query()
+	if mid == 0 {
+		q.Add("offset", offset)
+		q.Add("type", "video")
+	} else {
+		q.Add("host_mid", strconv.Itoa(mid))
+	}
+
+	request.URL.RawQuery = q.Encode()
+	request.Header.Add("Cookie", bilibiliCookies.cookies)
 	return request
-
 }
-func (b *bilibiliDynamicVideoUrl) flushCookies() bool {
-	// 读取文件中的cookies
-	f, err := os.ReadFile("bilibiliCookies")
+
+func (b *dynamicVideo) getUpdateVideoNumber(updateBaseline string) int {
+	println("获取更新视频数量")
+	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all/update?type=video&update_baseline="+updateBaseline, nil)
+	request.Header.Add("Cookie", bilibiliCookies.cookies)
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		b.cookies = ""
-		return false
+		println(err.Error())
+		return 0
 	}
-	cookies := string(f)
-	isFlush := b.cookies == cookies
-	b.cookies = cookies
-	return isFlush
-}
-
-type bilibiliSpider struct {
-	url                  *bilibiliDynamicVideoUrl
-	lastFlushCookiesTime time.Time
-	cookiesFail          bool
-}
-
-func makeBilibiliSpider() bilibiliSpider {
-	bilibili := bilibiliSpider{}
-	bilibili.url = &bilibiliDynamicVideoUrl{
-		baseUrl:     "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all",
-		pageIndex:   1,
-		dynamicType: "video",
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	if response.StatusCode != 200 {
+		println("响应状态码错误", response.StatusCode)
+		println(string(body))
+		return 0
 	}
-	bilibili.url.flushCookies()
-	return bilibili
-}
-
-func (bilibili bilibiliSpider) getWebSiteName() models.WebSite {
-	return models.WebSite{
-		WebName:          "bilibili",
-		WebHost:          "https://www.bilibili.com/",
-		WebAuthorBaseUrl: "https://space.bilibili.com/",
-		WebVideoBaseUrl:  "https://www.bilibili.com/",
+	updateResponse := new(updateVideoNumberResponse)
+	err = json.Unmarshal(body, updateResponse)
+	if err != nil {
+		println(err.Error())
+		return 0
 	}
+	return updateResponse.Data.UpdateNum
 }
 
-func (bilibili bilibiliSpider) getResponse() *bilbilDynamicResponse {
-	if bilibili.cookiesFail && bilibili.lastFlushCookiesTime.Add(time.Hour*24).Before(time.Now()) {
-		// 如果cookies失效并且上次刷新时间超过24小时，重新刷新cookies
-		bilibili.lastFlushCookiesTime = time.Now()
-		bilibili.cookiesFail = !bilibili.url.flushCookies()
-		if bilibili.cookiesFail {
-			// cookies刷新失败
-			log.Println("cookies失效，请更新cookies文件")
+func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (dynamicResponseBody *dynamicResponse) {
+	bilibiliCookies.flushCookies()
+
+	if retriesNumber > 3 {
+		return dynamicResponseBody
+	}
+	if !bilibiliCookies.cookiesFail {
+		return dynamicResponseBody
+	}
+
+	response, err := http.DefaultClient.Do(b.getRequest(mid, offset))
+	if err != nil {
+		print(err.Error())
+		return
+	}
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+
+	fileName := fmt.Sprintf("E:\\GoCode\\videoDynamicAcquisition\\bilibili-%s.json", offset)
+	os.WriteFile(fileName, body, 0666)
+
+	if response.StatusCode != 200 {
+		print("响应状态码错误", response.StatusCode)
+		print(string(body))
+		return nil
+	}
+	if err != nil {
+		print("读取响应失败")
+		println(err.Error())
+		return
+	}
+	dynamicResponseBody = new(dynamicResponse)
+	err = json.Unmarshal(body, dynamicResponseBody)
+	if err != nil {
+		println("解析响应失败")
+		println(err.Error())
+		return nil
+	}
+	if dynamicResponseBody.Code == -101 {
+		// cookies失效
+		println("cookies失效")
+		bilibiliCookies.cookiesFail = false
+		bilibiliCookies.flushCookies()
+		if bilibiliCookies.cookiesFail {
+			return b.getResponse(retriesNumber+1, mid, offset)
+		} else {
+			print("cookies失效，请更新cookies文件2")
 			return nil
 		}
 	}
-	client := &http.Client{}
-	response, err := client.Do(bilibili.url.getRequest())
-	if err != nil {
-		log.Println(err)
+	if dynamicResponseBody.Code != 0 {
+		println("响应状态码错误", dynamicResponseBody.Code)
+		fmt.Printf("%+v", dynamicResponseBody)
 		return nil
 	}
-
-	responseBytes, err := io.ReadAll(response.Body)
-	if err != nil {
-		log.Println("读取响应失败")
-		return nil
-	}
-	response.Body.Close()
-	if response.StatusCode != 200 {
-		log.Println("响应状态码错误", response.StatusCode)
-		log.Println(string(responseBytes))
-		return nil
-	}
-
-	dynamicResponse := &bilbilDynamicResponse{}
-	err = json.Unmarshal(responseBytes, dynamicResponse)
-	if err != nil {
-		log.Println(err)
-		return nil
-	}
-	if dynamicResponse.Code == -101 {
-		// cookies失效
-		log.Println("cookies失效")
-		if bilibili.lastFlushCookiesTime.Add(time.Hour * 24).Before(time.Now()) {
-			// 24小时内不刷新cookies
-			log.Println("刷新cookies")
-			bilibili.lastFlushCookiesTime = time.Now()
-			bilibili.cookiesFail = !bilibili.url.flushCookies()
-			if bilibili.cookiesFail {
-				// cookies刷新失败
-				log.Println("cookies失效，请更新cookies文件")
-				return nil
-			}
-			return bilibili.getResponse()
-		}
-	}
-	bilibili.cookiesFail = false
-	return dynamicResponse
-}
-
-func (bilibili bilibiliSpider) getVideoList() []VideoInfo {
-	response := bilibili.getResponse()
-	if response == nil {
-		return []VideoInfo{}
-	}
-	if response.Data.Items == nil {
-		return []VideoInfo{}
-	}
-	result := make([]VideoInfo, len(response.Data.Items))
-	for index, info := range response.Data.Items {
-		result[index] = VideoInfo{
-			WebSite:    "bilibili",
-			Title:      info.Modules.ModuleDynamic.Major.Archive.Title,
-			VideoUuid:  info.Modules.ModuleDynamic.Major.Archive.Bvid,
-			Url:        info.Modules.ModuleDynamic.Major.Archive.JumpUrl,
-			CoverUrl:   info.Modules.ModuleDynamic.Major.Archive.Cover,
-			AuthorUuid: strconv.Itoa(info.Modules.ModuleAuthor.Mid),
-			AuthorName: info.Modules.ModuleAuthor.Name,
-			AuthorUrl:  info.Modules.ModuleAuthor.JumpUrl,
-			PushTime:   info.Modules.ModuleAuthor.PubTs,
-		}
-	}
-	//PushTime:   time.Unix(info.Modules.ModuleAuthor.PubTs, 0),
-	return result
+	return
 }

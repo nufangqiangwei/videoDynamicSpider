@@ -17,7 +17,11 @@ func InitDB(sqliteDaPath string) {
 	}
 	models := []BaseModel{&WebSite{}, &Author{}, &Video{}}
 	for _, baseModel := range models {
-		db.Exec(baseModel.CreateTale())
+		_, err = db.Exec(baseModel.CreateTale())
+		if err != nil {
+			print("创建表失败")
+			print(err.Error())
+		}
 	}
 	db.Close()
 }

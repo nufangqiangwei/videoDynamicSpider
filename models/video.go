@@ -12,10 +12,13 @@ type Video struct {
 	WebSiteId  int64
 	AuthorId   int64
 	Title      string
+	Desc       string
+	Duration   int
 	Uuid       string
 	Url        string
 	CoverUrl   string
-	UploadTime int64
+	UploadTime time.Time
+	BiliOffset string
 	CreateTime time.Time
 }
 
@@ -25,20 +28,22 @@ func (v *Video) CreateTale() string {
 				web_site_id INTEGER,
 				author_id INTEGER,
 				title VARCHAR(255),
+				video_desc VARCHAR(255),
+				duration INTEGER,
 				uuid VARCHAR(255) UNIQUE,
 				url VARCHAR(255),
 				cover_url VARCHAR(255),
-				upload_time timestamp,
+				upload_time datetime,
+				biliOffset VARCHAR(255),
 				create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
 			   constraint web_site_author_uuid
         			unique (web_site_id, author_id,uuid)
 				)`
 }
 
-func (v *Video) Save(db *sql.DB) {
-
-	r, err := db.Exec("INSERT INTO video (web_site_id, author_id, title,uuid, url, cover_url,upload_time) VALUES (?, ?, ?, ?, ?,?,?)",
-		v.WebSiteId, v.AuthorId, v.Title, v.Uuid, v.Url, v.CoverUrl, v.CreateTime, v.UploadTime)
+func (v *Video) Save(db *sql.DB) bool {
+	r, err := db.Exec("INSERT INTO video (web_site_id, author_id, title,video_desc,duration,uuid, url, cover_url,biliOffset,upload_time) VALUES (?, ?, ?, ?, ?,?,?,?,?)",
+		v.WebSiteId, v.AuthorId, v.Title, v.Desc, v.Duration, v.Uuid, v.Url, v.CoverUrl, v.BiliOffset, v.UploadTime)
 	if err == nil {
 		v.Id, _ = r.LastInsertId()
 		v.CreateTime = time.Now()
@@ -47,5 +52,7 @@ func (v *Video) Save(db *sql.DB) {
 		println("插入视频错误")
 		fmt.Printf("video: %v\n", v)
 		println(err.Error())
+		return false
 	}
+	return true
 }
