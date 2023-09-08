@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	rotateLogs "github.com/lestrrat-go/file-rotatelogs"
@@ -9,7 +9,7 @@ import (
 
 var (
 	writer       *rotateLogs.RotateLogs
-	timewheelLog *log.Logger
+	TimeWheelLog *log.Logger
 	info         *log.Logger
 	warning      *log.Logger
 	errorLog     *log.Logger
@@ -30,7 +30,7 @@ func InitLog(lofFilePath string) {
 		rotateLogs.WithRotationTime(time.Hour*24),
 	)
 	log.SetOutput(writer)
-	timewheelLog = log.New(writer, "定时:", log.Ldate|log.Ltime|log.Lshortfile)
+	TimeWheelLog = log.New(writer, "定时:", log.Ldate|log.Ltime|log.Lshortfile)
 	info = log.New(writer, "Info:", log.Ldate|log.Ltime|log.Lshortfile)
 	warning = log.New(writer, "Warning:", log.Ldate|log.Ltime|log.Lshortfile)
 	errorLog = log.New(writer, "Error:", log.Ldate|log.Ltime|log.Lshortfile)

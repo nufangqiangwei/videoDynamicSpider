@@ -2,6 +2,7 @@ package bilibili
 
 import (
 	"fmt"
+	"github.com/goccy/go-json"
 	"strconv"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
@@ -11,14 +12,6 @@ import (
 type BilibiliSpider struct {
 	lastFlushCookiesTime time.Time
 	cookiesFail          bool
-}
-
-func MakeBilibiliSpider() BilibiliSpider {
-	bilibiliCookies = cookies{}
-	bilibili := BilibiliSpider{}
-	dynamicVideoObject = dynamicVideo{}
-	bilibiliCookies.readFile()
-	return bilibili
 }
 
 func (bilibili BilibiliSpider) GetWebSiteName() models.WebSite {
@@ -95,6 +88,40 @@ func (bilibili BilibiliSpider) GetVideoList() []baseStruct.VideoInfo {
 
 	if len(result) == updateNumber {
 		latestBaseline = result[0].Baseline
+	}
+
+	return result
+}
+
+func (bilibili BilibiliSpider) getAuthorDynamic(author int, baseOffset string) map[string]string {
+	result := make(map[string]string)
+	offset := baseOffset
+	var (
+		ok      bool
+		_offset string
+	)
+	for {
+		response := dynamicVideoObject.getResponse(0, author, offset)
+		if response == nil {
+			break
+		}
+		da, _ := json.Marshal(response)
+		result[response.Data.Offset] = string(da)
+
+		for _, info := range response.Data.Items {
+			_offset, ok = info.IdStr.(string)
+			if !ok {
+				a, ok := info.IdStr.(int)
+				if ok {
+					_offset = strconv.Itoa(a)
+				} else {
+					break
+				}
+			}
+			if baseOffset == _offset {
+				break
+			}
+		}
 	}
 
 	return result

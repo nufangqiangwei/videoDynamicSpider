@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 	"videoDynamicAcquisition/baseStruct"
 )
 
@@ -284,27 +285,22 @@ func (b *dynamicVideo) getUpdateVideoNumber(updateBaseline string) int {
 }
 
 func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (dynamicResponseBody *dynamicResponse) {
-	bilibiliCookies.flushCookies()
-
 	if retriesNumber > 3 {
 		return dynamicResponseBody
 	}
+	bilibiliCookies.flushCookies()
 	if !bilibiliCookies.cookiesFail {
 		return dynamicResponseBody
 	}
 
 	response, err := http.DefaultClient.Do(b.getRequest(mid, offset))
 	if err != nil {
-		print(err.Error())
+		println(err.Error())
 		return
 	}
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
-
-	os.Mkdir(fmt.Sprintf("%s\\%d", baseStruct.RootPath, mid), os.ModePerm)
-	fileName := fmt.Sprintf("%s\\%d\\bilibili-%s.json", baseStruct.RootPath, mid, offset)
-	os.WriteFile(fileName, body, 0666)
-
+	saveDynamicResponse(body, mid, offset)
 	if response.StatusCode != 200 {
 		println("响应状态码错误", response.StatusCode)
 		print(string(body))
@@ -328,16 +324,30 @@ func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (d
 		bilibiliCookies.cookiesFail = false
 		bilibiliCookies.flushCookies()
 		if bilibiliCookies.cookiesFail {
+			time.Sleep(time.Second * 10)
 			return b.getResponse(retriesNumber+1, mid, offset)
 		} else {
-			print("cookies失效，请更新cookies文件2")
+			println("cookies失效，请更新cookies文件2")
 			return nil
 		}
 	}
+	if dynamicResponseBody.Code == -352 {
+		println("352错误，拒绝访问")
+		return nil
+	}
 	if dynamicResponseBody.Code != 0 {
 		println("响应状态码错误", dynamicResponseBody.Code)
-		fmt.Printf("%+v", dynamicResponseBody)
+		fmt.Printf("%+v\n", dynamicResponseBody)
 		return nil
 	}
 	return
+}
+func saveDynamicResponse(data []byte, mid int, offset string) {
+	os.Mkdir(fmt.Sprintf("%s\\%d", baseStruct.RootPath, mid), os.ModePerm)
+	fileName := fmt.Sprintf("%s\\%d\\bilibili-%s.json", baseStruct.RootPath, mid, offset)
+	err := os.WriteFile(fileName, data, 0666)
+	if err != nil {
+		print("写文件失败")
+		println(err.Error())
+	}
 }

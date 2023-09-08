@@ -30,7 +30,7 @@ func (v *Video) CreateTale() string {
 				title VARCHAR(255),
 				video_desc VARCHAR(255),
 				duration INTEGER,
-				uuid VARCHAR(255) UNIQUE,
+				uuid VARCHAR(255),
 				url VARCHAR(255),
 				cover_url VARCHAR(255),
 				upload_time datetime,
@@ -49,9 +49,25 @@ func (v *Video) Save(db *sql.DB) bool {
 		v.CreateTime = time.Now()
 	}
 	if err != nil {
-		println("插入视频错误")
-		fmt.Printf("video: %v\n", v)
+		println(err.Error() == "UNIQUE constraint failed: video.web_site_id, video.author_id, video.uuid")
+		print("插入视频错误: ")
 		println(err.Error())
+		//fmt.Printf("video: %v\n", v)
+		return false
+	}
+	return true
+}
+func (v *Video) SaveTrc(db *sql.Tx) bool {
+	r, err := db.Exec("INSERT INTO video (web_site_id, author_id, title,video_desc,duration,uuid, url, cover_url,biliOffset,upload_time) VALUES (?, ?, ?, ?, ?,?,?,?,?,?)",
+		v.WebSiteId, v.AuthorId, v.Title, v.Desc, v.Duration, v.Uuid, v.Url, v.CoverUrl, v.BiliOffset, v.UploadTime)
+	if err == nil {
+		v.Id, _ = r.LastInsertId()
+		v.CreateTime = time.Now()
+	}
+	if err != nil {
+		print("插入视频错误: ")
+		println(err.Error())
+		fmt.Printf("video: %v\n", v)
 		return false
 	}
 	return true

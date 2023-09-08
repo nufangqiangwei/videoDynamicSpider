@@ -14,7 +14,7 @@ type cookies struct {
 }
 
 func (c *cookies) flushCookies() {
-	if !c.cookiesFail || c.lastFlushCookiesTime.Add(time.Hour*24).Before(time.Now()) || c.cookies == "" {
+	if !c.cookiesFail || c.cookies == "" || c.lastFlushCookiesTime.Add(time.Hour*24).Before(time.Now()) {
 		// 如果cookies失效并且上次刷新时间超过24小时，重新刷新cookies
 		c.lastFlushCookiesTime = time.Now()
 		c.readFile()
@@ -27,7 +27,7 @@ func (c *cookies) flushCookies() {
 
 func (c *cookies) readFile() {
 	// 读取文件中的cookies
-	f, err := os.ReadFile(baseStruct.RootPath + "\\bilibiliCookies")
+	f, err := os.ReadFile(baseStruct.RootPath + "\\bilibili\\bilibiliCookies")
 	if err != nil {
 		c.cookies = ""
 		c.cookiesFail = false

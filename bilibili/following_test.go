@@ -3,12 +3,10 @@ package bilibili
 import (
 	"database/sql"
 	"encoding/json"
-	"math/rand"
 	"os"
 	"path"
 	"strconv"
 	"testing"
-	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/models"
 )
@@ -79,13 +77,4 @@ func saveData(data followingsResponse, db *sql.DB, webSiteId int64) {
 
 func TestGOTO(t *testing.T) {
 	getNotFollowAuthorDynamic()
-}
-
-func TestCreateDir(t *testing.T) {
-	rand.Seed(time.Now().Unix())
-	println(rand.Intn(160) + 60)
-	println(rand.Intn(160) + 60)
-	println(rand.Intn(160) + 60)
-	println(rand.Intn(160) + 60)
-	println(rand.Intn(160) + 60)
 }

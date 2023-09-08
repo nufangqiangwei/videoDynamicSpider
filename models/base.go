@@ -15,7 +15,7 @@ func InitDB(sqliteDaPath string) {
 	if err != nil {
 		panic(err)
 	}
-	models := []BaseModel{&WebSite{}, &Author{}, &Video{}}
+	models := []BaseModel{&WebSite{}, &Author{}, &Video{}, &BiliAuthorVideoNumber{}}
 	for _, baseModel := range models {
 		_, err = db.Exec(baseModel.CreateTale())
 		if err != nil {

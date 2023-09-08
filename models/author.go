@@ -60,5 +60,21 @@ func GetAuthorList(db *sql.DB, webSiteId int) (result []Author) {
 		rows.Scan(&a.Id, &a.WebSiteId, &a.AuthorWebUid, &a.AuthorName, &a.Avatar, &a.Desc, &a.Follow, &a.CreateTime)
 		result = append(result, a)
 	}
+	rows.Close()
 	return
+}
+
+func (a *Author) Get(authorId int64, db *sql.DB) {
+	r, err := db.Query("select * from author where id=? limit 1", authorId)
+	defer r.Close()
+	if err != nil {
+		println(err.Error())
+		return
+	}
+	if r.Next() {
+		err = r.Scan(&a.Id, &a.WebSiteId, &a.AuthorWebUid, &a.AuthorName, &a.Avatar, &a.Desc, &a.Follow, &a.CreateTime)
+	}
+	if err != nil {
+		println(err.Error())
+	}
 }
