@@ -10,10 +10,9 @@ import (
 var (
 	writer       *rotateLogs.RotateLogs
 	TimeWheelLog *log.Logger
-	info         *log.Logger
-	warning      *log.Logger
-	errorLog     *log.Logger
-	lofFilePath  string
+	Info         *log.Logger
+	Warning      *log.Logger
+	ErrorLog     *log.Logger
 )
 
 func InitLog(lofFilePath string) {
@@ -31,7 +30,7 @@ func InitLog(lofFilePath string) {
 	)
 	log.SetOutput(writer)
 	TimeWheelLog = log.New(writer, "定时:", log.Ldate|log.Ltime|log.Lshortfile)
-	info = log.New(writer, "Info:", log.Ldate|log.Ltime|log.Lshortfile)
-	warning = log.New(writer, "Warning:", log.Ldate|log.Ltime|log.Lshortfile)
-	errorLog = log.New(writer, "Error:", log.Ldate|log.Ltime|log.Lshortfile)
+	Info = log.New(writer, "Info:", log.Ldate|log.Ltime|log.Lshortfile)
+	Warning = log.New(writer, "Warning:", log.Ldate|log.Ltime|log.Lshortfile)
+	ErrorLog = log.New(writer, "Error:", log.Ldate|log.Ltime|log.Lshortfile)
 }

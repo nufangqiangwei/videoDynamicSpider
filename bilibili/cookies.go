@@ -1,10 +1,10 @@
 package bilibili
 
 import (
-	"log"
 	"os"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/utils"
 )
 
 type cookies struct {
@@ -20,7 +20,7 @@ func (c *cookies) flushCookies() {
 		c.readFile()
 		if !c.cookiesFail {
 			// cookies刷新失败
-			log.Println("cookies失效，请更新cookies文件1")
+			utils.ErrorLog.Println("cookies失效，请更新cookies文件1")
 		}
 	}
 }

@@ -1,20 +1,18 @@
 package bilibili
 
 import (
-	"fmt"
 	"github.com/goccy/go-json"
 	"strconv"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/models"
+	"videoDynamicAcquisition/utils"
 )
 
-type BilibiliSpider struct {
-	lastFlushCookiesTime time.Time
-	cookiesFail          bool
+type BiliSpider struct {
 }
 
-func (bilibili BilibiliSpider) GetWebSiteName() models.WebSite {
+func (s BiliSpider) GetWebSiteName() models.WebSite {
 	return models.WebSite{
 		WebName:          "bilibili",
 		WebHost:          "https://www.bilibili.com/",
@@ -23,16 +21,14 @@ func (bilibili BilibiliSpider) GetWebSiteName() models.WebSite {
 	}
 }
 
-func (bilibili BilibiliSpider) GetVideoList() []baseStruct.VideoInfo {
+func (s BiliSpider) GetVideoList() []baseStruct.VideoInfo {
 	var updateNumber int
 	if latestBaseline == "" {
 		updateNumber = 20
 	} else {
 		updateNumber = dynamicVideoObject.getUpdateVideoNumber(latestBaseline)
 	}
-	fmt.Printf("updateNumber: %d\n", updateNumber)
-	// 一页返回最多十四条数据，需要计算最大页数
-
+	utils.Info.Println("updateNumber: %d\n", updateNumber)
 	pageNumber := 1
 	result := make([]baseStruct.VideoInfo, 0)
 	baseLine := latestBaseline
@@ -46,7 +42,7 @@ func (bilibili BilibiliSpider) GetVideoList() []baseStruct.VideoInfo {
 		if response.Data.Items == nil {
 			errorRetriesNumber++
 			if errorRetriesNumber > 3 {
-				println("多次获取数据失败，退出")
+				utils.ErrorLog.Println("多次获取数据失败，退出")
 
 				return result
 			}
@@ -93,7 +89,7 @@ func (bilibili BilibiliSpider) GetVideoList() []baseStruct.VideoInfo {
 	return result
 }
 
-func (bilibili BilibiliSpider) getAuthorDynamic(author int, baseOffset string) map[string]string {
+func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]string {
 	result := make(map[string]string)
 	offset := baseOffset
 	var (
@@ -125,4 +121,23 @@ func (bilibili BilibiliSpider) getAuthorDynamic(author int, baseOffset string) m
 	}
 
 	return result
+}
+
+func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageIndex int) map[string]string {
+	result := make(map[string]string)
+	video := videoListPage{}
+	for {
+		response := video.getResponse(author, startPageIndex)
+		if response == nil {
+			break
+		}
+		da, _ := json.Marshal(response)
+		result[strconv.Itoa(startPageIndex)] = string(da)
+		startPageIndex++
+		if startPageIndex == endPageIndex {
+			break
+		}
+	}
+	return result
+
 }

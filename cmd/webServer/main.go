@@ -7,12 +7,13 @@ import (
 	"path"
 	"strconv"
 	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/utils"
 )
 
 func getVideoList(ctx *gin.Context) {
 	db, err := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
 	if err != nil {
-		println(err.Error())
+		utils.ErrorLog.Println(err.Error())
 		ctx.JSONP(http.StatusInternalServerError, map[string]string{"msg": "数据库打开失败"})
 		return
 	}
@@ -30,7 +31,7 @@ func getVideoList(ctx *gin.Context) {
 	rows, err := db.Query("select v.uuid, v.cover_url,v.title, v.video_desc,v.duration, a.author_name, a.author_web_uid,v.upload_time from video v left join author a on v.author_id = a.id where v.web_site_id = (select id from website where web_name = ?) order by v.upload_time desc limit ?,?;", webSiteName, (page-1)*size, page*size)
 	result := map[string][]baseStruct.VideoInfo{"data": {}}
 	if err != nil {
-		println(err.Error())
+		utils.ErrorLog.Println(err.Error())
 		ctx.JSONP(200, result)
 		return
 	}
@@ -38,8 +39,8 @@ func getVideoList(ctx *gin.Context) {
 		v := baseStruct.VideoInfo{}
 		err = rows.Scan(&v.VideoUuid, &v.CoverUrl, &v.Title, &v.Desc, &v.Duration, &v.AuthorName, &v.AuthorUuid, &v.PushTime)
 		if err != nil {
-			print("scan error")
-			println(err.Error())
+			utils.ErrorLog.Println("scan error")
+			utils.ErrorLog.Println(err.Error())
 		}
 		result["data"] = append(result["data"], v)
 	}
@@ -73,5 +74,8 @@ func main() {
 	server.Use(Cors())
 	server.GET("/getVideoList", getVideoList)
 	server.GET("/updateCookies", updateCookies)
-	server.Run("localhost:8001")
+	err := server.Run("localhost:8001")
+	if err != nil {
+		utils.ErrorLog.Println(err.Error())
+	}
 }

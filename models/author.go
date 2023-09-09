@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"time"
+	"videoDynamicAcquisition/utils"
 )
 
 // Author 作者信息
@@ -50,6 +51,7 @@ func (a *Author) GetOrCreate(db *sql.DB) {
 
 func GetAuthorList(db *sql.DB, webSiteId int) (result []Author) {
 	rows, err := db.Query("select * from author where web_site_id=?", webSiteId)
+	defer rows.Close()
 	result = make([]Author, 0)
 	if err != nil {
 		return
@@ -60,7 +62,7 @@ func GetAuthorList(db *sql.DB, webSiteId int) (result []Author) {
 		rows.Scan(&a.Id, &a.WebSiteId, &a.AuthorWebUid, &a.AuthorName, &a.Avatar, &a.Desc, &a.Follow, &a.CreateTime)
 		result = append(result, a)
 	}
-	rows.Close()
+
 	return
 }
 
@@ -68,13 +70,13 @@ func (a *Author) Get(authorId int64, db *sql.DB) {
 	r, err := db.Query("select * from author where id=? limit 1", authorId)
 	defer r.Close()
 	if err != nil {
-		println(err.Error())
+		utils.ErrorLog.Println(err.Error())
 		return
 	}
 	if r.Next() {
 		err = r.Scan(&a.Id, &a.WebSiteId, &a.AuthorWebUid, &a.AuthorName, &a.Avatar, &a.Desc, &a.Follow, &a.CreateTime)
 	}
 	if err != nil {
-		println(err.Error())
+		utils.ErrorLog.Println(err.Error())
 	}
 }

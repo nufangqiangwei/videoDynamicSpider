@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
+	"videoDynamicAcquisition/utils"
 )
 
 type BaseModel interface {
@@ -10,7 +11,7 @@ type BaseModel interface {
 }
 
 func InitDB(sqliteDaPath string) {
-	println(sqliteDaPath)
+	utils.Info.Println(sqliteDaPath)
 	db, err := sql.Open("sqlite3", sqliteDaPath)
 	if err != nil {
 		panic(err)
@@ -19,8 +20,8 @@ func InitDB(sqliteDaPath string) {
 	for _, baseModel := range models {
 		_, err = db.Exec(baseModel.CreateTale())
 		if err != nil {
-			print("创建表失败")
-			print(err.Error())
+			utils.ErrorLog.Println("创建表失败")
+			utils.ErrorLog.Println(err.Error())
 		}
 	}
 	db.Close()

@@ -2,7 +2,6 @@ package bilibili
 
 import (
 	"database/sql"
-	"fmt"
 	"math/rand"
 	"path"
 	"strconv"
@@ -10,6 +9,7 @@ import (
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/models"
+	"videoDynamicAcquisition/utils"
 )
 
 func getNotFollowAuthorDynamic() {
@@ -42,16 +42,16 @@ func getNotFollowAuthorDynamic() {
 		}
 
 		saveError := false
-		fmt.Printf("%s查询动态\n", author.AuthorName)
+		utils.Info.Println("%s查询动态", author.AuthorName)
 		var (
 			ok       bool
 			baseline string
 		)
 		for {
-			println(dynamicVideoObject.getRequest(mid, offset).URL.String())
+			utils.Info.Println(dynamicVideoObject.getRequest(mid, offset).URL.String())
 			res := dynamicVideoObject.getResponse(0, mid, offset)
 			if res == nil {
-				println("请求失败")
+				utils.ErrorLog.Println("请求失败")
 				break
 			}
 			for _, info := range res.Data.Items {
@@ -66,8 +66,8 @@ func getNotFollowAuthorDynamic() {
 						baseline = strconv.Itoa(a)
 					} else {
 						saveError = true
-						print("未知的IDStr")
-						println(info.IdStr)
+						utils.ErrorLog.Println("未知的IDStr")
+						utils.ErrorLog.Println(info.IdStr)
 						break
 					}
 				}
@@ -99,7 +99,7 @@ func getNotFollowAuthorDynamic() {
 			time.Sleep(time.Second * 10)
 		}
 		db.Exec("update author set follow=true where id=?", author.Id)
-		fmt.Printf("%s查询动态完成\n", author.AuthorName)
+		utils.Info.Println("%s查询动态完成\n", author.AuthorName)
 		time.Sleep(time.Duration(rand.Intn(160)+60) * time.Second)
 		return
 	}
@@ -115,12 +115,12 @@ func getAuthorVideoList(authorId int64, db *sql.DB) {
 	videoPage := videoListPage{}
 	authorVideoNumber := models.BiliAuthorVideoNumber{}
 	authorVideoNumber.GetAuthorVideoNumber(author.Id, db)
-	fmt.Printf("%s查询视频列表\n", author.AuthorName)
+	utils.Info.Println("%s查询视频列表\n", author.AuthorName)
 	pageIndex = 1
 	for {
 		res := videoPage.getResponse(author.AuthorWebUid, pageIndex)
 		if res == nil {
-			println("请求失败")
+			utils.ErrorLog.Println("请求失败")
 			break
 		}
 		for _, info := range res.Data.List.Vlist {
@@ -152,5 +152,5 @@ func getAuthorVideoList(authorId int64, db *sql.DB) {
 		pageIndex++
 	}
 	db.Exec("update author set follow=true where id=?", author.Id)
-	fmt.Printf("%s视频完成 ", author.AuthorName)
+	utils.Info.Println("%s视频完成 ", author.AuthorName)
 }

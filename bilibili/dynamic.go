@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/utils"
 )
 
 type videoInfoTypeEnum struct {
@@ -260,25 +261,25 @@ func (b *dynamicVideo) getRequest(mid int, offset string) *http.Request {
 }
 
 func (b *dynamicVideo) getUpdateVideoNumber(updateBaseline string) int {
-	println("获取更新视频数量")
+	utils.Info.Println("获取更新视频数量")
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all/update?type=video&update_baseline="+updateBaseline, nil)
 	request.Header.Add("Cookie", bilibiliCookies.cookies)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		println(err.Error())
+		utils.ErrorLog.Println(err.Error())
 		return 0
 	}
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	if response.StatusCode != 200 {
-		println("响应状态码错误", response.StatusCode)
-		println(string(body))
+		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
+		utils.ErrorLog.Println(string(body))
 		return 0
 	}
 	updateResponse := new(updateVideoNumberResponse)
 	err = json.Unmarshal(body, updateResponse)
 	if err != nil {
-		println(err.Error())
+		utils.ErrorLog.Println(err.Error())
 		return 0
 	}
 	return updateResponse.Data.UpdateNum
@@ -295,49 +296,49 @@ func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (d
 
 	response, err := http.DefaultClient.Do(b.getRequest(mid, offset))
 	if err != nil {
-		println(err.Error())
+		utils.ErrorLog.Println(err.Error())
 		return
 	}
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	saveDynamicResponse(body, mid, offset)
 	if response.StatusCode != 200 {
-		println("响应状态码错误", response.StatusCode)
-		print(string(body))
+		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
+		utils.ErrorLog.Println(string(body))
 		return nil
 	}
 	if err != nil {
-		println("读取响应失败")
-		println(err.Error())
+		utils.ErrorLog.Println("读取响应失败")
+		utils.ErrorLog.Println(err.Error())
 		return
 	}
 	dynamicResponseBody = new(dynamicResponse)
 	err = json.Unmarshal(body, dynamicResponseBody)
 	if err != nil {
-		println("解析响应失败")
-		println(err.Error())
+		utils.ErrorLog.Println("解析响应失败")
+		utils.ErrorLog.Println(err.Error())
 		return nil
 	}
 	if dynamicResponseBody.Code == -101 {
 		// cookies失效
-		println("cookies失效")
+		utils.ErrorLog.Println("cookies失效")
 		bilibiliCookies.cookiesFail = false
 		bilibiliCookies.flushCookies()
 		if bilibiliCookies.cookiesFail {
 			time.Sleep(time.Second * 10)
 			return b.getResponse(retriesNumber+1, mid, offset)
 		} else {
-			println("cookies失效，请更新cookies文件2")
+			utils.ErrorLog.Println("cookies失效，请更新cookies文件2")
 			return nil
 		}
 	}
 	if dynamicResponseBody.Code == -352 {
-		println("352错误，拒绝访问")
+		utils.ErrorLog.Println("352错误，拒绝访问")
 		return nil
 	}
 	if dynamicResponseBody.Code != 0 {
-		println("响应状态码错误", dynamicResponseBody.Code)
-		fmt.Printf("%+v\n", dynamicResponseBody)
+		utils.ErrorLog.Println("响应状态码错误", dynamicResponseBody.Code)
+		utils.ErrorLog.Println("%+v\n", dynamicResponseBody)
 		return nil
 	}
 	return
@@ -347,7 +348,7 @@ func saveDynamicResponse(data []byte, mid int, offset string) {
 	fileName := fmt.Sprintf("%s\\%d\\bilibili-%s.json", baseStruct.RootPath, mid, offset)
 	err := os.WriteFile(fileName, data, 0666)
 	if err != nil {
-		print("写文件失败")
-		println(err.Error())
+		utils.ErrorLog.Println("写文件失败")
+		utils.ErrorLog.Println(err.Error())
 	}
 }

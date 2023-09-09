@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	timeWheel "github.com/nufangqiangwei/timewheel"
 	"path"
 	"videoDynamicAcquisition/baseStruct"
@@ -26,7 +25,7 @@ type Spider struct {
 }
 
 func (s *Spider) getVideoInfo() {
-	println("getVideoInfo")
+	utils.Info.Println("getVideoInfo")
 	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
 	for _, v := range videoCollection {
 		website := v.GetWebSiteName()
@@ -53,25 +52,27 @@ func (s *Spider) getVideoInfo() {
 }
 
 func (s *Spider) run(interface{}) {
-	for _, v := range videoCollection {
-		videoList := v.GetVideoList()
-		for _, video := range videoList {
-			fmt.Printf("video: %v\n", video)
-		}
+	s.getVideoInfo()
+	_, err := wheel.AppendOnceFunc(s.run, nil, "VideoSpider", timeWheel.Crontab{ExpiredTime: s.interval})
+	if err != nil {
+		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+		return
 	}
-	wheel.AppendOnceFunc(s.run, nil, "VideoSpider", timeWheel.Crontab{ExpiredTime: s.interval})
 }
 
 func main() {
 	utils.InitLog(baseStruct.RootPath)
 	models.InitDB(path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
 	videoCollection = []VideoCollection{
-		bilibili.Bilibili,
+		bilibili.Spider,
 	}
 	wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
 		IsRun: false,
 		Log:   utils.TimeWheelLog,
 	})
+	spider = &Spider{
+		interval: 60 * 10,
+	}
 	wheel.AppendOnceFunc(spider.run, nil, "VideoSpider", timeWheel.Crontab{ExpiredTime: spider.interval})
 	wheel.Start()
 }

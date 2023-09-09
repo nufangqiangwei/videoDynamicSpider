@@ -2,12 +2,12 @@ package bilibili
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
 	"videoDynamicAcquisition/models"
+	"videoDynamicAcquisition/utils"
 )
 
 type followingsResponse struct {
@@ -83,56 +83,56 @@ func (f *followings) getRequest() *http.Request {
 
 func (f *followings) getResponse(retriesNumber int) (followingsResponseBody followingsResponse) {
 	if retriesNumber > 2 {
-		println("重试次数过多")
+		utils.ErrorLog.Println("重试次数过多")
 		return
 	}
 	bilibiliCookies.flushCookies()
 	request := f.getRequest()
-	println("请求地址", request.URL.String())
+	utils.Info.Println("请求地址", request.URL.String())
 	client := &http.Client{}
 	response, err := client.Do(request)
 	followingsResponseBody = followingsResponse{}
 	if err != nil {
-		println("请求失败")
-		println(err.Error())
+		utils.ErrorLog.Println("请求失败")
+		utils.ErrorLog.Println(err.Error())
 		return
 	}
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		println("读取响应失败")
-		println(err.Error())
+		utils.ErrorLog.Println("读取响应失败")
+		utils.ErrorLog.Println(err.Error())
 		return
 	}
 	if response.StatusCode != 200 {
-		print("响应状态码错误", response.StatusCode)
-		print(string(body))
+		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
+		utils.ErrorLog.Println(string(body))
 		return
 	}
 
 	err = json.Unmarshal(body, &followingsResponseBody)
 	if err != nil {
-		println("解析响应失败")
-		println(err.Error())
+		utils.ErrorLog.Println("解析响应失败")
+		utils.ErrorLog.Println(err.Error())
 		return
 	}
 	if followingsResponseBody.Code == -101 {
 		// cookies失效
-		println("cookies失效")
+		utils.ErrorLog.Println("cookies失效")
 		bilibiliCookies.cookiesFail = false
 		bilibiliCookies.flushCookies()
 		if bilibiliCookies.cookiesFail {
 			f.getResponse(retriesNumber + 1)
 		} else {
-			print("cookies失效，请更新cookies文件")
+			utils.ErrorLog.Println("cookies失效，请更新cookies文件")
 			return
 		}
 	}
 	if followingsResponseBody.Code != 0 {
-		println("响应状态码错误", followingsResponseBody.Code)
-		fmt.Printf("%+v", followingsResponseBody)
+		utils.ErrorLog.Println("响应状态码错误", followingsResponseBody.Code)
+		utils.ErrorLog.Println("%+v", followingsResponseBody)
 		return
 	}
-	println("关注列表获取成功")
+	utils.Info.Println("关注列表获取成功")
 	return followingsResponseBody
 
 }
@@ -142,7 +142,7 @@ func (f *followings) getFollowings(webSiteId int64) (result []models.Author) {
 	result = make([]models.Author, 0)
 	response := f.getResponse(0)
 	followingNumber := response.Data.Total
-	println("关注总数", followingNumber)
+	utils.Info.Println("关注总数", followingNumber)
 	for f.pageNumber = 1; f.pageNumber <= followingNumber/50+1; f.pageNumber++ {
 		for _, info := range response.Data.List {
 			result = append(result, models.Author{

@@ -4,17 +4,26 @@ import (
 	"github.com/gin-gonic/gin"
 	"path"
 	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
 
-type requestBody struct {
-	WebSite string `json:"webSite"`
-	API     string `json:"api"`
+type GetAuthorVideoRequestBody struct {
+	Author         string `json:"author"`
+	StartPageIndex string `json:"StartPageIndex"`
+	EndPageIndex   string `json:"endPageIndex"`
 }
 
-func getWebSiteData(ctx *gin.Context) {
-
+func GetAuthorVideoList(ctx *gin.Context) {
+	requestBody := GetAuthorVideoRequestBody{}
+	err := ctx.BindJSON(&requestBody)
+	if err != nil {
+		utils.ErrorLog.Println(err.Error())
+		ctx.JSON(403, map[string]string{"data": "请求参数错误"})
+		return
+	}
+	ctx.JSON(200, bilibili.Spider.GetVideoList())
 }
 
 func main() {
@@ -22,6 +31,9 @@ func main() {
 	models.InitDB(path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
 
 	server := gin.Default()
-	server.POST("/getWebSiteData", getWebSiteData)
-	server.Run("localhost:8001")
+	server.POST("/getAuthorVideoList", GetAuthorVideoList)
+	err := server.Run("localhost:8001")
+	if err != nil {
+		utils.ErrorLog.Println(err.Error())
+	}
 }

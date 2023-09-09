@@ -3,7 +3,7 @@ package bilibili
 import "time"
 
 var (
-	Bilibili           BilibiliSpider
+	Spider             BiliSpider
 	bilibiliCookies    cookies
 	dynamicVideoObject dynamicVideo
 	dynamicBaseUrl     = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed"
@@ -14,7 +14,7 @@ var (
 
 func init() {
 	bilibiliCookies = cookies{}
-	Bilibili = BilibiliSpider{}
+	Spider = BiliSpider{}
 	dynamicVideoObject = dynamicVideo{}
 	bilibiliCookies.readFile()
 	wbiSignObj.lastUpdateTime = time.Now()

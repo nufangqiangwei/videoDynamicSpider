@@ -2,8 +2,8 @@ package models
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
+	"videoDynamicAcquisition/utils"
 )
 
 // Video 视频信息
@@ -49,10 +49,8 @@ func (v *Video) Save(db *sql.DB) bool {
 		v.CreateTime = time.Now()
 	}
 	if err != nil {
-		println(err.Error() == "UNIQUE constraint failed: video.web_site_id, video.author_id, video.uuid")
-		print("插入视频错误: ")
-		println(err.Error())
-		//fmt.Printf("video: %v\n", v)
+		utils.ErrorLog.Println("插入视频错误: ")
+		utils.ErrorLog.Println(err.Error())
 		return false
 	}
 	return true
@@ -65,9 +63,9 @@ func (v *Video) SaveTrc(db *sql.Tx) bool {
 		v.CreateTime = time.Now()
 	}
 	if err != nil {
-		print("插入视频错误: ")
-		println(err.Error())
-		fmt.Printf("video: %v\n", v)
+		utils.ErrorLog.Println("插入视频错误: ")
+		utils.ErrorLog.Println(err.Error())
+		utils.ErrorLog.Println("video: %v\n", v)
 		return false
 	}
 	return true

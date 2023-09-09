@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/utils"
 )
 
 /*
@@ -154,7 +155,7 @@ func (v *videoListPage) getRequest(mid string, pageIndex int) *http.Request {
 	request.URL.RawQuery = wbiSignObj.getSing(q).Encode()
 	request.Header.Add("Cookie", bilibiliCookies.cookies)
 	request.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69")
-	println(request.URL.String())
+	utils.Info.Println(request.URL.String())
 	return request
 }
 
@@ -166,49 +167,49 @@ func (v *videoListPage) getResponse(mid string, pageIndex int) *videoListPageRes
 	response, err := http.DefaultClient.Do(v.getRequest(mid, pageIndex))
 
 	if err != nil {
-		println(err.Error())
+		utils.ErrorLog.Println(err.Error())
 		return nil
 	}
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	//saveVideoListResponse(body, mid, pageIndex)
 	if response.StatusCode != 200 {
-		println("响应状态码错误", response.StatusCode)
-		print(string(body))
+		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
+		utils.ErrorLog.Println(string(body))
 		return nil
 	}
 	if err != nil {
-		println("读取响应失败")
-		println(err.Error())
+		utils.ErrorLog.Println("读取响应失败")
+		utils.ErrorLog.Println(err.Error())
 		return nil
 	}
 	responseBody := new(videoListPageResponse)
 	err = json.Unmarshal(body, responseBody)
 	if err != nil {
-		println("解析响应失败")
-		println(err.Error())
+		utils.ErrorLog.Println("解析响应失败")
+		utils.ErrorLog.Println(err.Error())
 		return nil
 	}
 	if responseBody.Code == -101 {
 		// cookies失效
-		println("cookies失效")
+		utils.ErrorLog.Println("cookies失效")
 		bilibiliCookies.cookiesFail = false
 		bilibiliCookies.flushCookies()
 		if bilibiliCookies.cookiesFail {
 			time.Sleep(time.Second * 10)
 			return nil
 		} else {
-			println("cookies失效，请更新cookies文件2")
+			utils.ErrorLog.Println("cookies失效，请更新cookies文件2")
 			return nil
 		}
 	}
 	if responseBody.Code == -352 {
-		println("352错误，拒绝访问")
+		utils.ErrorLog.Println("352错误，拒绝访问")
 		return nil
 	}
 	if responseBody.Code != 0 {
-		println("响应状态码错误", responseBody.Code)
-		fmt.Printf("%+v\n", responseBody)
+		utils.ErrorLog.Println("响应状态码错误", responseBody.Code)
+		utils.ErrorLog.Println("%+v\n", responseBody)
 		return nil
 	}
 	return responseBody
@@ -217,12 +218,12 @@ func (v *videoListPage) getResponse(mid string, pageIndex int) *videoListPageRes
 func saveVideoListResponse(data []byte, authorId string, pageIndex int) {
 	err := os.Mkdir(fmt.Sprintf("%s\\video\\%s", baseStruct.RootPath, authorId), os.ModePerm)
 	if err != nil {
-		println(err.Error())
+		utils.ErrorLog.Println(err.Error())
 	}
 	fileName := fmt.Sprintf("%s\\video\\%s\\%d.json", baseStruct.RootPath, authorId, pageIndex)
 	err = os.WriteFile(fileName, data, 0666)
 	if err != nil {
-		print("写文件失败")
-		println(err.Error())
+		utils.ErrorLog.Println("写文件失败")
+		utils.ErrorLog.Println(err.Error())
 	}
 }

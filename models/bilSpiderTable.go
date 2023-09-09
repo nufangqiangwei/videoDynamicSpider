@@ -1,6 +1,9 @@
 package models
 
-import "database/sql"
+import (
+	"database/sql"
+	"videoDynamicAcquisition/utils"
+)
 
 type BiliAuthorVideoNumber struct {
 	AuthorId    int64
@@ -19,38 +22,35 @@ func (b *BiliAuthorVideoNumber) CreateTale() string {
 
 func (b *BiliAuthorVideoNumber) GetAuthorVideoNumber(authorId int64, db *sql.DB) {
 	r, err := db.Query("select video_number from bili_author_video_number where author_id=?", authorId)
+	defer r.Close()
 	if err != nil {
-		print("查询用户投稿数错误")
-		println(err.Error())
+		utils.ErrorLog.Println("查询用户投稿数错误")
+		utils.ErrorLog.Println(err.Error())
 		return
 	}
 	b.AuthorId = authorId
 	if r.Next() {
 		err = r.Scan(&b.VideoNumber)
 		if err != nil {
-			println(err.Error())
+			utils.ErrorLog.Println(err.Error())
 		}
 	}
-	r.Close()
+
 }
 
 func (b *BiliAuthorVideoNumber) UpdateNumber(db *sql.DB) {
 	if b.AuthorId == 0 {
-		println("AuthorId")
 		return
 	}
 	if b.VideoNumber == 0 {
-		println("VideoNumber")
 		return
 	}
 	_, err := db.Exec("insert into bili_author_video_number values (?,?)", b.AuthorId, b.VideoNumber)
 	if err != nil {
-		println(err.Error())
 		// 已存在这个up的数据，改为更新
-		r, err := db.Exec("update bili_author_video_number set video_number=? where author_id=?", b.VideoNumber, b.AuthorId)
-		println(r.LastInsertId())
+		_, err := db.Exec("update bili_author_video_number set video_number=? where author_id=?", b.VideoNumber, b.AuthorId)
 		if err != nil {
-			println(err.Error())
+			utils.ErrorLog.Println(err.Error())
 		}
 
 	}
