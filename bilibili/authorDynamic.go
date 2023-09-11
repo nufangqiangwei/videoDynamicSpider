@@ -42,7 +42,7 @@ func getNotFollowAuthorDynamic() {
 		}
 
 		saveError := false
-		utils.Info.Println("%s查询动态", author.AuthorName)
+		utils.Info.Printf("%s查询动态", author.AuthorName)
 		var (
 			ok       bool
 			baseline string
@@ -99,7 +99,7 @@ func getNotFollowAuthorDynamic() {
 			time.Sleep(time.Second * 10)
 		}
 		db.Exec("update author set follow=true where id=?", author.Id)
-		utils.Info.Println("%s查询动态完成\n", author.AuthorName)
+		utils.Info.Printf("%s查询动态完成\n", author.AuthorName)
 		time.Sleep(time.Duration(rand.Intn(160)+60) * time.Second)
 		return
 	}
@@ -115,7 +115,7 @@ func getAuthorVideoList(authorId int64, db *sql.DB) {
 	videoPage := videoListPage{}
 	authorVideoNumber := models.BiliAuthorVideoNumber{}
 	authorVideoNumber.GetAuthorVideoNumber(author.Id, db)
-	utils.Info.Println("%s查询视频列表\n", author.AuthorName)
+	utils.Info.Printf("%s查询视频列表\n", author.AuthorName)
 	pageIndex = 1
 	for {
 		res := videoPage.getResponse(author.AuthorWebUid, pageIndex)
@@ -152,5 +152,5 @@ func getAuthorVideoList(authorId int64, db *sql.DB) {
 		pageIndex++
 	}
 	db.Exec("update author set follow=true where id=?", author.Id)
-	utils.Info.Println("%s视频完成 ", author.AuthorName)
+	utils.Info.Printf("%s视频完成 ", author.AuthorName)
 }

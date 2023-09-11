@@ -9,6 +9,7 @@ import (
 	"testing"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/models"
+	"videoDynamicAcquisition/utils"
 )
 
 func TestFollowings(t *testing.T) {
@@ -76,5 +77,7 @@ func saveData(data followingsResponse, db *sql.DB, webSiteId int64) {
 }
 
 func TestGOTO(t *testing.T) {
-	getNotFollowAuthorDynamic()
+	utils.InitLog(baseStruct.RootPath)
+	Spider.GetVideoList()
+	println(latestBaseline)
 }

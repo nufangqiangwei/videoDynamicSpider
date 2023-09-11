@@ -209,7 +209,7 @@ func (v *videoListPage) getResponse(mid string, pageIndex int) *videoListPageRes
 	}
 	if responseBody.Code != 0 {
 		utils.ErrorLog.Println("响应状态码错误", responseBody.Code)
-		utils.ErrorLog.Println("%+v\n", responseBody)
+		utils.ErrorLog.Printf("%+v\n", responseBody)
 		return nil
 	}
 	return responseBody

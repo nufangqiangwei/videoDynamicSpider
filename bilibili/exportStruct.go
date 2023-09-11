@@ -1,7 +1,7 @@
 package bilibili
 
 import (
-	"github.com/goccy/go-json"
+	"encoding/json"
 	"strconv"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
@@ -28,9 +28,13 @@ func (s BiliSpider) GetVideoList() []baseStruct.VideoInfo {
 	} else {
 		updateNumber = dynamicVideoObject.getUpdateVideoNumber(latestBaseline)
 	}
-	utils.Info.Println("updateNumber: %d\n", updateNumber)
+
+	utils.Info.Printf("updateNumber: %d\n", updateNumber)
 	pageNumber := 1
 	result := make([]baseStruct.VideoInfo, 0)
+	if updateNumber == 0 {
+		return result
+	}
 	baseLine := latestBaseline
 	errorRetriesNumber := 0
 	for updateNumber >= 0 {
@@ -43,7 +47,6 @@ func (s BiliSpider) GetVideoList() []baseStruct.VideoInfo {
 			errorRetriesNumber++
 			if errorRetriesNumber > 3 {
 				utils.ErrorLog.Println("多次获取数据失败，退出")
-
 				return result
 			}
 			continue
@@ -56,7 +59,13 @@ func (s BiliSpider) GetVideoList() []baseStruct.VideoInfo {
 				a, ok := info.IdStr.(int)
 				if ok {
 					Baseline = strconv.Itoa(a)
+				} else {
+					utils.ErrorLog.Println("未知的Baseline: ", info.IdStr)
 				}
+			}
+			if len(result) == 0 {
+				latestBaseline = Baseline
+				println("aaaaaaaaaaaaaaaaaaaaaaaaaa", latestBaseline)
 			}
 			result = append(result, baseStruct.VideoInfo{
 				WebSite:    "bilibili",
@@ -80,10 +89,6 @@ func (s BiliSpider) GetVideoList() []baseStruct.VideoInfo {
 		pageNumber++
 		baseLine = response.Data.Offset
 		time.Sleep(time.Second * 10)
-	}
-
-	if len(result) == updateNumber {
-		latestBaseline = result[0].Baseline
 	}
 
 	return result

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	timeWheel "github.com/nufangqiangwei/timewheel"
 	"path"
+	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/models"
@@ -53,6 +54,7 @@ func (s *Spider) getVideoInfo() {
 
 func (s *Spider) run(interface{}) {
 	s.getVideoInfo()
+	s.interval = arrangeRunTime()
 	_, err := wheel.AppendOnceFunc(s.run, nil, "VideoSpider", timeWheel.Crontab{ExpiredTime: s.interval})
 	if err != nil {
 		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
@@ -75,4 +77,17 @@ func main() {
 	}
 	wheel.AppendOnceFunc(spider.run, nil, "VideoSpider", timeWheel.Crontab{ExpiredTime: spider.interval})
 	wheel.Start()
+}
+
+func arrangeRunTime() int64 {
+	nowTime := time.Now()
+	zeroTime := time.Date(nowTime.Year(), nowTime.Month(), nowTime.Day(), 0, 0, 0, 0, nowTime.Location())
+	timeGap := nowTime.Sub(zeroTime)
+
+	if 3600*6 < timeGap || timeGap > 3600*16 {
+		// 早上六点之前晚上八点之后，不再执行。六点之后才执行
+		nextRunTime := time.Date(nowTime.Year(), nowTime.Month(), nowTime.Day()+1, 6, 0, 0, 0, nowTime.Location())
+		return int64(nextRunTime.Sub(nowTime))
+	}
+	return 5 * 60
 }

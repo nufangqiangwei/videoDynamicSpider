@@ -129,7 +129,7 @@ func (f *followings) getResponse(retriesNumber int) (followingsResponseBody foll
 	}
 	if followingsResponseBody.Code != 0 {
 		utils.ErrorLog.Println("响应状态码错误", followingsResponseBody.Code)
-		utils.ErrorLog.Println("%+v", followingsResponseBody)
+		utils.ErrorLog.Printf("%+v", followingsResponseBody)
 		return
 	}
 	utils.Info.Println("关注列表获取成功")

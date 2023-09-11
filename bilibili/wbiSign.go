@@ -185,19 +185,19 @@ func encWbi(params map[string]string, imgKey, subKey string) map[string]string {
 func requestNavApi() (string, string) {
 	resp, err := http.Get("https://api.bilibili.com/x/web-interface/nav")
 	if err != nil {
-		utils.ErrorLog.Println("Error: %s", err)
+		utils.ErrorLog.Printf("Error: %s", err)
 		return "", ""
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		utils.ErrorLog.Println("Error: %s", err)
+		utils.ErrorLog.Printf("Error: %s", err)
 		return "", ""
 	}
 	responseBody := navResponse{}
 	err = json.Unmarshal(body, &responseBody)
 	if err != nil {
-		utils.ErrorLog.Println("Error: %s", err)
+		utils.ErrorLog.Printf("Error: %s", err)
 		return "", ""
 	}
 	imgURL := responseBody.Data.WbiImg.ImgUrl

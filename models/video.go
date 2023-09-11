@@ -70,3 +70,5 @@ func (v *Video) SaveTrc(db *sql.Tx) bool {
 	}
 	return true
 }
+
+// select strftime( '%H',upload_time) hour,count(*) from video group by hour;

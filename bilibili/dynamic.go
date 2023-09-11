@@ -338,7 +338,7 @@ func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (d
 	}
 	if dynamicResponseBody.Code != 0 {
 		utils.ErrorLog.Println("响应状态码错误", dynamicResponseBody.Code)
-		utils.ErrorLog.Println("%+v\n", dynamicResponseBody)
+		utils.ErrorLog.Printf("%+v\n", dynamicResponseBody)
 		return nil
 	}
 	return

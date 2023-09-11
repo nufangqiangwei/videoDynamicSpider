@@ -2,13 +2,16 @@ package utils
 
 import (
 	rotateLogs "github.com/lestrrat-go/file-rotatelogs"
+	"io"
 	"log"
+	"os"
+	"path"
+	"runtime"
 	"strings"
 	"time"
 )
 
 var (
-	writer       *rotateLogs.RotateLogs
 	TimeWheelLog *log.Logger
 	Info         *log.Logger
 	Warning      *log.Logger
@@ -16,18 +19,22 @@ var (
 )
 
 func InitLog(lofFilePath string) {
-	if strings.HasSuffix(lofFilePath, ".log") {
-		lofFilePath = lofFilePath
-	} else {
-		lofFilePath = lofFilePath + "SSO.log"
+	var writer io.Writer
+	if !strings.HasSuffix(lofFilePath, ".log") {
+		lofFilePath = path.Join(lofFilePath, "videoSpider.log")
+	}
+	println(lofFilePath)
+	if runtime.GOOS == "linux" {
+		writer, _ = rotateLogs.New(
+			lofFilePath+".%Y-%m-%d",
+			rotateLogs.WithLinkName(lofFilePath),
+			rotateLogs.WithMaxAge(time.Hour*24*30),
+			rotateLogs.WithRotationTime(time.Hour*24),
+		)
+	} else if runtime.GOOS == "windows" {
+		writer, _ = os.OpenFile(lofFilePath, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
 	}
 
-	writer, _ = rotateLogs.New(
-		lofFilePath+".%Y-%m-%d",
-		rotateLogs.WithLinkName(lofFilePath),
-		rotateLogs.WithMaxAge(time.Hour*24*30),
-		rotateLogs.WithRotationTime(time.Hour*24),
-	)
 	log.SetOutput(writer)
 	TimeWheelLog = log.New(writer, "定时:", log.Ldate|log.Ltime|log.Lshortfile)
 	Info = log.New(writer, "Info:", log.Ldate|log.Ltime|log.Lshortfile)
