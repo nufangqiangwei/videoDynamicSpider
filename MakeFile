@@ -1,0 +1,1 @@
+docker run --rm  -v "$PWD":/home/workspace -w /home/workspace golang:1.20 go build /cmd/spider

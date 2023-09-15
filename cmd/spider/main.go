@@ -25,7 +25,7 @@ type Spider struct {
 	interval int64
 }
 
-func (s *Spider) getVideoInfo() {
+func getVideoInfo() {
 	utils.Info.Println("getVideoInfo")
 	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
 	for _, v := range videoCollection {
@@ -45,7 +45,6 @@ func (s *Spider) getVideoInfo() {
 				Uuid:       video.VideoUuid,
 				CoverUrl:   video.CoverUrl,
 				UploadTime: video.PushTime,
-				BiliOffset: video.Baseline,
 			}
 			videoModel.Save(db)
 		}
@@ -53,7 +52,7 @@ func (s *Spider) getVideoInfo() {
 }
 
 func (s *Spider) run(interface{}) {
-	s.getVideoInfo()
+	getVideoInfo()
 	s.interval = arrangeRunTime()
 	_, err := wheel.AppendOnceFunc(s.run, nil, "VideoSpider", timeWheel.Crontab{ExpiredTime: s.interval})
 	if err != nil {
@@ -75,7 +74,10 @@ func main() {
 	spider = &Spider{
 		interval: 60 * 10,
 	}
-	wheel.AppendOnceFunc(spider.run, nil, "VideoSpider", timeWheel.Crontab{ExpiredTime: spider.interval})
+	_, err := wheel.AppendOnceFunc(spider.run, nil, "VideoSpider", timeWheel.Crontab{ExpiredTime: spider.interval})
+	if err != nil {
+		return
+	}
 	wheel.Start()
 }
 
@@ -90,4 +92,36 @@ func arrangeRunTime() int64 {
 		return int64(nextRunTime.Sub(nowTime))
 	}
 	return 5 * 60
+}
+
+// 定时抓取历史记录
+func getHistory() {
+	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
+	baseLine := models.GetHistoryBaseLine(db)
+	go bilibili.Spider.GetVideoHistoryList(baseLine)
+	website := models.WebSite{WebName: "bilibili"}
+	website.GetOrCreate(db)
+	for {
+		select {
+		case videoInfo := <-bilibili.Spider.VideoHistoryChan:
+			author := models.Author{AuthorName: videoInfo.AuthorName, WebSiteId: website.Id, AuthorWebUid: videoInfo.AuthorUuid}
+			author.GetOrCreate(db)
+			vi := models.Video{}
+			vi.GetByUid(db, videoInfo.VideoUuid)
+			if vi.Id <= 0 {
+				vi.CreateTime = videoInfo.PushTime
+				vi.Title = videoInfo.Title
+				vi.Uuid = videoInfo.VideoUuid
+				vi.AuthorId = author.Id
+				vi.Save(db)
+			}
+			models.VideoHistory{
+				WebSiteId: website.Id,
+				VideoId:   vi.Id,
+				ViewTime:  videoInfo.PushTime,
+			}.Save(db)
+		case <-bilibili.Spider.VideoHistoryCloseChan:
+			break
+		}
+	}
 }

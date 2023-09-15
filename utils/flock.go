@@ -43,10 +43,12 @@ func (l *Flock) Lock() error {
 	for {
 		select {
 		case <-timeOut:
+			timetick.Stop()
 			return fmt.Errorf("cannot flock directory %s - %s", l.dir, err)
 		case <-timetick.C:
 			err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
 			if err == nil {
+				timetick.Stop()
 				return nil
 			}
 		}

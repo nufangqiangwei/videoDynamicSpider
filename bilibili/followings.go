@@ -10,6 +10,7 @@ import (
 	"videoDynamicAcquisition/utils"
 )
 
+// https://github.com/SocialSisterYi/bilibili-API-collect/blob/d6d17871459370883f4fd105161df3ce8db31b9d/docs/user/relation.md
 type followingsResponse struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
@@ -18,7 +19,7 @@ type followingsResponse struct {
 		List []struct {
 			Mid          int64       `json:"mid"`
 			Attribute    int         `json:"attribute"`
-			Mtime        int         `json:"mtime"`
+			Mtime        int         `json:"mtime"` // 关注对方时间
 			Tag          interface{} `json:"tag"`
 			Special      int         `json:"special"`
 			ContractInfo struct {

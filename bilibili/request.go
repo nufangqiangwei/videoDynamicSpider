@@ -1,6 +1,9 @@
 package bilibili
 
-import "time"
+import (
+	"time"
+	"videoDynamicAcquisition/baseStruct"
+)
 
 var (
 	Spider             BiliSpider
@@ -14,7 +17,10 @@ var (
 
 func init() {
 	bilibiliCookies = cookies{}
-	Spider = BiliSpider{}
+	Spider = BiliSpider{
+		VideoHistoryChan:      make(chan baseStruct.VideoInfo, 100),
+		VideoHistoryCloseChan: make(chan string, 10),
+	}
 	dynamicVideoObject = dynamicVideo{}
 	bilibiliCookies.readFile()
 	wbiSignObj.lastUpdateTime = time.Now()

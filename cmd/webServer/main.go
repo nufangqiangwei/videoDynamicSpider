@@ -7,6 +7,7 @@ import (
 	"path"
 	"strconv"
 	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -49,6 +50,28 @@ func getVideoList(ctx *gin.Context) {
 
 func updateCookies(ctx *gin.Context) {
 
+}
+
+func addAuthor(ctx *gin.Context) {
+	db, err := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
+	if err != nil {
+		utils.ErrorLog.Println(err.Error())
+		ctx.JSONP(http.StatusInternalServerError, map[string]string{"msg": "数据库打开失败"})
+		return
+	}
+	authorId := ctx.DefaultQuery("authorId", "1")
+	authorName := ctx.DefaultQuery("AuthorName", "30")
+	avatarUrl := ctx.DefaultQuery("Avatar", "30")
+	desc := ctx.DefaultQuery("Desc", "30")
+	author := models.Author{
+		WebSiteId:    1,
+		AuthorWebUid: authorId,
+		AuthorName:   authorName,
+		Avatar:       avatarUrl,
+		Desc:         desc,
+		Follow:       false,
+	}
+	author.GetOrCreate(db)
 }
 
 func Cors() gin.HandlerFunc {

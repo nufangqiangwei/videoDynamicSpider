@@ -23,7 +23,6 @@ func InitLog(lofFilePath string) {
 	if !strings.HasSuffix(lofFilePath, ".log") {
 		lofFilePath = path.Join(lofFilePath, "videoSpider.log")
 	}
-	println(lofFilePath)
 	if runtime.GOOS == "linux" {
 		writer, _ = rotateLogs.New(
 			lofFilePath+".%Y-%m-%d",

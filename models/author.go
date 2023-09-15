@@ -15,6 +15,7 @@ type Author struct {
 	Avatar       string `json:"avatar"` // 头像
 	Desc         string `json:"desc"`   // 简介
 	Follow       bool   // 是否关注
+	Crawl        bool   // 是否爬取
 	CreateTime   time.Time
 }
 
@@ -27,6 +28,7 @@ func (a *Author) CreateTale() string {
 				avatar VARCHAR(255) ,
 				author_desc VARCHAR(255) ,
 				follow bool default false not null,
+				crawl bool default false not null,
 				create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     			   constraint web_site_author
         			unique (web_site_id, author_web_uid)

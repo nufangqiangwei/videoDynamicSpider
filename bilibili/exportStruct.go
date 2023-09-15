@@ -10,6 +10,8 @@ import (
 )
 
 type BiliSpider struct {
+	VideoHistoryChan      chan baseStruct.VideoInfo
+	VideoHistoryCloseChan chan string
 }
 
 func (s BiliSpider) GetWebSiteName() models.WebSite {
@@ -144,5 +146,48 @@ func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageInd
 		}
 	}
 	return result
+
+}
+
+func (s BiliSpider) GetVideoHistoryList(baseLine string) {
+	history := historyRequest{}
+	var (
+		err       error
+		lastKid   int64 = 0
+		maxNumber       = 100
+	)
+	if baseLine != "" {
+		lastKid, err = strconv.ParseInt(baseLine, 10, 64)
+		if err != nil {
+			utils.ErrorLog.Println("GetVideoHistoryList解析baseLine失败")
+			return
+		}
+	}
+
+	var max, viewAt int
+	for {
+		data := history.getResponse(max, viewAt)
+		if data == nil {
+			return
+		}
+		for _, info := range data.Data.List {
+			if info.Kid == lastKid || maxNumber == 0 {
+				s.VideoHistoryCloseChan <- baseLine
+				return
+			}
+			s.VideoHistoryChan <- baseStruct.VideoInfo{
+				WebSite:    "bilibili",
+				Title:      info.Title,
+				VideoUuid:  info.History.Bvid,
+				AuthorUuid: strconv.FormatInt(info.AuthorMid, 10),
+				AuthorName: info.AuthorName,
+				PushTime:   time.Unix(info.ViewAt, 0),
+			}
+			if lastKid > 0 {
+				maxNumber--
+			}
+
+		}
+	}
 
 }
