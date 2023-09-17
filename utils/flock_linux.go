@@ -7,31 +7,24 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"runtime"
 	"sync"
 	"syscall"
 	"time"
 )
 
 type Flock struct {
-	dir     string
-	f       *os.File
-	sysType string
+	dir string
+	f   *os.File
 }
 
-func New(dir string) *Flock {
+func NewFlock(dir string) *Flock {
 	return &Flock{
-		dir:     dir,
-		sysType: runtime.GOOS,
+		dir: dir,
 	}
 }
 
 // 加锁
 func (l *Flock) Lock() error {
-	if l.sysType != "linux" {
-		return nil
-	}
-
 	f, err := os.Open(l.dir)
 	if err != nil {
 		return err
@@ -49,6 +42,14 @@ func (l *Flock) Lock() error {
 			err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
 			if err == nil {
 				timetick.Stop()
+				//go func() {
+				//	c := time.NewTicker(time.Minute)
+				//	select {
+				//	case <-c.C:
+				//		l.Unlock()
+				//	}
+				//	c.Stop()
+				//}()
 				return nil
 			}
 		}
@@ -57,9 +58,6 @@ func (l *Flock) Lock() error {
 
 // 释放锁
 func (l *Flock) Unlock() error {
-	if l.sysType != "linux" {
-		return nil
-	}
 	defer l.f.Close()
 	return syscall.Flock(int(l.f.Fd()), syscall.LOCK_UN)
 }
@@ -72,7 +70,7 @@ func main() {
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(num int) {
-			flock := New(locked_file)
+			flock := NewFlock(locked_file)
 			err := flock.Lock()
 			if err != nil {
 				wg.Done()

@@ -2,6 +2,8 @@ package bilibili
 
 import (
 	"os"
+	"path"
+	"strings"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/utils"
@@ -27,13 +29,16 @@ func (c *cookies) flushCookies() {
 
 func (c *cookies) readFile() {
 	// 读取文件中的cookies
-	f, err := os.ReadFile(baseStruct.RootPath + "\\bilibili\\bilibiliCookies")
+	filePath := path.Join(baseStruct.RootPath, "bilibili", "bilibiliCookies")
+	println(filePath)
+	f, err := os.ReadFile(filePath)
+
 	if err != nil {
 		c.cookies = ""
 		c.cookiesFail = false
 		return
 	}
-	cookies := string(f)
+	cookies := strings.TrimSpace(string(f))
 	if !c.cookiesFail {
 		c.cookiesFail = c.cookies != cookies
 	}

@@ -27,6 +27,11 @@ func (w *WebSite) CreateTale() string {
 }
 
 func (w *WebSite) GetOrCreate(db *sql.DB) {
+	err := dbLock.Lock()
+	if err != nil {
+		panic("数据库被锁")
+	}
+	defer dbLock.Unlock()
 	r, err := db.Exec("INSERT INTO website (web_name, web_host, web_author_base_url, web_video_base_url) VALUES (?, ?, ?, ?)",
 		w.WebName, w.WebHost, w.WebAuthorBaseUrl, w.WebVideoBaseUrl)
 	if err == nil {

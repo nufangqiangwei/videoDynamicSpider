@@ -40,7 +40,12 @@ func (v *Video) CreateTale() string {
 }
 
 func (v *Video) Save(db *sql.DB) bool {
-	r, err := db.Exec("INSERT INTO video (web_site_id, author_id, title,video_desc,duration,uuid, url, cover_url,upload_time) VALUES (?, ?, ?, ?, ?,?,?,?,?,?)",
+	err := dbLock.Lock()
+	if err != nil {
+		return false
+	}
+	defer dbLock.Unlock()
+	r, err := db.Exec("INSERT INTO video (web_site_id, author_id, title,video_desc,duration,uuid, url, cover_url,upload_time) VALUES (?, ?, ?, ?,?,?,?,?,?)",
 		v.WebSiteId, v.AuthorId, v.Title, v.Desc, v.Duration, v.Uuid, v.Url, v.CoverUrl, v.UploadTime)
 	if err == nil {
 		v.Id, _ = r.LastInsertId()

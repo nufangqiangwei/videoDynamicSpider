@@ -6,6 +6,8 @@ import (
 	"videoDynamicAcquisition/utils"
 )
 
+var dbLock *utils.Flock
+
 type BaseModel interface {
 	CreateTale() string
 }
@@ -16,7 +18,7 @@ func InitDB(sqliteDaPath string) {
 	if err != nil {
 		panic(err)
 	}
-	models := []BaseModel{&WebSite{}, &Author{}, &Video{}, &BiliAuthorVideoNumber{}}
+	models := []BaseModel{&WebSite{}, &Author{}, &Video{}, &BiliAuthorVideoNumber{}, &BiliSpiderHistory{}, &VideoHistory{}}
 	for _, baseModel := range models {
 		_, err = db.Exec(baseModel.CreateTale())
 		if err != nil {
@@ -24,5 +26,6 @@ func InitDB(sqliteDaPath string) {
 			utils.ErrorLog.Println(err.Error())
 		}
 	}
+	dbLock = utils.NewFlock(sqliteDaPath)
 	db.Close()
 }

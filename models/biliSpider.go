@@ -13,7 +13,7 @@ type BiliSpiderHistory struct {
 	lastUpdateTime time.Time
 }
 
-func (b *BiliSpiderHistory) CreateTable() string {
+func (b *BiliSpiderHistory) CreateTale() string {
 	// 创建表
 	return `CREATE TABLE IF NOT EXISTS bili_spider_history (
     				id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,6 +37,11 @@ func GetDynamicBaseline(db *sql.DB) string {
 	return value
 }
 func SaveDynamicBaseline(db *sql.DB, baseline string) {
+	err := dbLock.Lock()
+	if err != nil {
+		panic("数据库被锁")
+	}
+	defer dbLock.Unlock()
 	db.Exec("INSERT OR REPLACE INTO bili_spider_history (`key`,value) VALUES (?,?)", "dynamic_baseline", baseline)
 }
 
@@ -53,5 +58,10 @@ func GetHistoryBaseLine(db *sql.DB) string {
 	return value
 }
 func SaveHistoryBaseLine(db *sql.DB, baseline string) {
+	err := dbLock.Lock()
+	if err != nil {
+		panic("数据库被锁")
+	}
+	defer dbLock.Unlock()
 	db.Exec("INSERT OR REPLACE INTO bili_spider_history (`key`,value) VALUES (?,?)", "history_baseline", baseline)
 }

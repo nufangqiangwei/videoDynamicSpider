@@ -36,6 +36,11 @@ func (a *Author) CreateTale() string {
 }
 
 func (a *Author) GetOrCreate(db *sql.DB) {
+	err := dbLock.Lock()
+	if err != nil {
+		panic("数据库被锁")
+	}
+	defer dbLock.Unlock()
 	r, err := db.Exec("INSERT INTO author (web_site_id, author_web_uid,author_name,avatar,author_desc) VALUES (?, ?,?,?,?)", a.WebSiteId, a.AuthorWebUid, a.AuthorName, a.Avatar, a.Desc)
 	if err == nil {
 		a.Id, _ = r.LastInsertId()

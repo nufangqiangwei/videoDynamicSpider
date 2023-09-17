@@ -23,7 +23,7 @@ func (s BiliSpider) GetWebSiteName() models.WebSite {
 	}
 }
 
-func (s BiliSpider) GetVideoList() []baseStruct.VideoInfo {
+func (s BiliSpider) GetVideoList(latestBaseline string) []baseStruct.VideoInfo {
 	var updateNumber int
 	if latestBaseline == "" {
 		updateNumber = 20
@@ -43,12 +43,14 @@ func (s BiliSpider) GetVideoList() []baseStruct.VideoInfo {
 		response := dynamicVideoObject.getResponse(0, 0, baseLine)
 
 		if response == nil {
+			result = []baseStruct.VideoInfo{}
 			return result
 		}
 		if response.Data.Items == nil {
 			errorRetriesNumber++
 			if errorRetriesNumber > 3 {
 				utils.ErrorLog.Println("多次获取数据失败，退出")
+				result = []baseStruct.VideoInfo{}
 				return result
 			}
 			continue
@@ -62,12 +64,10 @@ func (s BiliSpider) GetVideoList() []baseStruct.VideoInfo {
 				if ok {
 					Baseline = strconv.Itoa(a)
 				} else {
-					utils.ErrorLog.Println("未知的Baseline: ", info.IdStr)
+					utils.ErrorLog.Print("未知的Baseline: ", info.IdStr)
+					utils.ErrorLog.Println("更新基线：", baseLine)
+					continue
 				}
-			}
-			if len(result) == 0 {
-				latestBaseline = Baseline
-				println("aaaaaaaaaaaaaaaaaaaaaaaaaa", latestBaseline)
 			}
 			result = append(result, baseStruct.VideoInfo{
 				WebSite:    "bilibili",

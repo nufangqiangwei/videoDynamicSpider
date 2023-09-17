@@ -43,10 +43,6 @@ func getNotFollowAuthorDynamic() {
 
 		saveError := false
 		utils.Info.Printf("%s查询动态", author.AuthorName)
-		var (
-			ok       bool
-			baseline string
-		)
 		for {
 			utils.Info.Println(dynamicVideoObject.getRequest(mid, offset).URL.String())
 			res := dynamicVideoObject.getResponse(0, mid, offset)
@@ -59,18 +55,18 @@ func getNotFollowAuthorDynamic() {
 					continue
 				}
 
-				baseline, ok = info.IdStr.(string)
-				if !ok {
-					a, ok := info.IdStr.(int)
-					if ok {
-						baseline = strconv.Itoa(a)
-					} else {
-						saveError = true
-						utils.ErrorLog.Println("未知的IDStr")
-						utils.ErrorLog.Println(info.IdStr)
-						break
-					}
-				}
+				//baseline, ok = info.IdStr.(string)
+				//if !ok {
+				//	a, ok := info.IdStr.(int)
+				//	if ok {
+				//		baseline = strconv.Itoa(a)
+				//	} else {
+				//		saveError = true
+				//		utils.ErrorLog.Println("未知的IDStr")
+				//		utils.ErrorLog.Println(info.IdStr)
+				//		break
+				//	}
+				//}
 				mv := models.Video{
 					WebSiteId:  1,
 					AuthorId:   author.Id,
@@ -81,10 +77,9 @@ func getNotFollowAuthorDynamic() {
 					Url:        "",
 					CoverUrl:   info.Modules.ModuleDynamic.Major.Archive.Cover,
 					UploadTime: time.Unix(info.Modules.ModuleAuthor.PubTs, 0),
-					BiliOffset: baseline,
 				}
 				if !mv.Save(db) {
-					//saveError = true
+					saveError = true
 					break
 					//goto rangeAuthor
 				}

@@ -11,6 +11,12 @@ import (
 	"videoDynamicAcquisition/utils"
 )
 
+const (
+	defaultTicket = 60 * 5
+	sixTime       = 3600 * 6
+	twentyTime    = 3600 * 20
+)
+
 var (
 	videoCollection []VideoCollection
 	wheel           *timeWheel.TimeWheel
@@ -19,7 +25,7 @@ var (
 
 type VideoCollection interface {
 	GetWebSiteName() models.WebSite
-	GetVideoList() []baseStruct.VideoInfo
+	GetVideoList(string) []baseStruct.VideoInfo
 }
 type Spider struct {
 	interval int64
@@ -28,11 +34,15 @@ type Spider struct {
 func getVideoInfo() {
 	utils.Info.Println("getVideoInfo")
 	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
+	dynamicBaseLine := models.GetDynamicBaseline(db)
 	for _, v := range videoCollection {
 		website := v.GetWebSiteName()
 		website.GetOrCreate(db)
-		for _, video := range v.GetVideoList() {
+		for index, video := range v.GetVideoList(dynamicBaseLine) {
 			//fmt.Printf("video: %v\n", video)
+			if index == 0 {
+				models.SaveDynamicBaseline(db, video.Baseline)
+			}
 			author := models.Author{AuthorName: video.AuthorName, WebSiteId: website.Id, AuthorWebUid: video.AuthorUuid}
 			author.GetOrCreate(db)
 			videoModel := models.Video{
@@ -51,10 +61,10 @@ func getVideoInfo() {
 	}
 }
 
-func (s *Spider) run(interface{}) {
+func (s *Spider) getDynamic(interface{}) {
 	getVideoInfo()
 	s.interval = arrangeRunTime()
-	_, err := wheel.AppendOnceFunc(s.run, nil, "VideoSpider", timeWheel.Crontab{ExpiredTime: s.interval})
+	_, err := wheel.AppendOnceFunc(s.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: s.interval})
 	if err != nil {
 		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 		return
@@ -72,9 +82,9 @@ func main() {
 		Log:   utils.TimeWheelLog,
 	})
 	spider = &Spider{
-		interval: 60 * 10,
+		interval: defaultTicket,
 	}
-	_, err := wheel.AppendOnceFunc(spider.run, nil, "VideoSpider", timeWheel.Crontab{ExpiredTime: spider.interval})
+	_, err := wheel.AppendOnceFunc(spider.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: spider.interval})
 	if err != nil {
 		return
 	}
@@ -84,14 +94,14 @@ func main() {
 func arrangeRunTime() int64 {
 	nowTime := time.Now()
 	zeroTime := time.Date(nowTime.Year(), nowTime.Month(), nowTime.Day(), 0, 0, 0, 0, nowTime.Location())
-	timeGap := nowTime.Sub(zeroTime)
+	timeGap := nowTime.Sub(zeroTime) / 1000000000
 
-	if 3600*6 < timeGap || timeGap > 3600*16 {
+	if sixTime > timeGap || timeGap > twentyTime {
 		// 早上六点之前晚上八点之后，不再执行。六点之后才执行
 		nextRunTime := time.Date(nowTime.Year(), nowTime.Month(), nowTime.Day()+1, 6, 0, 0, 0, nowTime.Location())
-		return int64(nextRunTime.Sub(nowTime))
+		return int64(nextRunTime.Sub(nowTime) / 1000000000)
 	}
-	return 5 * 60
+	return defaultTicket
 }
 
 // 定时抓取历史记录
@@ -120,7 +130,8 @@ func getHistory() {
 				VideoId:   vi.Id,
 				ViewTime:  videoInfo.PushTime,
 			}.Save(db)
-		case <-bilibili.Spider.VideoHistoryCloseChan:
+		case baseLine = <-bilibili.Spider.VideoHistoryCloseChan:
+			models.SaveHistoryBaseLine(db, baseLine)
 			break
 		}
 	}

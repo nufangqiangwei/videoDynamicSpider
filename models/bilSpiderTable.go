@@ -39,13 +39,19 @@ func (b *BiliAuthorVideoNumber) GetAuthorVideoNumber(authorId int64, db *sql.DB)
 }
 
 func (b *BiliAuthorVideoNumber) UpdateNumber(db *sql.DB) {
+
 	if b.AuthorId == 0 {
 		return
 	}
 	if b.VideoNumber == 0 {
 		return
 	}
-	_, err := db.Exec("insert into bili_author_video_number values (?,?)", b.AuthorId, b.VideoNumber)
+	err := dbLock.Lock()
+	if err != nil {
+		panic("数据库被锁")
+	}
+	defer dbLock.Unlock()
+	_, err = db.Exec("insert into bili_author_video_number values (?,?)", b.AuthorId, b.VideoNumber)
 	if err != nil {
 		// 已存在这个up的数据，改为更新
 		_, err := db.Exec("update bili_author_video_number set video_number=? where author_id=?", b.VideoNumber, b.AuthorId)
