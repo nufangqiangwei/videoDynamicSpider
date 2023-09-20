@@ -8,14 +8,15 @@ import (
 
 // Author 作者信息
 type Author struct {
-	Id           int64  `json:"id"`
-	WebSiteId    int64  `json:"webSiteId"`
-	AuthorWebUid string `json:"authorWebUid"`
-	AuthorName   string `json:"authorName"`
-	Avatar       string `json:"avatar"` // 头像
-	Desc         string `json:"desc"`   // 简介
-	Follow       bool   // 是否关注
-	Crawl        bool   // 是否爬取
+	Id           int64     `json:"id"`
+	WebSiteId    int64     `json:"webSiteId"`
+	AuthorWebUid string    `json:"authorWebUid"`
+	AuthorName   string    `json:"authorName"`
+	Avatar       string    `json:"avatar"` // 头像
+	Desc         string    `json:"desc"`   // 简介
+	Follow       bool      // 是否关注
+	FollowTime   time.Time // 关注时间
+	Crawl        bool      // 是否爬取
 	CreateTime   time.Time
 }
 
@@ -28,6 +29,7 @@ func (a *Author) CreateTale() string {
 				avatar VARCHAR(255) ,
 				author_desc VARCHAR(255) ,
 				follow bool default false not null,
+				follow_time DATETIME,
 				crawl bool default false not null,
 				create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     			   constraint web_site_author
@@ -41,7 +43,7 @@ func (a *Author) GetOrCreate(db *sql.DB) {
 		panic("数据库被锁")
 	}
 	defer dbLock.Unlock()
-	r, err := db.Exec("INSERT INTO author (web_site_id, author_web_uid,author_name,avatar,author_desc) VALUES (?, ?,?,?,?)", a.WebSiteId, a.AuthorWebUid, a.AuthorName, a.Avatar, a.Desc)
+	r, err := db.Exec("INSERT INTO author (web_site_id, author_web_uid,author_name,avatar,author_desc,follow,follow_time,crawl) VALUES (?, ?,?,?,?,?,?,?)", a.WebSiteId, a.AuthorWebUid, a.AuthorName, a.Avatar, a.Desc, a.Follow, a.FollowTime, a.Crawl)
 	if err == nil {
 		a.Id, _ = r.LastInsertId()
 		a.CreateTime = time.Now()

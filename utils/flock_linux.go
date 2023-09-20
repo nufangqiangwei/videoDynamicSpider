@@ -43,6 +43,7 @@ func (l *Flock) Lock() error {
 			if err == nil {
 				timetick.Stop()
 				//go func() {
+				//	// 一分钟后自动释放锁
 				//	c := time.NewTicker(time.Minute)
 				//	select {
 				//	case <-c.C:

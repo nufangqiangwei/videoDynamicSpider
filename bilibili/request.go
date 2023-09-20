@@ -18,8 +18,8 @@ var (
 func init() {
 	bilibiliCookies = cookies{}
 	Spider = BiliSpider{
-		VideoHistoryChan:      make(chan baseStruct.VideoInfo, 100),
-		VideoHistoryCloseChan: make(chan string, 10),
+		VideoHistoryChan:      make(chan baseStruct.VideoInfo, 10),
+		VideoHistoryCloseChan: make(chan int64, 10),
 	}
 	dynamicVideoObject = dynamicVideo{}
 	bilibiliCookies.readFile()

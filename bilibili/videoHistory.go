@@ -2,12 +2,17 @@ package bilibili
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"path"
 	"strconv"
+	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/utils"
 )
 
+// https://github.com/SocialSisterYi/bilibili-API-collect/blob/ffa25ba78dc8f4ed8624f11e3b6f404cb799674f/docs/history%26toview/history.md
 type historyResponse struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
@@ -15,7 +20,7 @@ type historyResponse struct {
 	Data    struct {
 		Cursor struct {
 			Max      int    `json:"max"`
-			ViewAt   int    `json:"view_at"`
+			ViewAt   int64  `json:"view_at"`
 			Business string `json:"business"`
 			Ps       int    `json:"ps"`
 		} `json:"cursor"`
@@ -63,32 +68,36 @@ type historyResponse struct {
 type historyRequest struct{}
 
 //
-func (h *historyRequest) getRequest(max, viewAt int) *http.Request {
+func (h *historyRequest) getRequest(max int, viewAt int64, business string) *http.Request {
 	url := "https://api.bilibili.com/x/web-interface/history/cursor"
 	request, _ := http.NewRequest("GET", url, nil)
 	q := request.URL.Query()
-	q.Add("business", "archive")
+	q.Add("business", business)
 	if max > 0 {
 		q.Add("max", strconv.Itoa(max))
 	}
 	if viewAt > 0 {
-		q.Add("view_at", strconv.Itoa(viewAt))
+		q.Add("view_at", strconv.FormatInt(viewAt, 10))
 	}
 	request.URL.RawQuery = q.Encode()
 	request.Header.Add("Cookie", bilibiliCookies.cookies)
 	return request
 }
 
-func (h *historyRequest) getResponse(max, viewAt int) *historyResponse {
+func (h *historyRequest) getResponse(max int, viewAt int64, business string) *historyResponse {
 	bilibiliCookies.flushCookies()
 	if !bilibiliCookies.cookiesFail {
 		return nil
 	}
-	request := h.getRequest(max, viewAt)
+	request := h.getRequest(max, viewAt, business)
 	response, _ := http.DefaultClient.Do(request)
 	defer response.Body.Close()
 	var responseData *historyResponse
 	body, err := ioutil.ReadAll(response.Body)
+
+	fName := path.Join(baseStruct.RootPath, "historyResponse", fmt.Sprintf("%d.json", viewAt))
+	os.WriteFile(fName, body, 0644)
+
 	if response.StatusCode != 200 {
 		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
 		utils.ErrorLog.Println(string(body))

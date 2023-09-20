@@ -11,7 +11,7 @@ import (
 
 type BiliSpider struct {
 	VideoHistoryChan      chan baseStruct.VideoInfo
-	VideoHistoryCloseChan chan string
+	VideoHistoryCloseChan chan int64
 }
 
 func (s BiliSpider) GetWebSiteName() models.WebSite {
@@ -149,30 +149,43 @@ func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageInd
 
 }
 
-func (s BiliSpider) GetVideoHistoryList(baseLine string) {
+func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64) {
 	history := historyRequest{}
 	var (
-		err       error
-		lastKid   int64 = 0
 		maxNumber       = 100
+		newestTimestamp int64
+		business        string
+		viewAt          int64
+		max             int
 	)
-	if baseLine != "" {
-		lastKid, err = strconv.ParseInt(baseLine, 10, 64)
-		if err != nil {
-			utils.ErrorLog.Println("GetVideoHistoryList解析baseLine失败")
-			return
-		}
-	}
 
-	var max, viewAt int
+	println("lastHistoryTimestamp: ", lastHistoryTimestamp)
+
+	business = ""
+
 	for {
-		data := history.getResponse(max, viewAt)
+		data := history.getResponse(max, viewAt, business)
 		if data == nil {
+			println("退出: ", 0)
+			s.VideoHistoryCloseChan <- 0
 			return
 		}
+		if viewAt == 0 {
+			newestTimestamp = data.Data.List[0].ViewAt
+		}
+		if data.Data.Cursor.Max == 0 || data.Data.Cursor.ViewAt == 0 {
+			// https://s1.hdslb.com/bfs/static/history-record/img/historyend.png
+			println("退出: ", newestTimestamp)
+			s.VideoHistoryCloseChan <- newestTimestamp
+			return
+		}
+		max = data.Data.Cursor.Max
+		viewAt = data.Data.Cursor.ViewAt
+		business = data.Data.Cursor.Business
 		for _, info := range data.Data.List {
-			if info.Kid == lastKid || maxNumber == 0 {
-				s.VideoHistoryCloseChan <- baseLine
+			if info.ViewAt < lastHistoryTimestamp || maxNumber == 0 {
+				println("退出: ", viewAt)
+				s.VideoHistoryCloseChan <- newestTimestamp
 				return
 			}
 			s.VideoHistoryChan <- baseStruct.VideoInfo{
@@ -183,11 +196,11 @@ func (s BiliSpider) GetVideoHistoryList(baseLine string) {
 				AuthorName: info.AuthorName,
 				PushTime:   time.Unix(info.ViewAt, 0),
 			}
-			if lastKid > 0 {
+			if lastHistoryTimestamp == 0 {
 				maxNumber--
 			}
 
 		}
+		time.Sleep(time.Second)
 	}
-
 }

@@ -4,28 +4,28 @@ package utils
 
 import (
 	"os"
-	"runtime"
+	"syscall"
 )
 
 type Flock struct {
-	dir     string
-	f       *os.File
-	sysType string
+	dir string
+	f   *os.File
 }
 
 func NewFlock(dir string) *Flock {
 	return &Flock{
-		dir:     dir,
-		sysType: runtime.GOOS,
+		dir: dir,
 	}
 }
 
 // 加锁
 func (l *Flock) Lock() error {
+	syscall.ForkLock.Lock()
 	return nil
 }
 
 // 释放锁
 func (l *Flock) Unlock() error {
+	syscall.ForkLock.Unlock()
 	return nil
 }
