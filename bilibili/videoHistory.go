@@ -90,7 +90,11 @@ func (h *historyRequest) getResponse(max int, viewAt int64, business string) *hi
 		return nil
 	}
 	request := h.getRequest(max, viewAt, business)
-	response, _ := http.DefaultClient.Do(request)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		utils.ErrorLog.Printf("获取历史记录错误:%s", err.Error())
+		return nil
+	}
 	defer response.Body.Close()
 	var responseData *historyResponse
 	body, err := ioutil.ReadAll(response.Body)

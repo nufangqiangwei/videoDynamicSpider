@@ -1,24 +1,15 @@
 package bilibili
 
 import (
+	"fmt"
 	"testing"
+	"time"
 	"videoDynamicAcquisition/utils"
 )
 
 func TestHistory(t *testing.T) {
 	utils.InitLog("E:\\GoCode\\videoDynamicAcquisition")
-	a := historyRequest{}
-	data := a.getResponse(0, 0)
-	if data == nil {
-		println("获取历史记录失败")
-		return
-	}
-	data = a.getResponse(data.Data.Cursor.Max, data.Data.Cursor.ViewAt)
-	if data == nil {
-		println("获取历史记录失败")
-		return
-	}
-	for _, info := range data.Data.List {
-		println(info.Title)
-	}
+	fmt.Printf("%+v\n", getCollectVideoInfo(72121698, 1))
+	time.Sleep(time.Second)
+	fmt.Printf("%+v\n", getSeasonVideoInfo(1090255, 1))
 }

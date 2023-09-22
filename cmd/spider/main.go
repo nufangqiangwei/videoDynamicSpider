@@ -109,8 +109,7 @@ func arrangeRunTime(defaultValue int64) int64 {
 	return defaultValue
 }
 
-// 定时抓取历史记录
-// 历史数据，同步到以观看表,视频信息储存到视频表，作者信息储存到作者表。新数据标记未同步历史数据，未关注
+// 定时抓取历史记录 历史数据，同步到以观看表,视频信息储存到视频表，作者信息储存到作者表。新数据标记未同步历史数据，未关注
 func (s *Spider) getHistory(interface{}) {
 	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
 	baseLine := models.GetHistoryBaseLine(db)
@@ -164,4 +163,107 @@ func (s *Spider) getHistory(interface{}) {
 			return
 		}
 	}
+}
+
+// 更新收藏夹列表，喝订阅的合集列表，新创建的同步视频数据
+func (s *Spider) updateCollectList(interface{}) {
+	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
+	web := models.WebSite{
+		WebName: "bilibili",
+	}
+	web.GetOrCreate(db)
+	newCollectList := bilibili.Spider.GetCollectList(db)
+	for _, collectId := range newCollectList.Collect {
+		for _, info := range bilibili.Spider.GetCollectAllVideo(collectId) {
+			author := models.Author{
+				WebSiteId:    web.Id,
+				AuthorWebUid: strconv.Itoa(info.Upper.Mid),
+				AuthorName:   info.Upper.Name,
+				Avatar:       info.Upper.Face,
+				Follow:       false,
+				Crawl:        true,
+			}
+			author.GetOrCreate(db)
+			vi := models.Video{}
+			vi.GetByUid(db, info.Bvid)
+			if vi.Id <= 0 {
+				vi.WebSiteId = web.Id
+				vi.AuthorId = author.Id
+				vi.Title = info.Title
+				vi.Desc = info.Intro
+				vi.Duration = info.Duration
+				vi.Uuid = info.Bvid
+				vi.CoverUrl = info.Cover
+				vi.UploadTime = time.Unix(info.Ctime, 0)
+				vi.Save(db)
+			}
+			models.CollectVideo{
+				CollectId: collectId,
+				VideoId:   vi.Id,
+				Mtime:     time.Unix(info.FavTime, 0),
+			}.Save(db)
+		}
+	}
+	for _, collectId := range newCollectList.Season {
+		for _, info := range bilibili.Spider.GetSeasonAllVideo(collectId) {
+			author := models.Author{
+				WebSiteId:    web.Id,
+				AuthorWebUid: strconv.Itoa(info.Upper.Mid),
+				AuthorName:   info.Upper.Name,
+				Follow:       false,
+				Crawl:        true,
+			}
+			author.GetOrCreate(db)
+			vi := models.Video{}
+			vi.GetByUid(db, info.Bvid)
+			if vi.Id <= 0 {
+				vi.WebSiteId = web.Id
+				vi.AuthorId = author.Id
+				vi.Title = info.Title
+				vi.Duration = info.Duration
+				vi.Uuid = info.Bvid
+				vi.CoverUrl = info.Cover
+				vi.Save(db)
+			}
+			models.CollectVideo{
+				CollectId: collectId,
+				VideoId:   vi.Id,
+			}.Save(db)
+
+		}
+		time.Sleep(time.Second * 5)
+	}
+}
+
+// 更新收藏夹视频列表，更新合集视频列表
+func updateCollectVideoList(interface{}) {
+	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
+	query, err := db.Query("select cv.collect_id,v.uuid from collect_video cv inner join collect c on c.bv_id = cv.collect_id inner join video v on v.id = cv.video_id where c.`type` = 1 order by cv.collect_id,mtime desc")
+	queryResult := make(map[int64][]string)
+	if err != nil {
+		utils.ErrorLog.Printf("查询收藏夹视频数量失败：%s\n", err.Error())
+		return
+	}
+	var (
+		collectId int64
+		count     string
+		countList []string
+	)
+	for query.Next() {
+		err = query.Scan(&collectId, &count)
+		if err != nil {
+			continue
+		}
+		_, ok := queryResult[collectId]
+		if !ok {
+			queryResult[collectId] = []string{}
+		}
+		queryResult[collectId] = append(queryResult[collectId], count)
+	}
+	query.Close()
+	for collectId, countList = range queryResult {
+		r := bilibili.GetCollectVideoList(collectId)
+
+	}
+
 }

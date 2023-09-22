@@ -1,6 +1,7 @@
 package bilibili
 
 import (
+	"database/sql"
 	"encoding/json"
 	"strconv"
 	"time"
@@ -203,4 +204,88 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64) {
 		}
 		time.Sleep(time.Second)
 	}
+}
+
+type NewCollect struct {
+	Collect []int64
+	Season  []int64
+}
+
+// GetCollectList 获取收藏夹和专栏列表
+func (s BiliSpider) GetCollectList(db *sql.DB) NewCollect {
+	a := getCollectList("10932398")
+	result := new(NewCollect)
+	var x models.Collect
+	if a != nil {
+		for _, info := range a.Data.List {
+			x = models.Collect{
+				Type: 1,
+				BvId: info.Id,
+				Name: info.Title,
+			}
+			if x.CreateOrQuery(db) {
+				result.Collect = append(result.Collect, x.BvId)
+			}
+		}
+	}
+	time.Sleep(time.Second)
+	b := subscriptionList("10932398")
+	if b != nil {
+		for _, info := range b.Data.List {
+			x = models.Collect{
+				Type: 2,
+				BvId: info.Id,
+				Name: info.Title,
+			}
+			if x.CreateOrQuery(db) {
+				result.Season = append(result.Season, x.BvId)
+			}
+		}
+	}
+	return *result
+}
+
+func (s BiliSpider) GetCollectAllVideo(collectId int64) []CollectVideoDetailInfo {
+	var (
+		response             *collectVideoDetailResponse
+		videoNumber, maxPage int
+		page                 = 1
+		result               []CollectVideoDetailInfo
+	)
+	for {
+		response = getCollectVideoInfo(collectId, page)
+		if videoNumber == 0 {
+			videoNumber = response.Data.Info.MediaCount
+			if videoNumber%20 == 0 {
+				maxPage = videoNumber / 20
+			} else {
+				maxPage = (videoNumber / 20) + 1
+			}
+		}
+		for _, info := range response.Data.Medias {
+			result = append(result, info)
+		}
+
+		if page >= maxPage {
+			break
+		}
+		page++
+		time.Sleep(time.Second)
+
+	}
+	return result
+}
+
+func (s BiliSpider) GetSeasonAllVideo(seasonId int64) []SeasonAllVideoDetailInfo {
+	var (
+		response *seasonAllVideoDetailResponse
+		result   []SeasonAllVideoDetailInfo
+	)
+	response = getSeasonVideoInfo(seasonId, 1)
+	for _, info := range response.Data.Medias {
+		result = append(result, info)
+	}
+
+	return result
+
 }
