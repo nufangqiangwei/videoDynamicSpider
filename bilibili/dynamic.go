@@ -248,7 +248,9 @@ func (b *dynamicVideo) getRequest(mid int, offset string) *http.Request {
 	}
 	request, _ := http.NewRequest("GET", url, nil)
 	q := request.URL.Query()
-	q.Add("offset", offset)
+	if offset != "" {
+		q.Add("offset", offset)
+	}
 	if mid == 0 {
 		q.Add("type", "video")
 	} else {

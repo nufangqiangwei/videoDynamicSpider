@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 	"videoDynamicAcquisition/utils"
 )
@@ -56,6 +57,19 @@ func (a *Author) GetOrCreate(db *sql.DB) {
 			db.Exec("UPDATE author SET avatar=?,author_desc=? WHERE Id=?", a.Avatar, a.Desc, a.Id)
 		}
 	}
+}
+func (a *Author) UpdateFollow(db *sql.DB) {
+	r := db.QueryRow("SELECT follow from author where web_site_id=? and author_web_uid=?", a.WebSiteId, a.AuthorWebUid)
+	var follow = false
+	err := r.Scan(&follow)
+	if errors.Is(err, sql.ErrNoRows) {
+		a.GetOrCreate(db)
+		return
+	} else if err != nil {
+		utils.ErrorLog.Println(err.Error())
+		return
+	}
+
 }
 
 func GetAuthorList(db *sql.DB, webSiteId int) (result []Author) {

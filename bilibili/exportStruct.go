@@ -25,50 +25,57 @@ func (s BiliSpider) GetWebSiteName() models.WebSite {
 }
 
 func (s BiliSpider) GetVideoList(latestBaseline string) []baseStruct.VideoInfo {
-	var updateNumber int
+	var (
+		intLatestBaseline int
+		videoBaseLine     int
+		err               error
+		baseLine          string
+		updateNumber      int
+		Baseline          string
+		ok                bool
+	)
 	if latestBaseline == "" {
 		updateNumber = 20
 	} else {
-		updateNumber = dynamicVideoObject.getUpdateVideoNumber(latestBaseline)
+		intLatestBaseline, err = strconv.Atoi(latestBaseline)
+		if err != nil {
+			utils.ErrorLog.Println("替换城城城城城城城城城城城城城城城城城城城城城城城城城城�")
+			updateNumber = 20
+		}
 	}
-
 	utils.Info.Printf("updateNumber: %d\n", updateNumber)
-	pageNumber := 1
 	result := make([]baseStruct.VideoInfo, 0)
-	if updateNumber == 0 {
-		return result
-	}
-	baseLine := latestBaseline
-	errorRetriesNumber := 0
-	for updateNumber >= 0 {
+
+	for {
 		response := dynamicVideoObject.getResponse(0, 0, baseLine)
 
 		if response == nil {
 			result = []baseStruct.VideoInfo{}
-			return result
-		}
-		if response.Data.Items == nil {
-			errorRetriesNumber++
-			if errorRetriesNumber > 3 {
-				utils.ErrorLog.Println("多次获取数据失败，退出")
-				result = []baseStruct.VideoInfo{}
-				return result
-			}
-			continue
+			return nil
 		}
 
 		for _, info := range response.Data.Items {
-			var Baseline string
-			Baseline, ok := info.IdStr.(string)
+			Baseline, ok = info.IdStr.(string)
 			if !ok {
 				a, ok := info.IdStr.(int)
 				if ok {
 					Baseline = strconv.Itoa(a)
+					videoBaseLine = a
 				} else {
 					utils.ErrorLog.Print("未知的Baseline: ", info.IdStr)
 					utils.ErrorLog.Println("更新基线：", baseLine)
 					continue
 				}
+			} else {
+				videoBaseLine, err = strconv.Atoi(Baseline)
+				if err != nil {
+					utils.ErrorLog.Println("视频的IDStr错误")
+					continue
+				}
+			}
+
+			if videoBaseLine <= intLatestBaseline {
+				return result
 			}
 			result = append(result, baseStruct.VideoInfo{
 				WebSite:    "bilibili",
@@ -84,17 +91,18 @@ func (s BiliSpider) GetVideoList(latestBaseline string) []baseStruct.VideoInfo {
 				PushTime:   time.Unix(info.Modules.ModuleAuthor.PubTs, 0),
 				Baseline:   Baseline,
 			})
-			updateNumber--
-			if updateNumber == 0 {
-				break
+			if latestBaseline == "" {
+				updateNumber--
+				if updateNumber == 0 {
+					return result
+				}
 			}
+
 		}
-		pageNumber++
 		baseLine = response.Data.Offset
 		time.Sleep(time.Second * 10)
 	}
 
-	return result
 }
 
 func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]string {
@@ -211,7 +219,7 @@ type NewCollect struct {
 	Season  []int64
 }
 
-// GetCollectList 获取收藏夹和专栏列表
+// GetCollectList 获取收藏夹和专栏列表,不包含里面的视频信息
 func (s BiliSpider) GetCollectList(db *sql.DB) NewCollect {
 	a := getCollectList("10932398")
 	result := new(NewCollect)
@@ -245,21 +253,24 @@ func (s BiliSpider) GetCollectList(db *sql.DB) NewCollect {
 	return *result
 }
 
-func (s BiliSpider) GetCollectAllVideo(collectId int64) []CollectVideoDetailInfo {
+// GetCollectAllVideo 获取收藏夹里面的视频信息
+func (s BiliSpider) GetCollectAllVideo(collectId int64, maxPage int) []CollectVideoDetailInfo {
 	var (
-		response             *collectVideoDetailResponse
-		videoNumber, maxPage int
-		page                 = 1
-		result               []CollectVideoDetailInfo
+		response    *collectVideoDetailResponse
+		videoNumber int
+		page        = 1
+		result      []CollectVideoDetailInfo
 	)
 	for {
 		response = getCollectVideoInfo(collectId, page)
 		if videoNumber == 0 {
 			videoNumber = response.Data.Info.MediaCount
-			if videoNumber%20 == 0 {
-				maxPage = videoNumber / 20
-			} else {
-				maxPage = (videoNumber / 20) + 1
+			if maxPage == 0 {
+				if videoNumber%20 == 0 {
+					maxPage = videoNumber / 20
+				} else {
+					maxPage = (videoNumber / 20) + 1
+				}
 			}
 		}
 		for _, info := range response.Data.Medias {
@@ -276,6 +287,7 @@ func (s BiliSpider) GetCollectAllVideo(collectId int64) []CollectVideoDetailInfo
 	return result
 }
 
+// GetSeasonAllVideo 获取专栏里面的视频信息
 func (s BiliSpider) GetSeasonAllVideo(seasonId int64) []SeasonAllVideoDetailInfo {
 	var (
 		response *seasonAllVideoDetailResponse
@@ -288,4 +300,35 @@ func (s BiliSpider) GetSeasonAllVideo(seasonId int64) []SeasonAllVideoDetailInfo
 
 	return result
 
+}
+
+func (s BiliSpider) GetFollowingList() (result []FollowingUP) {
+	var (
+		total   = 0
+		maxPage = 1
+		f       followings
+	)
+	f = followings{
+		pageNumber: 1,
+	}
+	for {
+		response := f.getResponse(0)
+		if total == 0 {
+			total = response.Data.Total
+			if total%20 == 0 {
+				maxPage = total / 20
+			} else {
+				maxPage = (total / 20) + 1
+			}
+		}
+		for _, info := range response.Data.List {
+			result = append(result, info)
+		}
+		if f.pageNumber >= maxPage {
+			break
+		}
+		f.pageNumber++
+
+	}
+	return
 }

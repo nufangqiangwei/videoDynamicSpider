@@ -16,50 +16,51 @@ type followingsResponse struct {
 	Message string `json:"message"`
 	Ttl     int    `json:"ttl"`
 	Data    struct {
-		List []struct {
-			Mid          int64       `json:"mid"`
-			Attribute    int         `json:"attribute"`
-			Mtime        int         `json:"mtime"` // 关注对方时间
-			Tag          interface{} `json:"tag"`
-			Special      int         `json:"special"`
-			ContractInfo struct {
-			} `json:"contract_info"`
-			Uname          string `json:"uname"`
-			Face           string `json:"face"`
-			Sign           string `json:"sign"`
-			FaceNft        int    `json:"face_nft"`
-			OfficialVerify struct {
-				Type int    `json:"type"`
-				Desc string `json:"desc"`
-			} `json:"official_verify"`
-			Vip struct {
-				VipType       int    `json:"vipType"`
-				VipDueDate    int64  `json:"vipDueDate"`
-				DueRemark     string `json:"dueRemark"`
-				AccessStatus  int    `json:"accessStatus"`
-				VipStatus     int    `json:"vipStatus"`
-				VipStatusWarn string `json:"vipStatusWarn"`
-				ThemeType     int    `json:"themeType"`
-				Label         struct {
-					Path        string `json:"path"`
-					Text        string `json:"text"`
-					LabelTheme  string `json:"label_theme"`
-					TextColor   string `json:"text_color"`
-					BgStyle     int    `json:"bg_style"`
-					BgColor     string `json:"bg_color"`
-					BorderColor string `json:"border_color"`
-				} `json:"label"`
-				AvatarSubscript    int    `json:"avatar_subscript"`
-				NicknameColor      string `json:"nickname_color"`
-				AvatarSubscriptUrl string `json:"avatar_subscript_url"`
-			} `json:"vip"`
-			NftIcon   string `json:"nft_icon"`
-			RecReason string `json:"rec_reason"`
-			TrackId   string `json:"track_id"`
-		} `json:"list"`
-		ReVersion int `json:"re_version"`
-		Total     int `json:"total"`
+		List      []FollowingUP `json:"list"`
+		ReVersion int           `json:"re_version"`
+		Total     int           `json:"total"`
 	} `json:"data"`
+}
+type FollowingUP struct {
+	Mid          int64       `json:"mid"`
+	Attribute    int         `json:"attribute"`
+	Mtime        int64       `json:"mtime"` // 关注对方时间
+	Tag          interface{} `json:"tag"`
+	Special      int         `json:"special"`
+	ContractInfo struct {
+	} `json:"contract_info"`
+	Uname          string `json:"uname"`
+	Face           string `json:"face"`
+	Sign           string `json:"sign"`
+	FaceNft        int    `json:"face_nft"`
+	OfficialVerify struct {
+		Type int    `json:"type"`
+		Desc string `json:"desc"`
+	} `json:"official_verify"`
+	Vip struct {
+		VipType       int    `json:"vipType"`
+		VipDueDate    int64  `json:"vipDueDate"`
+		DueRemark     string `json:"dueRemark"`
+		AccessStatus  int    `json:"accessStatus"`
+		VipStatus     int    `json:"vipStatus"`
+		VipStatusWarn string `json:"vipStatusWarn"`
+		ThemeType     int    `json:"themeType"`
+		Label         struct {
+			Path        string `json:"path"`
+			Text        string `json:"text"`
+			LabelTheme  string `json:"label_theme"`
+			TextColor   string `json:"text_color"`
+			BgStyle     int    `json:"bg_style"`
+			BgColor     string `json:"bg_color"`
+			BorderColor string `json:"border_color"`
+		} `json:"label"`
+		AvatarSubscript    int    `json:"avatar_subscript"`
+		NicknameColor      string `json:"nickname_color"`
+		AvatarSubscriptUrl string `json:"avatar_subscript_url"`
+	} `json:"vip"`
+	NftIcon   string `json:"nft_icon"`
+	RecReason string `json:"rec_reason"`
+	TrackId   string `json:"track_id"`
 }
 
 type followings struct {
@@ -74,7 +75,7 @@ func (f *followings) getRequest() *http.Request {
 	q := request.URL.Query()
 	q.Add("vmid", "10932398")
 	q.Add("pn", strconv.Itoa(f.pageNumber))
-	q.Add("ps", "50")
+	q.Add("ps", "20")
 	q.Add("order", "desc")
 	q.Add("order_type", "")
 	q.Add("gaia_source", "main_web")

@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	timeWheel "github.com/nufangqiangwei/timewheel"
 	"path"
 	"strconv"
@@ -33,7 +34,7 @@ type Spider struct {
 	interval int64
 }
 
-func getVideoInfo() {
+func (s *Spider) getDynamic(interface{}) {
 	utils.Info.Println("getVideoInfo")
 	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
 	dynamicBaseLine := models.GetDynamicBaseline(db)
@@ -41,7 +42,7 @@ func getVideoInfo() {
 		website := v.GetWebSiteName()
 		website.GetOrCreate(db)
 		for index, video := range v.GetVideoList(dynamicBaseLine) {
-			//fmt.Printf("video: %v\n", video)
+			fmt.Printf("video: %s\n", video.Title)
 			if index == 0 {
 				models.SaveDynamicBaseline(db, video.Baseline)
 			}
@@ -61,10 +62,7 @@ func getVideoInfo() {
 			videoModel.Save(db)
 		}
 	}
-}
-
-func (s *Spider) getDynamic(interface{}) {
-	getVideoInfo()
+	db.Close()
 	_, err := wheel.AppendOnceFunc(s.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(defaultTicket)})
 	if err != nil {
 		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
@@ -174,7 +172,7 @@ func (s *Spider) updateCollectList(interface{}) {
 	web.GetOrCreate(db)
 	newCollectList := bilibili.Spider.GetCollectList(db)
 	for _, collectId := range newCollectList.Collect {
-		for _, info := range bilibili.Spider.GetCollectAllVideo(collectId) {
+		for _, info := range bilibili.Spider.GetCollectAllVideo(collectId, 0) {
 			author := models.Author{
 				WebSiteId:    web.Id,
 				AuthorWebUid: strconv.Itoa(info.Upper.Mid),
@@ -261,9 +259,89 @@ func updateCollectVideoList(interface{}) {
 		queryResult[collectId] = append(queryResult[collectId], count)
 	}
 	query.Close()
+	waitUpdateList := make([]int64, 0)
 	for collectId, countList = range queryResult {
 		r := bilibili.GetCollectVideoList(collectId)
-
+		// countList 和r.Data中的BvId对比，找不同的值
+		for _, info := range r.Data {
+			if !utils.InArray(info.BvId, countList) {
+				waitUpdateList = append(waitUpdateList, collectId)
+				break
+			}
+		}
 	}
+	// 没有待更新的内容
+	if len(waitUpdateList) == 0 {
+		return
+	}
+	web := models.WebSite{
+		WebName: "bilibili",
+	}
+	web.GetOrCreate(db)
+	for _, collectId = range waitUpdateList {
+		r := bilibili.Spider.GetCollectAllVideo(collectId, 1)
+		for _, info := range r {
+			if !utils.InArray(info.BvId, countList) {
+				author := models.Author{
+					WebSiteId:    web.Id,
+					AuthorWebUid: strconv.Itoa(info.Upper.Mid),
+					AuthorName:   info.Upper.Name,
+					Follow:       false,
+					Crawl:        true,
+				}
+				author.GetOrCreate(db)
+				vi := models.Video{}
+				vi.GetByUid(db, info.Bvid)
+				if vi.Id <= 0 {
+					vi.WebSiteId = web.Id
+					vi.AuthorId = author.Id
+					vi.Title = info.Title
+					vi.Duration = info.Duration
+					vi.Uuid = info.Bvid
+					vi.CoverUrl = info.Cover
+					vi.Save(db)
+				}
+				models.CollectVideo{
+					CollectId: collectId,
+					VideoId:   vi.Id,
+				}.Save(db)
+			}
+		}
+	}
+}
+
+// 同步关注信息
+func (s *Spider) updateFollowInfo(interface{}) {
+	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
+	web := models.WebSite{
+		WebName: "bilibili",
+	}
+	web.GetOrCreate(db)
+	upList := bilibili.Spider.GetFollowingList()
+	r, err := db.Query("select author_web_uid from main.author where follow=1")
+	if err != nil {
+		utils.ErrorLog.Printf("查询当前关注失败：%s\n", err.Error())
+		return
+	}
+	var (
+		followList       []string
+		authorWebUid     string
+		nowFollowList    []string
+		notFollowList    []string
+		appendFollowList []string
+	)
+	for r.Next() {
+		err = r.Scan(&authorWebUid)
+		if err != nil {
+			continue
+		}
+		followList = append(followList, authorWebUid)
+	}
+	for _, up := range upList {
+		nowFollowList = append(nowFollowList, strconv.FormatInt(up.Mid, 10))
+	}
+	notFollowList = utils.ArrayDifference(followList, nowFollowList)
+	appendFollowList = utils.ArrayDifference(nowFollowList, followList)
+	db.Exec("update main.author set main.author.follow=0 where main.author.author_web_uid in ?", notFollowList)
 
 }
