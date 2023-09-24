@@ -31,9 +31,9 @@ type historyResponse struct {
 		List []struct {
 			Title     string      `json:"title"`
 			LongTitle string      `json:"long_title"`
-			Cover     string      `json:"cover"`
-			Covers    interface{} `json:"covers"`
-			Uri       string      `json:"uri"`
+			Cover     string      `json:"cover"`  // 用于专栏以外的条目
+			Covers    interface{} `json:"covers"` // 仅用于专栏.有效时：array 无效时：null
+			Uri       string      `json:"uri"`    // 仅用于剧集和直播
 			History   struct {
 				Oid      int    `json:"oid"`
 				Epid     int    `json:"epid"`
@@ -44,13 +44,13 @@ type historyResponse struct {
 				Business string `json:"business"`
 				Dt       int    `json:"dt"`
 			} `json:"history"`
-			Videos     int    `json:"videos"`
+			Videos     int    `json:"videos"` // 仅用于稿件视频
 			AuthorName string `json:"author_name"`
 			AuthorFace string `json:"author_face"`
 			AuthorMid  int64  `json:"author_mid"`
-			ViewAt     int64  `json:"view_at"`
+			ViewAt     int64  `json:"view_at"` // 时间戳
 			Progress   int    `json:"progress"`
-			Badge      string `json:"badge"`
+			Badge      string `json:"badge"` // 空字符串时是稿件视频 / 剧集 / 笔记 / 纪录片 / 专栏 / 国创 / 番剧
 			ShowTitle  string `json:"show_title"`
 			Duration   int    `json:"duration"`
 			Current    string `json:"current"`

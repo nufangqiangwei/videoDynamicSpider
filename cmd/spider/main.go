@@ -343,5 +343,19 @@ func (s *Spider) updateFollowInfo(interface{}) {
 	notFollowList = utils.ArrayDifference(followList, nowFollowList)
 	appendFollowList = utils.ArrayDifference(nowFollowList, followList)
 	db.Exec("update main.author set main.author.follow=0 where main.author.author_web_uid in ?", notFollowList)
+	for _, upInfo := range upList {
+		if utils.InArray(strconv.FormatInt(upInfo.Mid, 10), appendFollowList) {
+			author := models.Author{
+				WebSiteId:    web.Id,
+				AuthorWebUid: strconv.FormatInt(upInfo.Mid, 10),
+				AuthorName:   upInfo.Uname,
+				Avatar:       upInfo.Face,
+				Desc:         upInfo.Sign,
+				Follow:       true,
+				FollowTime:   time.Unix(upInfo.Mtime, 0),
+			}
+			author.UpdateOrCreate(db)
+		}
+	}
 
 }

@@ -197,14 +197,29 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64) {
 				s.VideoHistoryCloseChan <- newestTimestamp
 				return
 			}
-			s.VideoHistoryChan <- baseStruct.VideoInfo{
-				WebSite:    "bilibili",
-				Title:      info.Title,
-				VideoUuid:  info.History.Bvid,
-				AuthorUuid: strconv.FormatInt(info.AuthorMid, 10),
-				AuthorName: info.AuthorName,
-				PushTime:   time.Unix(info.ViewAt, 0),
+			switch info.Badge {
+			// 稿件视频 / 剧集 / 笔记 / 纪录片 / 专栏 / 国创 / 番剧
+			case "": // 稿件视频
+				s.VideoHistoryChan <- baseStruct.VideoInfo{
+					WebSite:    "bilibili",
+					Title:      info.Title,
+					VideoUuid:  info.History.Bvid,
+					AuthorUuid: strconv.FormatInt(info.AuthorMid, 10),
+					AuthorName: info.AuthorName,
+					PushTime:   time.Unix(info.ViewAt, 0),
+				}
+			case "剧集":
+			case "笔记":
+			case "纪录片":
+			case "专栏":
+			case "国创":
+			case "番剧":
+				continue
+			default:
+				utils.Info.Printf("未知类型的历史记录 %v\n", info)
+				continue
 			}
+
 			if lastHistoryTimestamp == 0 {
 				maxNumber--
 			}
@@ -328,7 +343,7 @@ func (s BiliSpider) GetFollowingList() (result []FollowingUP) {
 			break
 		}
 		f.pageNumber++
-
+		time.Sleep(time.Second * 3)
 	}
 	return
 }

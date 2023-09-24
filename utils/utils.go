@@ -1,6 +1,6 @@
 package utils
 
-func InArray[T string](val T, array []T) bool {
+func InArray[T string | int64](val T, array []T) bool {
 	for _, v := range array {
 		if v == val {
 			return true
@@ -10,7 +10,7 @@ func InArray[T string](val T, array []T) bool {
 }
 
 // ArrayDifference 在slice1但是不在slice2的值
-func ArrayDifference[T string](slice1, slice2 []T) []T {
+func ArrayDifference[T string | int64](slice1, slice2 []T) []T {
 	m := make(map[T]T)
 	for _, v := range slice1 {
 		m[v] = v

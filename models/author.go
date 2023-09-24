@@ -58,10 +58,12 @@ func (a *Author) GetOrCreate(db *sql.DB) {
 		}
 	}
 }
-func (a *Author) UpdateFollow(db *sql.DB) {
-	r := db.QueryRow("SELECT follow from author where web_site_id=? and author_web_uid=?", a.WebSiteId, a.AuthorWebUid)
-	var follow = false
-	err := r.Scan(&follow)
+
+func (a *Author) UpdateOrCreate(db *sql.DB) {
+	r := db.QueryRow("SELECT id from author where web_site_id=? and author_web_uid=?", a.WebSiteId, a.AuthorWebUid)
+	var authorId int64
+	err := r.Scan(&authorId)
+
 	if errors.Is(err, sql.ErrNoRows) {
 		a.GetOrCreate(db)
 		return
@@ -69,6 +71,12 @@ func (a *Author) UpdateFollow(db *sql.DB) {
 		utils.ErrorLog.Println(err.Error())
 		return
 	}
+	err = dbLock.Lock()
+	if err != nil {
+		panic("数据库被锁")
+	}
+	defer dbLock.Unlock()
+	db.Exec("UPDATE author SET avatar=?,author_desc=?,follow=true,follow_time=? WHERE Id=?", a.Avatar, a.Desc, a.FollowTime, authorId)
 
 }
 
