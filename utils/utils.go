@@ -1,5 +1,7 @@
 package utils
 
+import "github.com/mattn/go-sqlite3"
+
 func InArray[T string | int64](val T, array []T) bool {
 	for _, v := range array {
 		if v == val {
@@ -26,4 +28,14 @@ func ArrayDifference[T string | int64](slice1, slice2 []T) []T {
 		str = append(str, s2)
 	}
 	return str
+}
+
+func IsUniqueErr(err error) bool {
+	if sqliteErr, ok := err.(sqlite3.Error); ok {
+		if sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique ||
+			sqliteErr.ExtendedCode == sqlite3.ErrConstraintPrimaryKey {
+			return true
+		}
+	}
+	return false
 }

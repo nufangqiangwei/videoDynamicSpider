@@ -1,10 +1,8 @@
 package main
 
 import (
-	"database/sql"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"path"
 	"strconv"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/models"
@@ -12,12 +10,9 @@ import (
 )
 
 func getVideoList(ctx *gin.Context) {
-	db, err := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
-	if err != nil {
-		utils.ErrorLog.Println(err.Error())
-		ctx.JSONP(http.StatusInternalServerError, map[string]string{"msg": "数据库打开失败"})
-		return
-	}
+	db := baseStruct.CanUserDb()
+	defer db.Close()
+
 	webSiteName := ctx.DefaultQuery("webSite", "bilibili")
 	pageSTR := ctx.DefaultQuery("page", "1")
 	sizeSTR := ctx.DefaultQuery("size", "30")
@@ -53,12 +48,9 @@ func updateCookies(ctx *gin.Context) {
 }
 
 func addAuthor(ctx *gin.Context) {
-	db, err := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
-	if err != nil {
-		utils.ErrorLog.Println(err.Error())
-		ctx.JSONP(http.StatusInternalServerError, map[string]string{"msg": "数据库打开失败"})
-		return
-	}
+	db := baseStruct.CanUserDb()
+	defer db.Close()
+
 	authorId := ctx.DefaultQuery("authorId", "1")
 	authorName := ctx.DefaultQuery("AuthorName", "30")
 	avatarUrl := ctx.DefaultQuery("Avatar", "30")

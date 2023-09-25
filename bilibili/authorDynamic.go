@@ -3,7 +3,6 @@ package bilibili
 import (
 	"database/sql"
 	"math/rand"
-	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -13,7 +12,8 @@ import (
 )
 
 func getNotFollowAuthorDynamic() {
-	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
+	db := baseStruct.CanUserDb()
+	defer db.Close()
 	authorList := models.GetAuthorList(db, 1)
 	//rangeAuthor:
 	rand.Seed(time.Now().Unix())

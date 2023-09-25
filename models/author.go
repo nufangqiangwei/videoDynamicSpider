@@ -30,7 +30,7 @@ func (a *Author) CreateTale() string {
 				avatar VARCHAR(255) ,
 				author_desc VARCHAR(255) ,
 				follow bool default false not null,
-				follow_time DATETIME,
+				follow_time DATETIME default null,
 				crawl bool default false not null,
 				create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     			   constraint web_site_author

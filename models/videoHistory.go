@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"time"
+	"videoDynamicAcquisition/utils"
 )
 
 type VideoHistory struct {
@@ -17,7 +18,9 @@ func (vh VideoHistory) CreateTale() string {
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				web_site_id INTEGER,
 				video_id INTEGER,
-				view_time DATETIME DEFAULT CURRENT_TIMESTAMP
+				view_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+			    constraint video_view_time
+        			unique (video_id, view_time)
 				)`
 }
 
@@ -27,5 +30,8 @@ func (vh VideoHistory) Save(db *sql.DB) {
 		panic("数据库被锁")
 	}
 	defer dbLock.Unlock()
-	db.Exec("INSERT INTO video_history (web_site_id, video_id, view_time) VALUES (?, ?, ?)", vh.WebSiteId, vh.VideoId, vh.ViewTime)
+	_, err = db.Exec("INSERT INTO video_history (web_site_id, video_id, view_time) VALUES (?, ?, ?)", vh.WebSiteId, vh.VideoId, vh.ViewTime)
+	if err != nil && !utils.IsUniqueErr(err) {
+		utils.ErrorLog.Println("插入数据错误", err.Error())
+	}
 }

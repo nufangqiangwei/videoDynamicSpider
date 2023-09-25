@@ -7,7 +7,7 @@ import (
 
 const SqliteDaName = "videoInfo.db"
 
-var RootPath = "C:\\Code\\GO\\videoDynamicSpider"
+var RootPath = "E:\\GoCode\\videoDynamicAcquisition"
 
 func init() {
 	ex, err := os.Executable()

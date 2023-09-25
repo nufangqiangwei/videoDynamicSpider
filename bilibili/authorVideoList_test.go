@@ -1,13 +1,11 @@
 package bilibili
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/url"
 	"os"
-	"path"
 	"strings"
 	"testing"
 	"time"
@@ -16,7 +14,8 @@ import (
 )
 
 func TestGetVideoList(t *testing.T) {
-	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
+	db := baseStruct.CanUserDb()
+	defer db.Close()
 	authorList := models.GetAuthorList(db, 1)
 	//rangeAuthor:
 	rand.Seed(time.Now().Unix())
@@ -29,7 +28,6 @@ func TestGetVideoList(t *testing.T) {
 		fmt.Printf("休眠%d秒\n", sleepTime)
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 	}
-	db.Close()
 }
 
 func TestGetOneMoreAuthor(t *testing.T) {
@@ -45,7 +43,7 @@ func TestGetOneMoreAuthor(t *testing.T) {
 		159,
 	}
 
-	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
+	db := baseStruct.CanUserDb()
 	defer db.Close()
 	for _, authorId = range authorList {
 		pageIndex = 16
@@ -124,7 +122,7 @@ func TestFind(t *testing.T) {
 	data, _ := os.ReadFile(fileName)
 	responseBody := new(videoListPageResponse)
 	json.Unmarshal(data, responseBody)
-	db, _ := sql.Open("sqlite3", path.Join(baseStruct.RootPath, baseStruct.SqliteDaName))
+	db := baseStruct.CanUserDb()
 	defer db.Close()
 	for _, info := range responseBody.Data.List.Vlist {
 		mv := models.Video{

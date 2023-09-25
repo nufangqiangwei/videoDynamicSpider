@@ -2,7 +2,6 @@ package models
 
 import (
 	"database/sql"
-	"strings"
 	"time"
 	"videoDynamicAcquisition/utils"
 )
@@ -53,8 +52,8 @@ func (v *Video) Save(db *sql.DB) bool {
 		v.CreateTime = time.Now()
 	}
 
-	if err != nil && strings.HasSuffix(err.Error(), "UNIQUE constraint failed") {
-		utils.ErrorLog.Println("主键冲突: %s", v.Uuid)
+	if err != nil && !utils.IsUniqueErr(err) {
+		utils.ErrorLog.Println("插入数据错误", err.Error())
 		return false
 	}
 	return true

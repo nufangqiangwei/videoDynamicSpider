@@ -11,7 +11,7 @@ type BiliAuthorVideoNumber struct {
 }
 
 func (b *BiliAuthorVideoNumber) CreateTale() string {
-	return `create table bili_author_video_number
+	return `CREATE TABLE IF NOT EXISTS bili_author_video_number
 (
     author_id    integer not null
         constraint bili_author_video_number_pk

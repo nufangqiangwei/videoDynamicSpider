@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"time"
+	"videoDynamicAcquisition/utils"
 )
 
 type Collect struct {
@@ -38,7 +39,7 @@ func (ci *Collect) CreateOrQuery(db *sql.DB) bool {
 	if err == nil {
 		ci.Id, _ = r.LastInsertId()
 		return true
-	} else {
+	} else if !utils.IsUniqueErr(err) {
 		println(err.Error())
 		r, err := db.Query("select id from collect where bv_id = ?", ci.BvId)
 		defer r.Close()
@@ -50,7 +51,7 @@ func (ci *Collect) CreateOrQuery(db *sql.DB) bool {
 		}
 		return false
 	}
-
+	return true
 }
 
 func (ci CollectVideo) CreateTale() string {
@@ -70,7 +71,7 @@ func (ci CollectVideo) Save(db *sql.DB) {
 	}
 	defer dbLock.Unlock()
 	_, err = db.Exec("INSERT INTO collect_video (collect_id, video_id,mtime) VALUES (?, ?,?)", ci.CollectId, ci.VideoId, ci.Mtime)
-	if err != nil {
-		println(err.Error())
+	if err != nil && !utils.IsUniqueErr(err) {
+		utils.ErrorLog.Println("插入数据错误", err.Error())
 	}
 }

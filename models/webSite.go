@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"time"
+	"videoDynamicAcquisition/utils"
 )
 
 // WebSite 网站列表，网站信息
@@ -32,14 +33,16 @@ func (w *WebSite) GetOrCreate(db *sql.DB) {
 		panic("数据库被锁")
 	}
 	defer dbLock.Unlock()
+
 	r, err := db.Exec("INSERT INTO website (web_name, web_host, web_author_base_url, web_video_base_url) VALUES (?, ?, ?, ?)",
 		w.WebName, w.WebHost, w.WebAuthorBaseUrl, w.WebVideoBaseUrl)
 	if err == nil {
 		w.Id, _ = r.LastInsertId()
 		w.CreateTime = time.Now()
-	} else {
+	} else if utils.IsUniqueErr(err) {
 		queryResult := db.QueryRow("SELECT id,create_time FROM website WHERE web_name = ? and web_host=?", w.WebName, w.WebHost)
 		queryResult.Scan(&w.Id, &w.CreateTime)
-
+	} else {
+		utils.ErrorLog.Println("插入数据错误", err.Error())
 	}
 }

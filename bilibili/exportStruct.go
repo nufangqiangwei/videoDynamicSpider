@@ -193,7 +193,6 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64) {
 		business = data.Data.Cursor.Business
 		for _, info := range data.Data.List {
 			if info.ViewAt < lastHistoryTimestamp || maxNumber == 0 {
-				println("退出: ", viewAt)
 				s.VideoHistoryCloseChan <- newestTimestamp
 				return
 			}
@@ -214,6 +213,7 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64) {
 			case "专栏":
 			case "国创":
 			case "番剧":
+			case "综艺":
 				continue
 			default:
 				utils.Info.Printf("未知类型的历史记录 %v\n", info)
