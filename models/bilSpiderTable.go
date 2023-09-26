@@ -48,7 +48,7 @@ func (b *BiliAuthorVideoNumber) UpdateNumber(db *sql.DB) {
 	}
 	err := dbLock.Lock()
 	if err != nil {
-		panic("数据库被锁")
+		panic(utils.DBFileLock{S: "数据库被锁"})
 	}
 	defer dbLock.Unlock()
 	_, err = db.Exec("insert into bili_author_video_number values (?,?)", b.AuthorId, b.VideoNumber)

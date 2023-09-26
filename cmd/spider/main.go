@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	timeWheel "github.com/nufangqiangwei/timewheel"
 	"strconv"
 	"time"
@@ -54,11 +53,11 @@ func main() {
 	if err != nil {
 		return
 	}
-	_, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: oneTicket})
+	_, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: oneTicket + 523})
 	if err != nil {
 		return
 	}
-	_, err = wheel.AppendOnceFunc(spider.updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
+	_, err = wheel.AppendOnceFunc(spider.updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + 120})
 	if err != nil {
 		return
 	}
@@ -87,6 +86,21 @@ func arrangeRunTime(defaultValue, leftBorder, rightBorder int64) int64 {
 }
 
 func (s *Spider) getDynamic(interface{}) {
+	defer func() {
+		panicErr := recover()
+		if panicErr != nil {
+			_, ok := panicErr.(utils.DBFileLock)
+			if ok {
+				_, err := wheel.AppendOnceFunc(s.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(defaultTicket, sixTime, twentyTime)})
+				if err != nil {
+					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+				}
+				return
+			}
+			panic(panicErr)
+		}
+	}()
+
 	utils.Info.Println("getVideoInfo")
 	db := baseStruct.CanUserDb()
 	defer db.Close()
@@ -95,7 +109,6 @@ func (s *Spider) getDynamic(interface{}) {
 		website := v.GetWebSiteName()
 		website.GetOrCreate(db)
 		for index, video := range v.GetVideoList(dynamicBaseLine) {
-			fmt.Printf("video: %s\n", video.Title)
 			if index == 0 {
 				models.SaveDynamicBaseline(db, video.Baseline)
 			}
@@ -124,6 +137,21 @@ func (s *Spider) getDynamic(interface{}) {
 
 // 定时抓取历史记录 历史数据，同步到以观看表,视频信息储存到视频表，作者信息储存到作者表。新数据标记未同步历史数据，未关注
 func (s *Spider) getHistory(interface{}) {
+	defer func() {
+		panicErr := recover()
+		if panicErr != nil {
+			_, ok := panicErr.(utils.DBFileLock)
+			if ok {
+				_, err := wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: oneTicket})
+				if err != nil {
+					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+				}
+				return
+			}
+			panic(panicErr)
+		}
+	}()
+
 	db := baseStruct.CanUserDb()
 	defer db.Close()
 	baseLine := models.GetHistoryBaseLine(db)
@@ -179,6 +207,21 @@ func (s *Spider) getHistory(interface{}) {
 
 // 更新收藏夹列表，喝订阅的合集列表，新创建的同步视频数据
 func (s *Spider) updateCollectList(interface{}) {
+	defer func() {
+		panicErr := recover()
+		if panicErr != nil {
+			_, ok := panicErr.(utils.DBFileLock)
+			if ok {
+				_, err := wheel.AppendOnceFunc(spider.updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
+				if err != nil {
+					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+				}
+				return
+			}
+			panic(panicErr)
+		}
+	}()
+
 	db := baseStruct.CanUserDb()
 	defer db.Close()
 	web := models.WebSite{
@@ -256,10 +299,25 @@ func (s *Spider) updateCollectList(interface{}) {
 
 // 更新收藏夹视频列表，更新合集视频列表
 func (s *Spider) updateCollectVideoList(interface{}) {
+	defer func() {
+		panicErr := recover()
+		if panicErr != nil {
+			_, ok := panicErr.(utils.DBFileLock)
+			if ok {
+				_, err := wheel.AppendOnceFunc(spider.updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(twelveTicket, sixTime, twentyTime)})
+				if err != nil {
+					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+				}
+				return
+			}
+			panic(panicErr)
+		}
+	}()
+
 	db := baseStruct.CanUserDb()
 	defer db.Close()
 
-	query, err := db.Query("select cv.collect_id,v.uuid from collect_video cv inner join collect c on c.bv_id = cv.collect_id inner join video v on v.id = cv.video_id where c.`type` = 1 order by cv.collect_id,mtime desc")
+	query, err := db.Query("select cv.collect_id,v.uuid from collect_video cv inner join collect c on c.bv_id = cv.collect_id inner join video v on v.id = cv.video_id where c.`type` = 1 and mtime>'0001-01-01 00:00:00+00:00' order by cv.collect_id,mtime desc")
 	queryResult := make(map[int64][]string)
 	if err != nil {
 		utils.ErrorLog.Printf("查询收藏夹视频数量失败：%s\n", err.Error())
@@ -303,6 +361,7 @@ func (s *Spider) updateCollectVideoList(interface{}) {
 	web.GetOrCreate(db)
 	for _, collectId = range waitUpdateList {
 		r := bilibili.Spider.GetCollectAllVideo(collectId, 1)
+		countList = queryResult[collectId]
 		for _, info := range r {
 			if !utils.InArray(info.BvId, countList) {
 				author := models.Author{
@@ -332,7 +391,7 @@ func (s *Spider) updateCollectVideoList(interface{}) {
 		}
 	}
 
-	_, err = wheel.AppendOnceFunc(spider.updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(defaultTicket, sixTime, twentyTime)})
+	_, err = wheel.AppendOnceFunc(spider.updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(twelveTicket, sixTime, twentyTime)})
 	if err != nil {
 		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 		return
@@ -341,6 +400,21 @@ func (s *Spider) updateCollectVideoList(interface{}) {
 
 // 同步关注信息
 func (s *Spider) updateFollowInfo(interface{}) {
+	defer func() {
+		panicErr := recover()
+		if panicErr != nil {
+			_, ok := panicErr.(utils.DBFileLock)
+			if ok {
+				_, err := wheel.AppendOnceFunc(spider.updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
+				if err != nil {
+					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+				}
+				return
+			}
+			panic(panicErr)
+		}
+	}()
+
 	db := baseStruct.CanUserDb()
 	defer db.Close()
 	web := models.WebSite{

@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"time"
+	"videoDynamicAcquisition/utils"
 )
 
 // BiliSpiderHistory b站抓取记录
@@ -39,7 +40,7 @@ func GetDynamicBaseline(db *sql.DB) string {
 func SaveDynamicBaseline(db *sql.DB, baseline string) {
 	err := dbLock.Lock()
 	if err != nil {
-		panic("数据库被锁")
+		panic(utils.DBFileLock{S: "数据库被锁"})
 	}
 	defer dbLock.Unlock()
 	db.Exec("INSERT OR REPLACE INTO bili_spider_history (`key`,value) VALUES (?,?)", "dynamic_baseline", baseline)
@@ -60,7 +61,7 @@ func GetHistoryBaseLine(db *sql.DB) string {
 func SaveHistoryBaseLine(db *sql.DB, baseline string) {
 	err := dbLock.Lock()
 	if err != nil {
-		panic("数据库被锁")
+		panic(utils.DBFileLock{S: "数据库被锁"})
 	}
 	defer dbLock.Unlock()
 	db.Exec("INSERT OR REPLACE INTO bili_spider_history (`key`,value) VALUES (?,?)", "history_baseline", baseline)

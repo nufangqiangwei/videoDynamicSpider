@@ -39,13 +39,15 @@ func (s BiliSpider) GetVideoList(latestBaseline string) []baseStruct.VideoInfo {
 	} else {
 		intLatestBaseline, err = strconv.Atoi(latestBaseline)
 		if err != nil {
-			utils.ErrorLog.Println("替换城城城城城城城城城城城城城城城城城城城城城城城城城城�")
+			utils.ErrorLog.Printf("intLatestBaseline 转换出错：%s\n", intLatestBaseline)
 			updateNumber = 20
 		}
 	}
 	utils.Info.Printf("updateNumber: %d\n", updateNumber)
 	result := make([]baseStruct.VideoInfo, 0)
-
+	defer func() {
+		utils.Info.Printf("获取到新动态数量：%d", len(result))
+	}()
 	for {
 		response := dynamicVideoObject.getResponse(0, 0, baseLine)
 

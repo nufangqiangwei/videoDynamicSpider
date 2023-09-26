@@ -31,7 +31,7 @@ func (ci *Collect) CreateTale() string {
 func (ci *Collect) CreateOrQuery(db *sql.DB) bool {
 	err := dbLock.Lock()
 	if err != nil {
-		panic("数据库被锁")
+		panic(utils.DBFileLock{S: "数据库被锁"})
 	}
 	defer dbLock.Unlock()
 
@@ -67,7 +67,7 @@ func (ci CollectVideo) CreateTale() string {
 func (ci CollectVideo) Save(db *sql.DB) {
 	err := dbLock.Lock()
 	if err != nil {
-		panic("数据库被锁")
+		panic(utils.DBFileLock{S: "数据库被锁"})
 	}
 	defer dbLock.Unlock()
 	_, err = db.Exec("INSERT INTO collect_video (collect_id, video_id,mtime) VALUES (?, ?,?)", ci.CollectId, ci.VideoId, ci.Mtime)

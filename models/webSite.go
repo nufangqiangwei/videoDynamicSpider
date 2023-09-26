@@ -30,7 +30,7 @@ func (w *WebSite) CreateTale() string {
 func (w *WebSite) GetOrCreate(db *sql.DB) {
 	err := dbLock.Lock()
 	if err != nil {
-		panic("数据库被锁")
+		panic(utils.DBFileLock{S: "数据库被锁"})
 	}
 	defer dbLock.Unlock()
 

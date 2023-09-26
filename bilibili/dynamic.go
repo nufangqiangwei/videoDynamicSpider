@@ -303,7 +303,7 @@ func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (d
 	}
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
-	saveDynamicResponse(body, mid, offset)
+	//saveDynamicResponse(body, mid, offset)
 	if response.StatusCode != 200 {
 		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
 		utils.ErrorLog.Println(string(body))

@@ -90,7 +90,7 @@ func (f *followings) getResponse(retriesNumber int) (followingsResponseBody foll
 	}
 	bilibiliCookies.flushCookies()
 	request := f.getRequest()
-	utils.Info.Println("请求地址", request.URL.String())
+	//utils.Info.Println("请求地址", request.URL.String())
 	client := &http.Client{}
 	response, err := client.Do(request)
 	followingsResponseBody = followingsResponse{}
@@ -134,7 +134,7 @@ func (f *followings) getResponse(retriesNumber int) (followingsResponseBody foll
 		utils.ErrorLog.Printf("%+v", followingsResponseBody)
 		return
 	}
-	utils.Info.Println("关注列表获取成功")
+	//utils.Info.Println("关注列表获取成功")
 	return followingsResponseBody
 
 }

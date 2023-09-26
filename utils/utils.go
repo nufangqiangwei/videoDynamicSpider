@@ -39,3 +39,7 @@ func IsUniqueErr(err error) bool {
 	}
 	return false
 }
+
+type DBFileLock struct {
+	S string
+}

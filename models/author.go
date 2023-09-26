@@ -41,7 +41,7 @@ func (a *Author) CreateTale() string {
 func (a *Author) GetOrCreate(db *sql.DB) {
 	err := dbLock.Lock()
 	if err != nil {
-		panic("数据库被锁")
+		panic(utils.DBFileLock{S: "数据库被锁"})
 	}
 	defer dbLock.Unlock()
 	r, err := db.Exec("INSERT INTO author (web_site_id, author_web_uid,author_name,avatar,author_desc,follow,follow_time,crawl) VALUES (?, ?,?,?,?,?,?,?)", a.WebSiteId, a.AuthorWebUid, a.AuthorName, a.Avatar, a.Desc, a.Follow, a.FollowTime, a.Crawl)
@@ -73,7 +73,7 @@ func (a *Author) UpdateOrCreate(db *sql.DB) {
 	}
 	err = dbLock.Lock()
 	if err != nil {
-		panic("数据库被锁")
+		panic(utils.DBFileLock{S: "数据库被锁"})
 	}
 	defer dbLock.Unlock()
 	db.Exec("UPDATE author SET avatar=?,author_desc=?,follow=true,follow_time=? WHERE Id=?", a.Avatar, a.Desc, a.FollowTime, authorId)
