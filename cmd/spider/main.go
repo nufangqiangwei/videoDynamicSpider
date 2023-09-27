@@ -27,7 +27,7 @@ var (
 
 type VideoCollection interface {
 	GetWebSiteName() models.WebSite
-	GetVideoList(string) []baseStruct.VideoInfo
+	GetVideoList(string, chan<- baseStruct.VideoInfo, chan<- baseStruct.TaskClose)
 }
 type Spider struct {
 	interval int64
@@ -105,29 +105,57 @@ func (s *Spider) getDynamic(interface{}) {
 	db := baseStruct.CanUserDb()
 	defer db.Close()
 	dynamicBaseLine := models.GetDynamicBaseline(db)
+	videoResultChan := make(chan baseStruct.VideoInfo)
+	closeChan := make(chan baseStruct.TaskClose)
+	runWebSite := make([]string, 0)
+
 	for _, v := range videoCollection {
-		website := v.GetWebSiteName()
-		website.GetOrCreate(db)
-		for index, video := range v.GetVideoList(dynamicBaseLine) {
-			if index == 0 {
-				models.SaveDynamicBaseline(db, video.Baseline)
-			}
-			author := models.Author{AuthorName: video.AuthorName, WebSiteId: website.Id, AuthorWebUid: video.AuthorUuid}
+		go v.GetVideoList(dynamicBaseLine, videoResultChan, closeChan)
+		runWebSite = append(runWebSite, v.GetWebSiteName().WebName)
+	}
+
+	var (
+		videoInfo baseStruct.VideoInfo
+		closeInfo baseStruct.TaskClose
+	)
+	for {
+		select {
+		case videoInfo = <-videoResultChan:
+			website := models.WebSite{WebName: videoInfo.WebSite}
+			website.GetOrCreate(db)
+			author := models.Author{AuthorName: videoInfo.AuthorName, WebSiteId: website.Id, AuthorWebUid: videoInfo.AuthorUuid}
 			author.GetOrCreate(db)
 			videoModel := models.Video{
 				WebSiteId:  website.Id,
 				AuthorId:   author.Id,
-				Title:      video.Title,
-				Desc:       video.Desc,
-				Duration:   video.Duration,
-				Url:        video.Url,
-				Uuid:       video.VideoUuid,
-				CoverUrl:   video.CoverUrl,
-				UploadTime: video.PushTime,
+				Title:      videoInfo.Title,
+				Desc:       videoInfo.Desc,
+				Duration:   videoInfo.Duration,
+				Url:        videoInfo.Url,
+				Uuid:       videoInfo.VideoUuid,
+				CoverUrl:   videoInfo.CoverUrl,
+				UploadTime: videoInfo.PushTime,
 			}
 			videoModel.Save(db)
+		case closeInfo = <-closeChan:
+			// 删除closeInfo.WebSite的任务
+			for index, v := range runWebSite {
+				if v == closeInfo.WebSite {
+					runWebSite = append(runWebSite[:index], runWebSite[index+1:]...)
+					break
+				}
+			}
+			if closeInfo.WebSite == "bilibili" && closeInfo.Code > 0 {
+				models.SaveDynamicBaseline(db, strconv.Itoa(closeInfo.Code))
+			}
+		}
+		if len(runWebSite) == 0 {
+			break
 		}
 	}
+	close(closeChan)
+	close(videoResultChan)
+
 	_, err := wheel.AppendOnceFunc(s.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(defaultTicket, sixTime, twentyTime)})
 	if err != nil {
 		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
@@ -166,12 +194,14 @@ func (s *Spider) getHistory(interface{}) {
 			return
 		}
 	}
-	go bilibili.Spider.GetVideoHistoryList(lastHistoryTimestamp)
+	VideoHistoryChan := make(chan baseStruct.VideoInfo)
+	VideoHistoryCloseChan := make(chan int64)
+	go bilibili.Spider.GetVideoHistoryList(lastHistoryTimestamp, VideoHistoryChan, VideoHistoryCloseChan)
 	website := models.WebSite{WebName: "bilibili"}
 	website.GetOrCreate(db)
 	for {
 		select {
-		case videoInfo := <-bilibili.Spider.VideoHistoryChan:
+		case videoInfo := <-VideoHistoryChan:
 			author := models.Author{
 				AuthorName:   videoInfo.AuthorName,
 				WebSiteId:    website.Id,
@@ -193,7 +223,7 @@ func (s *Spider) getHistory(interface{}) {
 				VideoId:   vi.Id,
 				ViewTime:  videoInfo.PushTime,
 			}.Save(db)
-		case newestTimestamp := <-bilibili.Spider.VideoHistoryCloseChan:
+		case newestTimestamp := <-VideoHistoryCloseChan:
 			models.SaveHistoryBaseLine(db, strconv.FormatInt(newestTimestamp, 10))
 			_, err := wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: oneTicket})
 			if err != nil {
@@ -421,18 +451,22 @@ func (s *Spider) updateFollowInfo(interface{}) {
 		WebName: "bilibili",
 	}
 	web.GetOrCreate(db)
-	upList := bilibili.Spider.GetFollowingList()
+	resultChan := make(chan bilibili.FollowingUP)
+	closeChan := make(chan int64)
+	go bilibili.Spider.GetFollowingList(resultChan, closeChan)
 	r, err := db.Query("select author_web_uid from main.author where follow=1")
 	if err != nil {
 		utils.ErrorLog.Printf("查询当前关注失败：%s\n", err.Error())
 		return
 	}
 	var (
-		followList       []string
-		authorWebUid     string
-		nowFollowList    []string
-		notFollowList    []string
-		appendFollowList []string
+		followList   []string
+		authorWebUid string
+		upInfo       bilibili.FollowingUP
+		close        bool
+		//nowFollowList []string
+		//notFollowList    []string
+		//appendFollowList []string
 	)
 	for r.Next() {
 		err = r.Scan(&authorWebUid)
@@ -441,14 +475,17 @@ func (s *Spider) updateFollowInfo(interface{}) {
 		}
 		followList = append(followList, authorWebUid)
 	}
-	for _, up := range upList {
-		nowFollowList = append(nowFollowList, strconv.FormatInt(up.Mid, 10))
-	}
-	notFollowList = utils.ArrayDifference(followList, nowFollowList)
-	appendFollowList = utils.ArrayDifference(nowFollowList, followList)
-	db.Exec("update main.author set main.author.follow=0 where main.author.author_web_uid in ?", notFollowList)
-	for _, upInfo := range upList {
-		if utils.InArray(strconv.FormatInt(upInfo.Mid, 10), appendFollowList) {
+	//for _, up := range upList {
+	//	nowFollowList = append(nowFollowList, strconv.FormatInt(up.Mid, 10))
+	//}
+	//notFollowList = utils.ArrayDifference(followList, nowFollowList)
+	//appendFollowList = utils.ArrayDifference(nowFollowList, followList)
+	//db.Exec("update main.author set main.author.follow=0 where main.author.author_web_uid in ?", notFollowList)
+	//if utils.InArray(strconv.FormatInt(upInfo.Mid, 10), followList) {
+	//}
+	for {
+		select {
+		case upInfo = <-resultChan:
 			author := models.Author{
 				WebSiteId:    web.Id,
 				AuthorWebUid: strconv.FormatInt(upInfo.Mid, 10),
@@ -459,6 +496,11 @@ func (s *Spider) updateFollowInfo(interface{}) {
 				FollowTime:   time.Unix(upInfo.Mtime, 0),
 			}
 			author.UpdateOrCreate(db)
+		case <-closeChan:
+			close = true
+		}
+		if close {
+			break
 		}
 	}
 
@@ -467,4 +509,38 @@ func (s *Spider) updateFollowInfo(interface{}) {
 		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 		return
 	}
+}
+
+func deleteRepeatAuthor() {
+	db := baseStruct.CanUserDb()
+	defer db.Close()
+	//select author_name
+	//from author
+	//group by author_name
+	//having count(*) > 1;
+
+	repeatAuthor, err := db.Query("select author_name from author group by author_name having count(*) > 1")
+	if err != nil {
+		return
+	}
+	var (
+		authorName string
+		authorList []string
+	)
+	for repeatAuthor.Next() {
+		err = repeatAuthor.Scan(&authorName)
+		if err != nil {
+			continue
+		}
+		authorList = append(authorList, authorName)
+	}
+	repeatAuthor.Close()
+	for _, authorName = range authorList {
+		_, err = db.Exec("update video set author_id  = (select id from author where author_name = ? and author.web_site_id = 1),    web_site_id=1 where author_id = (select id from author where author_name = ? and author.web_site_id = 0);", authorName, authorName)
+		if err != nil {
+			println(err.Error())
+			continue
+		}
+	}
+
 }

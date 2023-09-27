@@ -40,8 +40,11 @@ func (w *WebSite) GetOrCreate(db *sql.DB) {
 		w.Id, _ = r.LastInsertId()
 		w.CreateTime = time.Now()
 	} else if utils.IsUniqueErr(err) {
-		queryResult := db.QueryRow("SELECT id,create_time FROM website WHERE web_name = ? and web_host=?", w.WebName, w.WebHost)
-		queryResult.Scan(&w.Id, &w.CreateTime)
+		queryResult := db.QueryRow("SELECT id,create_time FROM website WHERE web_name = ?", w.WebName)
+		err = queryResult.Scan(&w.Id, &w.CreateTime)
+		if err != nil {
+			println(err.Error())
+		}
 	} else {
 		utils.ErrorLog.Println("插入数据错误", err.Error())
 	}

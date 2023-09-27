@@ -11,8 +11,6 @@ import (
 )
 
 type BiliSpider struct {
-	VideoHistoryChan      chan baseStruct.VideoInfo
-	VideoHistoryCloseChan chan int64
 }
 
 func (s BiliSpider) GetWebSiteName() models.WebSite {
@@ -24,15 +22,17 @@ func (s BiliSpider) GetWebSiteName() models.WebSite {
 	}
 }
 
-func (s BiliSpider) GetVideoList(latestBaseline string) []baseStruct.VideoInfo {
+func (s BiliSpider) GetVideoList(latestBaseline string, result chan<- baseStruct.VideoInfo, closeChan chan<- baseStruct.TaskClose) {
 	var (
 		intLatestBaseline int
 		videoBaseLine     int
+		startBaseLine     int
 		err               error
 		baseLine          string
 		updateNumber      int
 		Baseline          string
 		ok                bool
+		requestNumber     int
 	)
 	if latestBaseline == "" {
 		updateNumber = 20
@@ -44,7 +44,7 @@ func (s BiliSpider) GetVideoList(latestBaseline string) []baseStruct.VideoInfo {
 		}
 	}
 	utils.Info.Printf("updateNumber: %d\n", updateNumber)
-	result := make([]baseStruct.VideoInfo, 0)
+
 	defer func() {
 		utils.Info.Printf("获取到新动态数量：%d", len(result))
 	}()
@@ -52,11 +52,14 @@ func (s BiliSpider) GetVideoList(latestBaseline string) []baseStruct.VideoInfo {
 		response := dynamicVideoObject.getResponse(0, 0, baseLine)
 
 		if response == nil {
-			result = []baseStruct.VideoInfo{}
-			return nil
+			closeChan <- baseStruct.TaskClose{
+				WebSite: "bilibili",
+				Code:    0,
+			}
+			return
 		}
 
-		for _, info := range response.Data.Items {
+		for infoIndex, info := range response.Data.Items {
 			Baseline, ok = info.IdStr.(string)
 			if !ok {
 				a, ok := info.IdStr.(int)
@@ -77,9 +80,18 @@ func (s BiliSpider) GetVideoList(latestBaseline string) []baseStruct.VideoInfo {
 			}
 
 			if videoBaseLine <= intLatestBaseline {
-				return result
+				closeChan <- baseStruct.TaskClose{
+					WebSite: "bilibili",
+					Code:    startBaseLine,
+				}
+				return
 			}
-			result = append(result, baseStruct.VideoInfo{
+
+			if requestNumber == 0 && infoIndex == 0 {
+				startBaseLine = videoBaseLine
+			}
+
+			result <- baseStruct.VideoInfo{
 				WebSite:    "bilibili",
 				Title:      info.Modules.ModuleDynamic.Major.Archive.Title,
 				Desc:       info.Modules.ModuleDynamic.Major.Archive.Desc,
@@ -92,19 +104,24 @@ func (s BiliSpider) GetVideoList(latestBaseline string) []baseStruct.VideoInfo {
 				AuthorUrl:  info.Modules.ModuleAuthor.JumpUrl,
 				PushTime:   time.Unix(info.Modules.ModuleAuthor.PubTs, 0),
 				Baseline:   Baseline,
-			})
+			}
+
 			if latestBaseline == "" {
 				updateNumber--
 				if updateNumber == 0 {
-					return result
+					closeChan <- baseStruct.TaskClose{
+						WebSite: "bilibili",
+						Code:    startBaseLine,
+					}
+					return
 				}
 			}
 
 		}
 		baseLine = response.Data.Offset
+		requestNumber++
 		time.Sleep(time.Second * 10)
 	}
-
 }
 
 func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]string {
@@ -160,7 +177,7 @@ func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageInd
 
 }
 
-func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64) {
+func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64, VideoHistoryChan chan<- baseStruct.VideoInfo, VideoHistoryCloseChan chan<- int64) {
 	history := historyRequest{}
 	var (
 		maxNumber       = 100
@@ -178,7 +195,7 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64) {
 		data := history.getResponse(max, viewAt, business)
 		if data == nil {
 			println("退出: ", 0)
-			s.VideoHistoryCloseChan <- 0
+			VideoHistoryCloseChan <- 0
 			return
 		}
 		if viewAt == 0 {
@@ -187,7 +204,7 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64) {
 		if data.Data.Cursor.Max == 0 || data.Data.Cursor.ViewAt == 0 {
 			// https://s1.hdslb.com/bfs/static/history-record/img/historyend.png
 			println("退出: ", newestTimestamp)
-			s.VideoHistoryCloseChan <- newestTimestamp
+			VideoHistoryCloseChan <- newestTimestamp
 			return
 		}
 		max = data.Data.Cursor.Max
@@ -195,13 +212,13 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64) {
 		business = data.Data.Cursor.Business
 		for _, info := range data.Data.List {
 			if info.ViewAt < lastHistoryTimestamp || maxNumber == 0 {
-				s.VideoHistoryCloseChan <- newestTimestamp
+				VideoHistoryCloseChan <- newestTimestamp
 				return
 			}
 			switch info.Badge {
 			// 稿件视频 / 剧集 / 笔记 / 纪录片 / 专栏 / 国创 / 番剧
 			case "": // 稿件视频
-				s.VideoHistoryChan <- baseStruct.VideoInfo{
+				VideoHistoryChan <- baseStruct.VideoInfo{
 					WebSite:    "bilibili",
 					Title:      info.Title,
 					VideoUuid:  info.History.Bvid,
@@ -216,6 +233,7 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64) {
 			case "国创":
 			case "番剧":
 			case "综艺":
+			case "live":
 				continue
 			default:
 				utils.Info.Printf("未知类型的历史记录 %v\n", info)
@@ -319,7 +337,7 @@ func (s BiliSpider) GetSeasonAllVideo(seasonId int64) []SeasonAllVideoDetailInfo
 
 }
 
-func (s BiliSpider) GetFollowingList() (result []FollowingUP) {
+func (s BiliSpider) GetFollowingList(resultChan chan<- FollowingUP, closeChan chan<- int64) {
 	var (
 		total   = 0
 		maxPage = 1
@@ -339,7 +357,7 @@ func (s BiliSpider) GetFollowingList() (result []FollowingUP) {
 			}
 		}
 		for _, info := range response.Data.List {
-			result = append(result, info)
+			resultChan <- info
 		}
 		if f.pageNumber >= maxPage {
 			break
@@ -347,5 +365,6 @@ func (s BiliSpider) GetFollowingList() (result []FollowingUP) {
 		f.pageNumber++
 		time.Sleep(time.Second * 3)
 	}
+	closeChan <- 0
 	return
 }

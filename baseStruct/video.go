@@ -16,3 +16,8 @@ type VideoInfo struct {
 	Baseline   string
 	PushTime   time.Time
 }
+
+type TaskClose struct {
+	WebSite string
+	Code    int
+}

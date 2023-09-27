@@ -45,7 +45,6 @@ func BackUserDb() {
 }
 
 func InitDB() {
-	utils.Info.Println(dbPath)
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		panic(err)
