@@ -10,7 +10,6 @@ import (
 	"videoDynamicAcquisition/utils"
 )
 
-// 数据库下载地址： https://101.32.15.231/icon/videoInfo.db
 const (
 	defaultTicket = 60 * 5
 	oneTicket     = 60 * 60
