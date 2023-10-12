@@ -2,6 +2,7 @@ package main
 
 import (
 	timeWheel "github.com/nufangqiangwei/timewheel"
+	"math/rand"
 	"strconv"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
@@ -39,6 +40,7 @@ func init() {
 		IsRun: false,
 		Log:   utils.TimeWheelLog,
 	})
+	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {
@@ -52,7 +54,7 @@ func main() {
 	if err != nil {
 		return
 	}
-	_, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: oneTicket + 523})
+	_, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime() + 523})
 	if err != nil {
 		return
 	}
@@ -79,9 +81,9 @@ func arrangeRunTime(defaultValue, leftBorder, rightBorder int64) int64 {
 	if leftBorder > timeGap || timeGap > rightBorder {
 		// 早上六点之前晚上八点之后，不再执行。六点之后才执行
 		nextRunTime := time.Date(nowTime.Year(), nowTime.Month(), nowTime.Day()+1, 6, 0, 0, 0, nowTime.Location())
-		return int64(nextRunTime.Sub(nowTime) / 1000000000)
+		return int64(nextRunTime.Sub(nowTime)/1000000000) + rand.Int63n(100)
 	}
-	return defaultValue
+	return defaultValue + rand.Int63n(100)
 }
 
 func (s *Spider) getDynamic(interface{}) {
@@ -224,7 +226,7 @@ func (s *Spider) getHistory(interface{}) {
 			}.Save(db)
 		case newestTimestamp := <-VideoHistoryCloseChan:
 			models.SaveHistoryBaseLine(db, strconv.FormatInt(newestTimestamp, 10))
-			_, err := wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: oneTicket})
+			_, err := wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
 			if err != nil {
 				utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				return
@@ -319,7 +321,7 @@ func (s *Spider) updateCollectList(interface{}) {
 		time.Sleep(time.Second * 5)
 	}
 
-	_, err := wheel.AppendOnceFunc(spider.updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
+	_, err := wheel.AppendOnceFunc(spider.updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + rand.Int63n(100)})
 	if err != nil {
 		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 		return
@@ -503,7 +505,7 @@ func (s *Spider) updateFollowInfo(interface{}) {
 		}
 	}
 
-	_, err = wheel.AppendOnceFunc(spider.updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
+	_, err = wheel.AppendOnceFunc(spider.updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + rand.Int63n(100)})
 	if err != nil {
 		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 		return
@@ -542,4 +544,28 @@ func deleteRepeatAuthor() {
 		}
 	}
 
+}
+
+func historyRunTime() int64 {
+	// 周一到周五 5:00-9:30、11:30-13:40 、16:30-12:00 这些时间段每一小时运行一次，其他时间每2小时运行一次
+	// 周末 1:00-7:00 不运行，其他时间每小时运行一次
+	nowTime := time.Now()
+	zeroTime := time.Date(nowTime.Year(), nowTime.Month(), nowTime.Day(), 0, 0, 0, 0, nowTime.Location())
+	timeGap := int64(nowTime.Sub(zeroTime) / 1000000000)
+	if nowTime.Weekday() == time.Saturday || nowTime.Weekday() == time.Sunday {
+		if 3600 < timeGap && timeGap < 25200 {
+			return 25200 - timeGap + rand.Int63n(100)
+		}
+		return 3600 + rand.Int63n(100)
+	}
+	if 18000 < timeGap && timeGap < 34200 {
+		return 3600 + rand.Int63n(100)
+	}
+	if 41400 < timeGap && timeGap < 46800 {
+		return 3600 + rand.Int63n(100)
+	}
+	if 59400 < timeGap && timeGap < 86400 {
+		return 3600 + rand.Int63n(100)
+	}
+	return 7200 + rand.Int63n(100)
 }
