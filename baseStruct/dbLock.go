@@ -49,7 +49,16 @@ func InitDB() {
 	if err != nil {
 		panic(err)
 	}
-	baseModels := []models.BaseModel{&models.WebSite{}, &models.Author{}, &models.Video{}, &models.BiliAuthorVideoNumber{}, &models.BiliSpiderHistory{}, &models.VideoHistory{}}
+	baseModels := []models.BaseModel{
+		&models.WebSite{},
+		&models.Author{},
+		&models.Video{},
+		&models.BiliAuthorVideoNumber{},
+		&models.BiliSpiderHistory{},
+		&models.VideoHistory{},
+		&models.Collect{},
+		&models.CollectVideo{},
+	}
 	for _, baseModel := range baseModels {
 		_, err = db.Exec(baseModel.CreateTale())
 		if err != nil {
