@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	"videoDynamicAcquisition/baseStruct"
-	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -21,7 +20,7 @@ func GetAuthorVideoList(ctx *gin.Context) {
 		ctx.JSON(403, map[string]string{"data": "请求参数错误"})
 		return
 	}
-	ctx.JSON(200, bilibili.Spider.GetVideoList(""))
+
 }
 
 func main() {
