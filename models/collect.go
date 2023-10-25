@@ -24,7 +24,6 @@ func (ci *Collect) CreateTale() string {
 		type INTEGER NOT NULL,
 		bv_id INTEGER NOT NULL unique ,
 		name VARCHAR(255) NOT NULL,
-		PRIMARY KEY (id)
 	);`
 }
 
