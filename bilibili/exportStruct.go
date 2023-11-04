@@ -43,10 +43,10 @@ func (s BiliSpider) GetVideoList(latestBaseline string, result chan<- baseStruct
 			updateNumber = 20
 		}
 	}
-	utils.Info.Printf("updateNumber: %d\n", updateNumber)
-
 	defer func() {
-		utils.Info.Printf("获取到新动态数量：%d", len(result))
+		if len(result) > 0 {
+			utils.Info.Printf("获取到新动态数量：%d", len(result))
+		}
 	}()
 	for {
 		response := dynamicVideoObject.getResponse(0, 0, baseLine)

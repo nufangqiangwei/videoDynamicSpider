@@ -23,7 +23,7 @@ func (ci *Collect) CreateTale() string {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		type INTEGER NOT NULL,
 		bv_id INTEGER NOT NULL unique ,
-		name VARCHAR(255) NOT NULL,
+		name VARCHAR(255) NOT NULL
 	);`
 }
 

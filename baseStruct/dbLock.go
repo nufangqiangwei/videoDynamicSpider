@@ -45,6 +45,7 @@ func BackUserDb() {
 }
 
 func InitDB() {
+	println("数据库文件地址：", dbPath)
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		panic(err)

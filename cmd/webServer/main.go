@@ -89,7 +89,7 @@ func main() {
 	server.Use(Cors())
 	server.GET("/getVideoList", getVideoList)
 	server.GET("/updateCookies", updateCookies)
-	err := server.Run("localhost:8001")
+	err := server.Run(":8001")
 	if err != nil {
 		utils.ErrorLog.Println(err.Error())
 	}

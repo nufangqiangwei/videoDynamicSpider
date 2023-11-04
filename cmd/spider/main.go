@@ -34,6 +34,11 @@ type Spider struct {
 }
 
 func init() {
+	location, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		return
+	}
+	time.Local = location
 	utils.InitLog(baseStruct.RootPath)
 	baseStruct.InitDB()
 	wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
@@ -41,6 +46,7 @@ func init() {
 		Log:   utils.TimeWheelLog,
 	})
 	rand.Seed(time.Now().UnixNano())
+	utils.Info.Println("初始化完成：", time.Now().Format("2006.01.02 15:04:05"))
 }
 
 func main() {
@@ -70,6 +76,7 @@ func main() {
 	if err != nil {
 		return
 	}
+	go spider.getHistory(nil)
 	wheel.Start()
 }
 
@@ -102,7 +109,6 @@ func (s *Spider) getDynamic(interface{}) {
 		}
 	}()
 
-	utils.Info.Println("getVideoInfo")
 	db := baseStruct.CanUserDb()
 	defer db.Close()
 	dynamicBaseLine := models.GetDynamicBaseline(db)

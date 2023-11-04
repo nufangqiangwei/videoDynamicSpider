@@ -323,7 +323,7 @@ func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (d
 	}
 	if dynamicResponseBody.Code == -101 {
 		// cookies失效
-		utils.ErrorLog.Println("cookies失效")
+		utils.ErrorLog.Println("cookies失效，请求出错")
 		bilibiliCookies.cookiesFail = false
 		bilibiliCookies.flushCookies()
 		if bilibiliCookies.cookiesFail {
