@@ -7,9 +7,9 @@ import (
 )
 
 func TestHistory(t *testing.T) {
-	utils.InitLog("E:\\GoCode\\videoDynamicAcquisition")
-	a := Spider.GetVideoList("") // 844412517694308370
-	fmt.Printf("%+v", a)
+	utils.InitLog("C:\\Code\\GO\\videoDynamicSpider")
+	vd := videoDetail{}
+	vd.getResponse("BV117411r7R1")
 }
 
 func TestFollowings(t *testing.T) {

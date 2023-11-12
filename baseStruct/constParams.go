@@ -7,7 +7,7 @@ import (
 
 const SqliteDaName = "videoInfo.db"
 
-var RootPath = "E:\\GoCode\\videoDynamicAcquisition"
+var RootPath = ""
 
 func init() {
 	ex, err := os.Executable()
@@ -18,5 +18,5 @@ func init() {
 		RootPath = filepath.Dir(ex)
 	}
 
-	println(RootPath)
+	println("RootPath地址：", RootPath)
 }

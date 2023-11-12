@@ -23,6 +23,7 @@ var (
 	videoCollection []VideoCollection
 	wheel           *timeWheel.TimeWheel
 	spider          *Spider
+	historyTaskId   int64
 )
 
 type VideoCollection interface {
@@ -60,7 +61,7 @@ func main() {
 	if err != nil {
 		return
 	}
-	_, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime() + 523})
+	historyTaskId, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: 10})
 	if err != nil {
 		return
 	}
@@ -76,7 +77,6 @@ func main() {
 	if err != nil {
 		return
 	}
-	go spider.getHistory(nil)
 	wheel.Start()
 }
 
@@ -177,7 +177,9 @@ func (s *Spider) getHistory(interface{}) {
 		if panicErr != nil {
 			_, ok := panicErr.(utils.DBFileLock)
 			if ok {
-				_, err := wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: oneTicket})
+				utils.ErrorLog.Println("执行报错，重新添加历史数据爬取")
+				var err error
+				historyTaskId, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: oneTicket})
 				if err != nil {
 					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				}
@@ -186,6 +188,7 @@ func (s *Spider) getHistory(interface{}) {
 			panic(panicErr)
 		}
 	}()
+	utils.Info.Printf("历史任务执行id：%d\n", historyTaskId)
 
 	db := baseStruct.CanUserDb()
 	defer db.Close()
@@ -232,7 +235,7 @@ func (s *Spider) getHistory(interface{}) {
 			}.Save(db)
 		case newestTimestamp := <-VideoHistoryCloseChan:
 			models.SaveHistoryBaseLine(db, strconv.FormatInt(newestTimestamp, 10))
-			_, err := wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
+			historyTaskId, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
 			if err != nil {
 				utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				return

@@ -120,7 +120,7 @@ func TestGetOneMoreAuthor(t *testing.T) {
 func TestFind(t *testing.T) {
 	fileName := fmt.Sprintf("%s\\video\\%s\\%d.json", baseStruct.RootPath, "2026561407", 1)
 	data, _ := os.ReadFile(fileName)
-	responseBody := new(videoListPageResponse)
+	responseBody := new(VideoListPageResponse)
 	json.Unmarshal(data, responseBody)
 	db := baseStruct.CanUserDb()
 	defer db.Close()
