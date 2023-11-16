@@ -1,9 +1,12 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	timeWheel "github.com/nufangqiangwei/timewheel"
 	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
@@ -577,4 +580,48 @@ func historyRunTime() int64 {
 		return 3600 + rand.Int63n(100)
 	}
 	return 7200 + rand.Int63n(100)
+}
+
+func saveAuthorAllVideo(db *sql.DB, response bilibili.VideoListPageResponse, webSiteId int64) []string {
+	var (
+		authorVideoUUID map[string]string
+		videoUUID       string
+		ok              bool
+		result          []string
+		authorId        int64
+		err             error
+	)
+	if len(response.Data.List.Vlist) > 0 {
+		err = db.QueryRow("select id from main.author where author_web_uid=?", response.Data.List.Vlist[0].Mid).Scan(&authorId)
+		if err != nil {
+			utils.ErrorLog.Printf(err.Error())
+			return nil
+		}
+	} else {
+		return []string{}
+	}
+	uuidQuery, err := db.Query("select uuid from video where author_id=?", authorId)
+	if err != nil {
+		utils.ErrorLog.Printf("saveAuthorAllVideo方法查询已有存有视频信息出错")
+		return nil
+	}
+
+	for uuidQuery.Next() {
+		err = uuidQuery.Scan(&videoUUID)
+		if err == nil {
+			authorVideoUUID[videoUUID] = ""
+		}
+	}
+	uuidQuery.Close()
+
+	for _, videoInfo := range response.Data.List.Vlist {
+		if _, ok = authorVideoUUID[videoInfo.Bvid]; ok {
+			continue
+		}
+		result = append(result,
+			fmt.Sprintf("(%d, %d,'%s','%s',%d,'%s','%s','%s')", webSiteId, authorId, videoInfo.Title, strings.Replace(videoInfo.Description, " ", "", -1),
+				bilibili.HourAndMinutesAndSecondsToSeconds(videoInfo.Length), videoInfo.Bvid, videoInfo.Pic, time.Unix(int64(videoInfo.Created), 0).Format("2006-01-02 15:04:05-07:00")))
+
+	}
+	return result
 }

@@ -1,13 +1,18 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
+	"fmt"
 	"github.com/google/uuid"
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/bilibili"
 )
 
 func TestUUID(t *testing.T) {
@@ -64,4 +69,59 @@ func TestWriteRequestParams(t *testing.T) {
 	slice2 = slice2[1:]
 	os.WriteFile(fileName, []byte(strings.Join(slice2, "\n")), fs.ModePerm)
 
+}
+func TestIntoFileData(t *testing.T) {
+	//
+	filePath := "C:\\Code\\GO\\videoDynamicSpider\\cmd\\spiderProxy\\allVideo"
+	fileNameList := []string{}
+	filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			fileNameList = append(fileNameList, info.Name())
+		}
+		return nil
+	})
+
+	responseStruct := new(bilibili.VideoListPageResponse)
+	db := baseStruct.CanUserDb()
+	lineValues := []string{}
+	sqlFile, _ := os.OpenFile(path.Join(filePath, "videoInertInto.sql"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	testIndex := 0
+	for _, fileName := range fileNameList {
+		fmt.Printf("%s\n", fileName)
+		if testIndex >= 10 {
+			return
+		}
+		file, err := os.Open(path.Join(filePath, fileName))
+
+		if err != nil {
+			println(err.Error())
+			continue
+		}
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			err = json.Unmarshal(line, responseStruct)
+			if err != nil {
+				continue
+			}
+
+			x := saveAuthorAllVideo(db, *responseStruct, 1)
+			if x != nil {
+				lineValues = append(lineValues, x...)
+			}
+			if len(lineValues) > 100 {
+				sqlFile.WriteString(fmt.Sprintf("insert into video (web_site_id, author_id, title, video_desc, duration, uuid, cover_url, upload_time)  values %s;\n", strings.Join(lineValues, ",")))
+				lineValues = []string{}
+				testIndex++
+			}
+		}
+		err = scanner.Err()
+		if err != nil {
+			println(err.Error())
+		}
+
+	}
 }

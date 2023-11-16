@@ -1,20 +1,3 @@
 docker run --name bilbilBuildSpider -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/spider
 docker run --name bilbilBuildWeb -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/webServer
-docker run --name appendBiliVideo -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/appendBiliVideo
-
-lsof -i:139 smbd
-lsof -i:2283 nginx
-lsof -i:40335
-lsof -i:111 rpcbind
-lsof -i:5432 postgres
-lsof -i:443 nginx
-lsof -i:892 mountd
-lsof -i:4700 cnid_meta
-lsof -i:445 smbd
-lsof -i:3262 iscsi_sna
-lsof -i:8096 jellyfin
-lsof -i:512 termd
-lsof -i:33760 statd
-lsof -i:2049
-lsof -i:5000 nginx
-lsof -i:5001 nginx
+docker run --name spiderProxy -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/spiderProxy
