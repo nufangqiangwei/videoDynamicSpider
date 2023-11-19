@@ -28,12 +28,6 @@ func (ci *Collect) CreateTale() string {
 }
 
 func (ci *Collect) CreateOrQuery(db *sql.DB) bool {
-	err := dbLock.Lock()
-	if err != nil {
-		panic(utils.DBFileLock{S: "数据库被锁"})
-	}
-	defer dbLock.Unlock()
-
 	r, err := db.Exec("INSERT INTO collect (type, bv_id, `name`) VALUES ( ?, ?, ?)", ci.Type, ci.BvId, ci.Name)
 	if err == nil {
 		ci.Id, _ = r.LastInsertId()
@@ -64,13 +58,16 @@ func (ci CollectVideo) CreateTale() string {
 }
 
 func (ci CollectVideo) Save(db *sql.DB) {
-	err := dbLock.Lock()
-	if err != nil {
-		panic(utils.DBFileLock{S: "数据库被锁"})
-	}
-	defer dbLock.Unlock()
-	_, err = db.Exec("INSERT INTO collect_video (collect_id, video_id,mtime) VALUES (?, ?,?)", ci.CollectId, ci.VideoId, ci.Mtime)
-	if err != nil && !utils.IsUniqueErr(err) {
+	_, err := db.Exec("INSERT INTO collect_video (collect_id, video_id,mtime) VALUES (?, ?,?)", ci.CollectId, ci.VideoId, timeCheck(ci.Mtime))
+	if err != nil && !utils.IsMysqlUniqueErr(err) {
 		utils.ErrorLog.Println("插入数据错误", err.Error())
 	}
 }
+
+//truncate table author;
+//truncate table bili_spider_history;
+//truncate table collect;
+//truncate table collect_video;
+//truncate table video;
+//truncate table video_history;
+//truncate table website;

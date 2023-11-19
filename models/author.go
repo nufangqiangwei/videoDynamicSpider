@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 	"videoDynamicAcquisition/utils"
 )
@@ -21,42 +22,46 @@ type Author struct {
 	CreateTime   time.Time
 }
 
+var cacheAuthor map[string]Author
+
 func (a *Author) CreateTale() string {
 	return `CREATE TABLE IF NOT EXISTS author (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				web_site_id INTEGER,
-				author_web_uid VARCHAR(255) ,
-				author_name VARCHAR(255) ,
-				avatar VARCHAR(255) ,
-				author_desc VARCHAR(255) ,
-				follow bool default false not null,
-				follow_time DATETIME default null,
-				crawl bool default false not null,
-				create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    			   constraint web_site_author
-        			unique (web_site_id, author_web_uid)
-				)`
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    web_site_id INT,
+    author_web_uid VARCHAR(255),
+    author_name VARCHAR(255),
+    avatar VARCHAR(255),
+    author_desc VARCHAR(255),
+    follow BOOL DEFAULT FALSE NOT NULL,
+    follow_time DATETIME DEFAULT NULL,
+    crawl BOOL DEFAULT FALSE NOT NULL,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT web_site_author UNIQUE (web_site_id, author_web_uid)
+);`
 }
 
-func (a *Author) GetOrCreate(db *sql.DB) {
-	err := dbLock.Lock()
-	if err != nil {
-		panic(utils.DBFileLock{S: "数据库被锁"})
+func (a *Author) GetOrCreate(db *sql.DB) error {
+	key := fmt.Sprintf("%d-%s", a.WebSiteId, a.AuthorWebUid)
+	if author, ok := cacheAuthor[key]; ok {
+		*a = author
+		return nil
 	}
-	defer dbLock.Unlock()
-	r, err := db.Exec("INSERT INTO author (web_site_id, author_web_uid,author_name,avatar,author_desc,follow,follow_time,crawl) VALUES (?, ?,?,?,?,?,?,?)", a.WebSiteId, a.AuthorWebUid, a.AuthorName, a.Avatar, a.Desc, a.Follow, a.FollowTime, a.Crawl)
-	if err == nil {
+
+	queryResult := db.QueryRow("SELECT Id,author_name,avatar,author_desc,follow,follow_time,crawl,create_time FROM author WHERE web_site_id=? AND author_web_uid = ?", a.WebSiteId, a.AuthorWebUid)
+	err := queryResult.Scan(&a.Id, &a.AuthorName, &a.Avatar, &a.Desc, &a.Follow, &a.FollowTime, &a.Crawl, &a.CreateTime)
+	if errors.Is(err, sql.ErrNoRows) {
+		r, err := db.Exec("INSERT INTO author (web_site_id, author_web_uid,author_name,avatar,author_desc,follow,follow_time,crawl) VALUES (?, ?,?,?,?,?,?,?)",
+			a.WebSiteId, a.AuthorWebUid, a.AuthorName, a.Avatar, a.Desc, a.Follow, timeCheck(a.FollowTime), a.Crawl)
+		if err != nil {
+			return err
+		}
 		a.Id, _ = r.LastInsertId()
 		a.CreateTime = time.Now()
-	} else {
-		avatar := ""
-		author_desc := ""
-		queryResult := db.QueryRow("SELECT Id,create_time,avatar,author_desc FROM author WHERE web_site_id=? AND author_web_uid = ?", a.WebSiteId, a.AuthorWebUid)
-		queryResult.Scan(&a.Id, &a.CreateTime, &avatar, &author_desc)
-		if a.Avatar != "" && a.Desc != "" && (a.Avatar != avatar || a.Desc != author_desc) {
-			db.Exec("UPDATE author SET avatar=?,author_desc=? WHERE Id=?", a.Avatar, a.Desc, a.Id)
-		}
+	} else if err != nil {
+		return err
 	}
+	cacheAuthor[key] = *a
+	return nil
 }
 
 func (a *Author) UpdateOrCreate(db *sql.DB) {
@@ -71,12 +76,8 @@ func (a *Author) UpdateOrCreate(db *sql.DB) {
 		utils.ErrorLog.Println(err.Error())
 		return
 	}
-	err = dbLock.Lock()
-	if err != nil {
-		panic(utils.DBFileLock{S: "数据库被锁"})
-	}
-	defer dbLock.Unlock()
 	db.Exec("UPDATE author SET avatar=?,author_desc=?,follow=true,follow_time=? WHERE Id=?", a.Avatar, a.Desc, a.FollowTime, authorId)
+	cacheAuthor[fmt.Sprintf("%d-%s", a.WebSiteId, a.AuthorWebUid)] = *a
 
 }
 
@@ -98,6 +99,11 @@ func GetAuthorList(db *sql.DB, webSiteId int) (result []Author) {
 }
 
 func (a *Author) Get(authorId int64, db *sql.DB) {
+	key := fmt.Sprintf("%d-%s", a.WebSiteId, a.AuthorWebUid)
+	if author, ok := cacheAuthor[key]; ok {
+		*a = author
+		return
+	}
 	r, err := db.Query("select * from author where id=? limit 1", authorId)
 	defer r.Close()
 	if err != nil {
@@ -110,4 +116,5 @@ func (a *Author) Get(authorId int64, db *sql.DB) {
 	if err != nil {
 		utils.ErrorLog.Println(err.Error())
 	}
+	cacheAuthor[key] = *a
 }

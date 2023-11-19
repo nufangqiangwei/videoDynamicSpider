@@ -2,9 +2,13 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	_ "github.com/go-sql-driver/mysql"
 	timeWheel "github.com/nufangqiangwei/timewheel"
 	"math/rand"
+	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -27,6 +31,9 @@ var (
 	wheel           *timeWheel.TimeWheel
 	spider          *Spider
 	historyTaskId   int64
+	dataPath        string
+	config          *Config
+	mysqlDatabase   *sql.DB
 )
 
 type VideoCollection interface {
@@ -37,14 +44,66 @@ type Spider struct {
 	interval int64
 }
 
+type Config struct {
+	DB struct {
+		HOST         string `json:"HOST"`
+		Port         int    `json:"Port"`
+		User         string `json:"User"`
+		Password     string `json:"Password"`
+		DatabaseName string `json:"DatabaseName"`
+	} `json:"DB"`
+	Proxy []struct {
+		IP    string `json:"IP"`
+		HOST  int    `json:"HOST"`
+		Token string `json:"Token"`
+	} `json:"Proxy"`
+	DataPath string
+}
+
+func readConfig() error {
+	fileData, err := os.ReadFile("./config.json")
+	if err != nil {
+		println(err.Error())
+		return err
+	}
+	config = &Config{}
+	err = json.Unmarshal(fileData, config)
+	if err != nil {
+		println(err.Error())
+		return err
+	}
+	fmt.Printf("%v\n", &config)
+	return nil
+}
+
 func init() {
 	location, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
+		println("时区设置错误")
+		os.Exit(2)
 		return
 	}
 	time.Local = location
-	utils.InitLog(baseStruct.RootPath)
-	baseStruct.InitDB()
+	err = readConfig()
+	if err != nil {
+		os.Exit(2)
+		return
+	}
+	if config.DataPath != "" {
+		dataPath = config.DataPath
+		baseStruct.RootPath = config.DataPath
+	} else {
+		dataPath = baseStruct.RootPath
+	}
+	utils.InitLog(dataPath)
+
+	mysqlDatabase, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName))
+	if err != nil {
+		utils.ErrorLog.Println("数据库连接出错")
+		utils.ErrorLog.Println(err.Error())
+		return
+	}
+	//baseStruct.InitDB()
 	wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
 		IsRun: false,
 		Log:   utils.TimeWheelLog,
@@ -112,9 +171,7 @@ func (s *Spider) getDynamic(interface{}) {
 		}
 	}()
 
-	db := baseStruct.CanUserDb()
-	defer db.Close()
-	dynamicBaseLine := models.GetDynamicBaseline(db)
+	dynamicBaseLine := models.GetDynamicBaseline(mysqlDatabase)
 	videoResultChan := make(chan baseStruct.VideoInfo)
 	closeChan := make(chan baseStruct.TaskClose)
 	runWebSite := make([]string, 0)
@@ -127,14 +184,19 @@ func (s *Spider) getDynamic(interface{}) {
 	var (
 		videoInfo baseStruct.VideoInfo
 		closeInfo baseStruct.TaskClose
+		err       error
 	)
 	for {
 		select {
 		case videoInfo = <-videoResultChan:
 			website := models.WebSite{WebName: videoInfo.WebSite}
-			website.GetOrCreate(db)
+			website.GetOrCreate(mysqlDatabase)
 			author := models.Author{AuthorName: videoInfo.AuthorName, WebSiteId: website.Id, AuthorWebUid: videoInfo.AuthorUuid}
-			author.GetOrCreate(db)
+			err = author.GetOrCreate(mysqlDatabase)
+			if err != nil {
+				utils.ErrorLog.Println(err.Error())
+				continue
+			}
 			videoModel := models.Video{
 				WebSiteId:  website.Id,
 				AuthorId:   author.Id,
@@ -146,7 +208,7 @@ func (s *Spider) getDynamic(interface{}) {
 				CoverUrl:   videoInfo.CoverUrl,
 				UploadTime: videoInfo.PushTime,
 			}
-			videoModel.Save(db)
+			videoModel.Save(mysqlDatabase)
 		case closeInfo = <-closeChan:
 			// 删除closeInfo.WebSite的任务
 			for index, v := range runWebSite {
@@ -156,7 +218,7 @@ func (s *Spider) getDynamic(interface{}) {
 				}
 			}
 			if closeInfo.WebSite == "bilibili" && closeInfo.Code > 0 {
-				models.SaveDynamicBaseline(db, strconv.Itoa(closeInfo.Code))
+				models.SaveDynamicBaseline(mysqlDatabase, strconv.Itoa(closeInfo.Code))
 			}
 		}
 		if len(runWebSite) == 0 {
@@ -166,7 +228,7 @@ func (s *Spider) getDynamic(interface{}) {
 	close(closeChan)
 	close(videoResultChan)
 
-	_, err := wheel.AppendOnceFunc(s.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(defaultTicket, sixTime, twentyTime)})
+	_, err = wheel.AppendOnceFunc(s.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(defaultTicket, sixTime, twentyTime)})
 	if err != nil {
 		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 		return
@@ -178,6 +240,7 @@ func (s *Spider) getHistory(interface{}) {
 	defer func() {
 		panicErr := recover()
 		if panicErr != nil {
+			utils.ErrorLog.Println(string(debug.Stack()))
 			_, ok := panicErr.(utils.DBFileLock)
 			if ok {
 				utils.ErrorLog.Println("执行报错，重新添加历史数据爬取")
@@ -193,9 +256,7 @@ func (s *Spider) getHistory(interface{}) {
 	}()
 	utils.Info.Printf("历史任务执行id：%d\n", historyTaskId)
 
-	db := baseStruct.CanUserDb()
-	defer db.Close()
-	baseLine := models.GetHistoryBaseLine(db)
+	baseLine := models.GetHistoryBaseLine(mysqlDatabase)
 	var (
 		lastHistoryTimestamp int64 = 0
 		err                  error
@@ -211,7 +272,7 @@ func (s *Spider) getHistory(interface{}) {
 	VideoHistoryCloseChan := make(chan int64)
 	go bilibili.Spider.GetVideoHistoryList(lastHistoryTimestamp, VideoHistoryChan, VideoHistoryCloseChan)
 	website := models.WebSite{WebName: "bilibili"}
-	website.GetOrCreate(db)
+	website.GetOrCreate(mysqlDatabase)
 	for {
 		select {
 		case videoInfo := <-VideoHistoryChan:
@@ -221,23 +282,23 @@ func (s *Spider) getHistory(interface{}) {
 				AuthorWebUid: videoInfo.AuthorUuid,
 				Crawl:        true,
 			}
-			author.GetOrCreate(db)
+			author.GetOrCreate(mysqlDatabase)
 			vi := models.Video{}
-			vi.GetByUid(db, videoInfo.VideoUuid)
+			vi.GetByUid(mysqlDatabase, videoInfo.VideoUuid)
 			if vi.Id <= 0 {
 				vi.CreateTime = videoInfo.PushTime
 				vi.Title = videoInfo.Title
 				vi.Uuid = videoInfo.VideoUuid
 				vi.AuthorId = author.Id
-				vi.Save(db)
+				vi.Save(mysqlDatabase)
 			}
 			models.VideoHistory{
 				WebSiteId: website.Id,
 				VideoId:   vi.Id,
 				ViewTime:  videoInfo.PushTime,
-			}.Save(db)
+			}.Save(mysqlDatabase)
 		case newestTimestamp := <-VideoHistoryCloseChan:
-			models.SaveHistoryBaseLine(db, strconv.FormatInt(newestTimestamp, 10))
+			models.SaveHistoryBaseLine(mysqlDatabase, strconv.FormatInt(newestTimestamp, 10))
 			historyTaskId, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
 			if err != nil {
 				utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
@@ -265,13 +326,11 @@ func (s *Spider) updateCollectList(interface{}) {
 		}
 	}()
 
-	db := baseStruct.CanUserDb()
-	defer db.Close()
 	web := models.WebSite{
 		WebName: "bilibili",
 	}
-	web.GetOrCreate(db)
-	newCollectList := bilibili.Spider.GetCollectList(db)
+	web.GetOrCreate(mysqlDatabase)
+	newCollectList := bilibili.Spider.GetCollectList(mysqlDatabase)
 	for _, collectId := range newCollectList.Collect {
 		for _, info := range bilibili.Spider.GetCollectAllVideo(collectId, 0) {
 			author := models.Author{
@@ -282,9 +341,9 @@ func (s *Spider) updateCollectList(interface{}) {
 				Follow:       false,
 				Crawl:        true,
 			}
-			author.GetOrCreate(db)
+			author.GetOrCreate(mysqlDatabase)
 			vi := models.Video{}
-			vi.GetByUid(db, info.Bvid)
+			vi.GetByUid(mysqlDatabase, info.Bvid)
 			if vi.Id <= 0 {
 				vi.WebSiteId = web.Id
 				vi.AuthorId = author.Id
@@ -294,13 +353,13 @@ func (s *Spider) updateCollectList(interface{}) {
 				vi.Uuid = info.Bvid
 				vi.CoverUrl = info.Cover
 				vi.UploadTime = time.Unix(info.Ctime, 0)
-				vi.Save(db)
+				vi.Save(mysqlDatabase)
 			}
 			models.CollectVideo{
 				CollectId: collectId,
 				VideoId:   vi.Id,
 				Mtime:     time.Unix(info.FavTime, 0),
-			}.Save(db)
+			}.Save(mysqlDatabase)
 		}
 	}
 	for _, collectId := range newCollectList.Season {
@@ -312,9 +371,9 @@ func (s *Spider) updateCollectList(interface{}) {
 				Follow:       false,
 				Crawl:        true,
 			}
-			author.GetOrCreate(db)
+			author.GetOrCreate(mysqlDatabase)
 			vi := models.Video{}
-			vi.GetByUid(db, info.Bvid)
+			vi.GetByUid(mysqlDatabase, info.Bvid)
 			if vi.Id <= 0 {
 				vi.WebSiteId = web.Id
 				vi.AuthorId = author.Id
@@ -322,12 +381,12 @@ func (s *Spider) updateCollectList(interface{}) {
 				vi.Duration = info.Duration
 				vi.Uuid = info.Bvid
 				vi.CoverUrl = info.Cover
-				vi.Save(db)
+				vi.Save(mysqlDatabase)
 			}
 			models.CollectVideo{
 				CollectId: collectId,
 				VideoId:   vi.Id,
-			}.Save(db)
+			}.Save(mysqlDatabase)
 
 		}
 		time.Sleep(time.Second * 5)
@@ -357,10 +416,7 @@ func (s *Spider) updateCollectVideoList(interface{}) {
 		}
 	}()
 
-	db := baseStruct.CanUserDb()
-	defer db.Close()
-
-	query, err := db.Query("select cv.collect_id,v.uuid from collect_video cv inner join collect c on c.bv_id = cv.collect_id inner join video v on v.id = cv.video_id where c.`type` = 1 and mtime>'0001-01-01 00:00:00+00:00' order by cv.collect_id,mtime desc")
+	query, err := mysqlDatabase.Query("select cv.collect_id,v.uuid from collect_video cv inner join collect c on c.bv_id = cv.collect_id inner join video v on v.id = cv.video_id where c.`type` = 1 and mtime>'0001-01-01 00:00:00+00:00' order by cv.collect_id,mtime desc")
 	queryResult := make(map[int64][]string)
 	if err != nil {
 		utils.ErrorLog.Printf("查询收藏夹视频数量失败：%s\n", err.Error())
@@ -401,7 +457,7 @@ func (s *Spider) updateCollectVideoList(interface{}) {
 	web := models.WebSite{
 		WebName: "bilibili",
 	}
-	web.GetOrCreate(db)
+	web.GetOrCreate(mysqlDatabase)
 	for _, collectId = range waitUpdateList {
 		r := bilibili.Spider.GetCollectAllVideo(collectId, 1)
 		countList = queryResult[collectId]
@@ -414,9 +470,9 @@ func (s *Spider) updateCollectVideoList(interface{}) {
 					Follow:       false,
 					Crawl:        true,
 				}
-				author.GetOrCreate(db)
+				author.GetOrCreate(mysqlDatabase)
 				vi := models.Video{}
-				vi.GetByUid(db, info.Bvid)
+				vi.GetByUid(mysqlDatabase, info.Bvid)
 				if vi.Id <= 0 {
 					vi.WebSiteId = web.Id
 					vi.AuthorId = author.Id
@@ -424,12 +480,12 @@ func (s *Spider) updateCollectVideoList(interface{}) {
 					vi.Duration = info.Duration
 					vi.Uuid = info.Bvid
 					vi.CoverUrl = info.Cover
-					vi.Save(db)
+					vi.Save(mysqlDatabase)
 				}
 				models.CollectVideo{
 					CollectId: collectId,
 					VideoId:   vi.Id,
-				}.Save(db)
+				}.Save(mysqlDatabase)
 			}
 		}
 	}
@@ -458,16 +514,14 @@ func (s *Spider) updateFollowInfo(interface{}) {
 		}
 	}()
 
-	db := baseStruct.CanUserDb()
-	defer db.Close()
 	web := models.WebSite{
 		WebName: "bilibili",
 	}
-	web.GetOrCreate(db)
+	web.GetOrCreate(mysqlDatabase)
 	resultChan := make(chan bilibili.FollowingUP)
 	closeChan := make(chan int64)
 	go bilibili.Spider.GetFollowingList(resultChan, closeChan)
-	r, err := db.Query("select author_web_uid from main.author where follow=1")
+	r, err := mysqlDatabase.Query("select author_web_uid from main.author where follow=1")
 	if err != nil {
 		utils.ErrorLog.Printf("查询当前关注失败：%s\n", err.Error())
 		return
@@ -508,7 +562,7 @@ func (s *Spider) updateFollowInfo(interface{}) {
 				Follow:       true,
 				FollowTime:   time.Unix(upInfo.Mtime, 0),
 			}
-			author.UpdateOrCreate(db)
+			author.UpdateOrCreate(mysqlDatabase)
 		case <-closeChan:
 			close = true
 		}
@@ -525,14 +579,12 @@ func (s *Spider) updateFollowInfo(interface{}) {
 }
 
 func deleteRepeatAuthor() {
-	db := baseStruct.CanUserDb()
-	defer db.Close()
 	//select author_name
 	//from author
 	//group by author_name
 	//having count(*) > 1;
 
-	repeatAuthor, err := db.Query("select author_name from author group by author_name having count(*) > 1")
+	repeatAuthor, err := mysqlDatabase.Query("select author_name from author group by author_name having count(*) > 1")
 	if err != nil {
 		return
 	}
@@ -549,7 +601,7 @@ func deleteRepeatAuthor() {
 	}
 	repeatAuthor.Close()
 	for _, authorName = range authorList {
-		_, err = db.Exec("update video set author_id  = (select id from author where author_name = ? and author.web_site_id = 1),    web_site_id=1 where author_id = (select id from author where author_name = ? and author.web_site_id = 0);", authorName, authorName)
+		_, err = mysqlDatabase.Exec("update video set author_id  = (select id from author where author_name = ? and author.web_site_id = 1),    web_site_id=1 where author_id = (select id from author where author_name = ? and author.web_site_id = 0);", authorName, authorName)
 		if err != nil {
 			println(err.Error())
 			continue

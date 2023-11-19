@@ -108,8 +108,6 @@ func getAuthorVideoList(authorId int64, db *sql.DB) {
 	}
 	var pageIndex int
 	videoPage := videoListPage{}
-	authorVideoNumber := models.BiliAuthorVideoNumber{}
-	authorVideoNumber.GetAuthorVideoNumber(author.Id, db)
 	utils.Info.Printf("%s查询视频列表\n", author.AuthorName)
 	pageIndex = 1
 	for {
@@ -133,17 +131,6 @@ func getAuthorVideoList(authorId int64, db *sql.DB) {
 			mv.Save(db)
 		}
 
-		if authorVideoNumber.VideoNumber != res.Data.Page.Count && authorVideoNumber.VideoNumber == 0 {
-			authorVideoNumber.VideoNumber = res.Data.Page.Count
-			authorVideoNumber.UpdateNumber(db)
-		}
-		time.Sleep(time.Second)
-		if authorVideoNumber.VideoNumber > 500 {
-			authorVideoNumber.VideoNumber = 500
-		}
-		if (pageIndex * 50) >= authorVideoNumber.VideoNumber {
-			break
-		}
 		pageIndex++
 	}
 	db.Exec("update author set follow=true where id=?", author.Id)

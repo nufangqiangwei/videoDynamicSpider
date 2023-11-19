@@ -29,7 +29,7 @@ func (c *cookies) flushCookies() {
 
 func (c *cookies) readFile() {
 	// 读取文件中的cookies
-	filePath := path.Join(baseStruct.RootPath, "bilibili", "bilibiliCookies")
+	filePath := path.Join(baseStruct.RootPath, "bilibiliCookies")
 	println(filePath)
 	f, err := os.ReadFile(filePath)
 

@@ -3,7 +3,6 @@ package bilibili
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/url"
 	"os"
 	"strings"
@@ -12,23 +11,6 @@ import (
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/models"
 )
-
-func TestGetVideoList(t *testing.T) {
-	db := baseStruct.CanUserDb()
-	defer db.Close()
-	authorList := models.GetAuthorList(db, 1)
-	//rangeAuthor:
-	rand.Seed(time.Now().Unix())
-	for _, author := range authorList {
-		if author.Follow {
-			continue
-		}
-		getAuthorVideoList(author.Id, db)
-		sleepTime := rand.Intn(20) + 10
-		fmt.Printf("休眠%d秒\n", sleepTime)
-		time.Sleep(time.Duration(sleepTime) * time.Second)
-	}
-}
 
 func TestGetOneMoreAuthor(t *testing.T) {
 	var (

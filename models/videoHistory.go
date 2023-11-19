@@ -25,12 +25,7 @@ func (vh VideoHistory) CreateTale() string {
 }
 
 func (vh VideoHistory) Save(db *sql.DB) {
-	err := dbLock.Lock()
-	if err != nil {
-		panic(utils.DBFileLock{S: "数据库被锁"})
-	}
-	defer dbLock.Unlock()
-	_, err = db.Exec("INSERT INTO video_history (web_site_id, video_id, view_time) VALUES (?, ?, ?)", vh.WebSiteId, vh.VideoId, vh.ViewTime)
+	_, err := db.Exec("INSERT INTO video_history (web_site_id, video_id, view_time) VALUES (?, ?, ?)", vh.WebSiteId, vh.VideoId, timeCheck(vh.ViewTime))
 	if err != nil && !utils.IsUniqueErr(err) {
 		utils.ErrorLog.Println("插入数据错误", err.Error())
 	}

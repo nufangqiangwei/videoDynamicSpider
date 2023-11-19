@@ -2,8 +2,8 @@ package models
 
 import (
 	"database/sql"
+	"errors"
 	"time"
-	"videoDynamicAcquisition/utils"
 )
 
 // WebSite 网站列表，网站信息
@@ -16,6 +16,8 @@ type WebSite struct {
 	CreateTime       time.Time
 }
 
+var cacheWebSite map[string]WebSite
+
 func (w *WebSite) CreateTale() string {
 	return `CREATE TABLE IF NOT EXISTS website (
 				id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -27,25 +29,27 @@ func (w *WebSite) CreateTale() string {
                                    )`
 }
 
-func (w *WebSite) GetOrCreate(db *sql.DB) {
-	err := dbLock.Lock()
-	if err != nil {
-		panic(utils.DBFileLock{S: "数据库被锁"})
+func (w *WebSite) GetOrCreate(db *sql.DB) error {
+	if website, ok := cacheWebSite[w.WebName]; ok {
+		*w = website
+		return nil
 	}
-	defer dbLock.Unlock()
 
-	r, err := db.Exec("INSERT INTO website (web_name, web_host, web_author_base_url, web_video_base_url) VALUES (?, ?, ?, ?)",
-		w.WebName, w.WebHost, w.WebAuthorBaseUrl, w.WebVideoBaseUrl)
-	if err == nil {
+	queryResult := db.QueryRow("SELECT id,create_time FROM website WHERE web_name = ?", w.WebName)
+	err := queryResult.Scan(&w.Id, &w.CreateTime)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		r, err := db.Exec("INSERT INTO website (web_name, web_host, web_author_base_url, web_video_base_url) VALUES (?, ?, ?, ?)",
+			w.WebName, w.WebHost, w.WebAuthorBaseUrl, w.WebVideoBaseUrl)
+		if err != nil {
+			return err
+		}
 		w.Id, _ = r.LastInsertId()
 		w.CreateTime = time.Now()
-	} else if utils.IsUniqueErr(err) {
-		queryResult := db.QueryRow("SELECT id,create_time FROM website WHERE web_name = ?", w.WebName)
-		err = queryResult.Scan(&w.Id, &w.CreateTime)
-		if err != nil {
-			println(err.Error())
-		}
-	} else {
-		utils.ErrorLog.Println("插入数据错误", err.Error())
+	} else if err != nil {
+		return err
 	}
+
+	cacheWebSite[w.WebName] = *w
+	return nil
 }

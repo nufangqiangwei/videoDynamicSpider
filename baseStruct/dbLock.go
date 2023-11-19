@@ -54,7 +54,6 @@ func InitDB() {
 		&models.WebSite{},
 		&models.Author{},
 		&models.Video{},
-		&models.BiliAuthorVideoNumber{},
 		&models.BiliSpiderHistory{},
 		&models.VideoHistory{},
 		&models.Collect{},

@@ -1,3 +1,7 @@
 docker run --name bilbilBuildSpider -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/spider
 docker run --name bilbilBuildWeb -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/webServer
 docker run --name spiderProxy -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/spiderProxy
+
+
+
+docker run --name bilbilSpider -v /volume4/Download/bilbilSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 /home/workspace/spider

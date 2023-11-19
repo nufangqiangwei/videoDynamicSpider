@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"github.com/go-sql-driver/mysql"
 	"github.com/mattn/go-sqlite3"
 )
 
@@ -40,6 +41,15 @@ func IsUniqueErr(err error) bool {
 			sqliteErr.ExtendedCode == sqlite3.ErrConstraintPrimaryKey {
 			return true
 		}
+	}
+	return false
+}
+
+func IsMysqlUniqueErr(err error) bool {
+	var mysqlErr *mysql.MySQLError
+	mysqlErr = new(mysql.MySQLError)
+	if errors.As(err, &mysqlErr) {
+		return mysqlErr.Number == 1062
 	}
 	return false
 }
