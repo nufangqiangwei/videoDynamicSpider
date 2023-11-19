@@ -2,17 +2,24 @@ package models
 
 import (
 	_ "github.com/mattn/go-sqlite3"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 	"time"
 	"videoDynamicAcquisition/utils"
 )
 
 var (
 	dbLock *utils.Flock
+	db     *gorm.DB
 )
 
-func init() {
+func InitDB(dsn string) {
 	cacheWebSite = make(map[string]WebSite)
 	cacheAuthor = make(map[string]Author)
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return
+	}
 }
 
 func timeCheck(t time.Time) interface{} {
