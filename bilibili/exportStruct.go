@@ -1,7 +1,6 @@
 package bilibili
 
 import (
-	"database/sql"
 	"encoding/json"
 	"strconv"
 	"time"
@@ -251,7 +250,7 @@ type NewCollect struct {
 }
 
 // GetCollectList 获取收藏夹和专栏列表,不包含里面的视频信息
-func (s BiliSpider) GetCollectList(db *sql.DB) NewCollect {
+func (s BiliSpider) GetCollectList() NewCollect {
 	a := getCollectList("10932398")
 	result := new(NewCollect)
 	var x models.Collect
@@ -262,7 +261,7 @@ func (s BiliSpider) GetCollectList(db *sql.DB) NewCollect {
 				BvId: info.Id,
 				Name: info.Title,
 			}
-			if x.CreateOrQuery(db) {
+			if x.Save() {
 				result.Collect = append(result.Collect, x.BvId)
 			}
 		}
@@ -276,7 +275,7 @@ func (s BiliSpider) GetCollectList(db *sql.DB) NewCollect {
 				BvId: info.Id,
 				Name: info.Title,
 			}
-			if x.CreateOrQuery(db) {
+			if x.Save() {
 				result.Season = append(result.Season, x.BvId)
 			}
 		}

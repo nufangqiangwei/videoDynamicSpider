@@ -1,73 +1,60 @@
 package models
 
 import (
-	"database/sql"
+	"strings"
 	"time"
 	"videoDynamicAcquisition/utils"
 )
 
 type Collect struct {
-	Id   int64  `json:"id"`
+	Id   int64  `json:"id" gorm:"primaryKey"`
 	Type int    `json:"type"`  // 1: 收藏夹 2: 专栏
 	BvId int64  `json:"bv_id"` // 收藏夹的bv号
 	Name string `json:"name"`  // 收藏夹的名字
 }
 type CollectVideo struct {
-	CollectId int64     `json:"collect_id"`
-	VideoId   int64     `json:"video_id"`
+	CollectId int64     `json:"collect_id" gorm:"uniqueIndex:collectId_videoId"`
+	VideoId   int64     `json:"video_id" gorm:"uniqueIndex:collectId_videoId"`
 	Mtime     time.Time `json:"mtime"`
 }
 
-func (ci *Collect) CreateTale() string {
-	return `CREATE TABLE IF NOT EXISTS collect (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		type INTEGER NOT NULL,
-		bv_id INTEGER NOT NULL unique ,
-		name VARCHAR(255) NOT NULL
-	);`
-}
-
-func (ci *Collect) CreateOrQuery(db *sql.DB) bool {
-	r, err := db.Exec("INSERT INTO collect (type, bv_id, `name`) VALUES ( ?, ?, ?)", ci.Type, ci.BvId, ci.Name)
-	if err == nil {
-		ci.Id, _ = r.LastInsertId()
-		return true
-	} else if !utils.IsUniqueErr(err) {
-		println(err.Error())
-		r, err := db.Query("select id from collect where bv_id = ?", ci.BvId)
-		defer r.Close()
-		if err != nil {
-			return false
-		}
-		if r.Next() {
-			r.Scan(&ci.Id)
-		}
+func (ci *Collect) Save() bool {
+	tx := gormDB.First(ci, "type = ? and bv_id = ?", ci.Type, ci.BvId)
+	if tx.Error != nil {
+		return false
+	}
+	if tx.RowsAffected == 0 {
+		gormDB.Create(ci)
 		return false
 	}
 	return true
 }
 
-func (ci CollectVideo) CreateTale() string {
-	return `CREATE TABLE IF NOT EXISTS collect_video (
-		collect_id INTEGER NOT NULL,
-		video_id INTEGER NOT NULL,
-		mtime datetime,
-		    			   constraint web_site_author
-				unique (collect_id, video_id)
-	);`
-}
-
-func (ci CollectVideo) Save(db *sql.DB) {
-	_, err := db.Exec("INSERT INTO collect_video (collect_id, video_id,mtime) VALUES (?, ?,?)", ci.CollectId, ci.VideoId, timeCheck(ci.Mtime))
-	if err != nil && !utils.IsMysqlUniqueErr(err) {
-		utils.ErrorLog.Println("插入数据错误", err.Error())
+func (ci CollectVideo) Save() {
+	tx := gormDB.Create(&ci)
+	if tx.Error != nil {
+		// 如果是唯一索引处突就忽略
+		if strings.Contains(tx.Error.Error(), "UNIQUE constraint failed") || strings.Contains(tx.Error.Error(), "Duplicate entry") {
+			return
+		}
+		utils.ErrorLog.Printf("CollectVideo Save error %v\n", tx.Error)
 	}
 }
 
-//truncate table author;
-//truncate table bili_spider_history;
-//truncate table collect;
-//truncate table collect_video;
-//truncate table video;
-//truncate table video_history;
-//truncate table website;
+type CollectVideoInfo struct {
+	CollectId int64
+	Video
+}
+
+func GetAllCollectVideo() []CollectVideoInfo {
+	// select cv.collect_id,v.* from collect_video cv inner join collect c on c.bv_id = cv.collect_id inner join video v on v.id = cv.video_id where c.`type` = 1 and mtime>'0001-01-01 00:00:00+00:00' order by cv.collect_id,mtime desc
+	var result []CollectVideoInfo
+	gormDB.Table("collect_video cv").
+		Select("cv.collect_id,v.*").
+		Joins("inner join collect c on c.bv_id = cv.collect_id").
+		Joins("inner join video v on v.id = cv.video_id").
+		Where("c.`type` = 1 and mtime>'0001-01-01 00:00:00+00:00'").
+		Order("cv.collect_id,mtime desc").
+		Find(&result)
+	return result
+}

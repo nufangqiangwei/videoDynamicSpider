@@ -199,9 +199,9 @@ func mergeDB(sourceDBs []*sql.DB) {
 				AuthorWebUid: dbVideoInfo.authorWebUid,
 				AuthorName:   dbVideoInfo.authorName,
 				Avatar:       dbVideoInfo.avatar,
-				Desc:         dbVideoInfo.authorDesc,
+				AuthorDesc:   dbVideoInfo.authorDesc,
 				Follow:       false,
-				FollowTime:   time.Time{},
+				FollowTime:   nil,
 				Crawl:        false,
 				CreateTime:   time.Time{},
 			}
@@ -215,42 +215,25 @@ func mergeDB(sourceDBs []*sql.DB) {
 				WebSiteId:  webId,
 				AuthorId:   authorModel.Id,
 				Title:      dbVideoInfo.videoTitle,
-				Desc:       dbVideoInfo.Desc,
+				VideoDesc:  dbVideoInfo.Desc,
 				Duration:   dbVideoInfo.duration,
 				Uuid:       dbVideoInfo.uuid,
 				Url:        "",
 				CoverUrl:   dbVideoInfo.cover,
-				UploadTime: time.Time{},
+				UploadTime: nil,
 				CreateTime: time.Time{},
 			}
 		}
 	}
 
 	saveDb, _ := sql.Open("sqlite3", "C:\\Code\\GO\\videoDynamicSpider\\newDb.db")
-	baseModels := []models.BaseModel{
-		&models.WebSite{},
-		&models.Author{},
-		&models.Video{},
-		&models.BiliAuthorVideoNumber{},
-		&models.BiliSpiderHistory{},
-		&models.VideoHistory{},
-		&models.Collect{},
-		&models.CollectVideo{},
-	}
-	for _, baseModel := range baseModels {
-		_, err := saveDb.Exec(baseModel.CreateTale())
-		if err != nil {
-			utils.ErrorLog.Println("创建表失败")
-			utils.ErrorLog.Println(err.Error())
-			utils.ErrorLog.Println(baseModel.CreateTale())
-		}
-	}
+
 	//for _, authorM := range author {
-	//	saveDb.Exec("INSERT INTO author (id,web_site_id, author_web_uid,author_name,avatar,author_desc,follow,follow_time,crawl) VALUES (?,?,?,?,?,?,?,?,?)", authorM.Id, authorM.WebSiteId, authorM.AuthorWebUid, authorM.AuthorName, authorM.Avatar, authorM.Desc, authorM.Follow, authorM.FollowTime, authorM.Crawl)
+	//	saveDb.Exec("INSERT INTO author (id,web_site_id, author_web_uid,author_name,avatar,author_desc,follow,follow_time,crawl) VALUES (?,?,?,?,?,?,?,?,?)", authorM.Id, authorM.WebSiteId, authorM.AuthorWebUid, authorM.AuthorName, authorM.Avatar, authorM.AuthorDesc, authorM.Follow, authorM.FollowTime, authorM.Crawl)
 	//}
 	//for _, videoM := range video {
 	//	saveDb.Exec("INSERT INTO video (id,web_site_id, author_id, title,video_desc,duration,uuid, url, cover_url) VALUES (?,?, ?, ?, ?,?,?,?,?)",
-	//		videoM.Id, videoM.WebSiteId, videoM.AuthorId, videoM.Title, videoM.Desc, videoM.Duration, videoM.Uuid, videoM.Url, videoM.CoverUrl)
+	//		videoM.Id, videoM.WebSiteId, videoM.AuthorId, videoM.Title, videoM.AuthorDesc, videoM.Duration, videoM.Uuid, videoM.Url, videoM.CoverUrl)
 	//}
 	resultChan := make(chan videoHistory)
 	videoHistoryMap := make(map[string][]time.Time)

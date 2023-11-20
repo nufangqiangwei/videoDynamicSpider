@@ -16,11 +16,16 @@ var (
 	Info         *log.Logger
 	Warning      *log.Logger
 	ErrorLog     *log.Logger
+	DBlog        *log.Logger
 )
 
 func InitLog(lofFilePath string) {
-	var writer io.Writer
+	var (
+		writer    io.Writer
+		dbLogFile string
+	)
 	if !strings.HasSuffix(lofFilePath, ".log") {
+		dbLogFile = path.Join(lofFilePath, "db.log")
 		lofFilePath = path.Join(lofFilePath, "videoSpider.log")
 	}
 	println("lofFilePath日志文件输出地址: ", lofFilePath)
@@ -33,6 +38,8 @@ func InitLog(lofFilePath string) {
 		)
 	} else if runtime.GOOS == "windows" {
 		writer, _ = os.OpenFile(lofFilePath, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
+		dbWriter, _ := os.OpenFile(dbLogFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
+		DBlog = log.New(dbWriter, "DB:", log.Ldate|log.Ltime|log.Lshortfile)
 	}
 
 	log.SetOutput(writer)

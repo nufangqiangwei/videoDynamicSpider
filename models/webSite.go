@@ -1,53 +1,28 @@
 package models
 
-import (
-	"database/sql"
-	"errors"
-	"time"
-)
+import "time"
 
 // WebSite 网站列表，网站信息
 type WebSite struct {
-	Id               int64
-	WebName          string
-	WebHost          string
-	WebAuthorBaseUrl string
-	WebVideoBaseUrl  string
-	CreateTime       time.Time
+	Id               int64     `gorm:"primaryKey"`
+	WebName          string    `gorm:"unique;type:varchar(255)"`
+	WebHost          string    `gorm:"type:varchar(255)"`
+	WebAuthorBaseUrl string    `gorm:"type:varchar(255)"`
+	WebVideoBaseUrl  string    `gorm:"type:varchar(255)"`
+	CreateTime       time.Time `gorm:"type:datetime;default:CURRENT_TIMESTAMP"`
 }
 
 var cacheWebSite map[string]WebSite
 
-func (w *WebSite) CreateTale() string {
-	return `CREATE TABLE IF NOT EXISTS website (
-				id INTEGER PRIMARY KEY AUTOINCREMENT, 
-				web_name VARCHAR(255) unique,
-				web_host VARCHAR(255), 
-				web_author_base_url VARCHAR(255), 
-				web_video_base_url VARCHAR(255), 
-				create_time DATETIME DEFAULT CURRENT_TIMESTAMP
-                                   )`
-}
-
-func (w *WebSite) GetOrCreate(db *sql.DB) error {
+func (w *WebSite) GetOrCreate() error {
 	if website, ok := cacheWebSite[w.WebName]; ok {
 		*w = website
 		return nil
 	}
 
-	queryResult := db.QueryRow("SELECT id,create_time FROM website WHERE web_name = ?", w.WebName)
-	err := queryResult.Scan(&w.Id, &w.CreateTime)
-
-	if errors.Is(err, sql.ErrNoRows) {
-		r, err := db.Exec("INSERT INTO website (web_name, web_host, web_author_base_url, web_video_base_url) VALUES (?, ?, ?, ?)",
-			w.WebName, w.WebHost, w.WebAuthorBaseUrl, w.WebVideoBaseUrl)
-		if err != nil {
-			return err
-		}
-		w.Id, _ = r.LastInsertId()
-		w.CreateTime = time.Now()
-	} else if err != nil {
-		return err
+	result := gormDB.FirstOrCreate(w, &WebSite{WebName: w.WebName})
+	if result.Error != nil {
+		return result.Error
 	}
 
 	cacheWebSite[w.WebName] = *w

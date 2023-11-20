@@ -25,7 +25,6 @@ func GetAuthorVideoList(ctx *gin.Context) {
 
 func main() {
 	utils.InitLog(baseStruct.RootPath)
-	baseStruct.InitDB()
 
 	server := gin.Default()
 	server.POST("/getAuthorVideoList", GetAuthorVideoList)

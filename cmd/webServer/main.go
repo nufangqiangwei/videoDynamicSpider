@@ -9,6 +9,12 @@ import (
 	"videoDynamicAcquisition/utils"
 )
 
+type VideoListRequestBody struct {
+	Page     int
+	PageSize int
+	Tag      []string
+}
+
 func getVideoList(ctx *gin.Context) {
 	db := baseStruct.CanUserDb()
 	defer db.Close()
@@ -54,13 +60,13 @@ func addAuthor(ctx *gin.Context) {
 	authorId := ctx.DefaultQuery("authorId", "1")
 	authorName := ctx.DefaultQuery("AuthorName", "30")
 	avatarUrl := ctx.DefaultQuery("Avatar", "30")
-	desc := ctx.DefaultQuery("Desc", "30")
+	desc := ctx.DefaultQuery("AuthorDesc", "30")
 	author := models.Author{
 		WebSiteId:    1,
 		AuthorWebUid: authorId,
 		AuthorName:   authorName,
 		Avatar:       avatarUrl,
-		Desc:         desc,
+		AuthorDesc:   desc,
 		Follow:       false,
 	}
 	author.GetOrCreate(db)

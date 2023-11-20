@@ -6,7 +6,6 @@ import (
 	"os"
 	"path"
 	"sync"
-	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -42,32 +41,4 @@ func BackUserDb() {
 		return
 	}
 	utils.Info.Println("备份数据库成功，备份大小：", fineSize)
-}
-
-func InitDB() {
-	println("数据库文件地址：", dbPath)
-	db, err := sql.Open("sqlite3", dbPath)
-	if err != nil {
-		panic(err)
-	}
-	baseModels := []models.BaseModel{
-		&models.WebSite{},
-		&models.Author{},
-		&models.Video{},
-		&models.BiliSpiderHistory{},
-		&models.VideoHistory{},
-		&models.Collect{},
-		&models.CollectVideo{},
-	}
-	for _, baseModel := range baseModels {
-		_, err = db.Exec(baseModel.CreateTale())
-		if err != nil {
-			utils.ErrorLog.Println("创建表失败")
-			utils.ErrorLog.Println(err.Error())
-			utils.ErrorLog.Println(baseModel.CreateTale())
-		}
-	}
-	models.CreateDbLock(dbPath)
-
-	db.Close()
 }

@@ -152,7 +152,7 @@ func (f *followings) getFollowings(webSiteId int64) (result []models.Author) {
 				AuthorWebUid: strconv.FormatInt(info.Mid, 10),
 				AuthorName:   info.Uname,
 				Avatar:       info.Face,
-				Desc:         info.Sign,
+				AuthorDesc:   info.Sign,
 			})
 		}
 		time.Sleep(time.Second * 10)

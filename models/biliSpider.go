@@ -1,57 +1,53 @@
 package models
 
 import (
-	"database/sql"
+	"gorm.io/gorm"
 	"time"
 )
 
 // BiliSpiderHistory b站抓取记录
 type BiliSpiderHistory struct {
-	Id             int64
-	Key            string
-	Value          string
+	Id             int64  `gorm:"primaryKey"`
+	Key            string `gorm:"type:varchar(255);uniqueIndex"`
+	Value          string `gorm:"type:varchar(255)"`
 	LastUpdateTime time.Time
 }
 
-func (b *BiliSpiderHistory) CreateTale() string {
-	// 创建表
-	return `CREATE TABLE IF NOT EXISTS bili_spider_history (
-    				id INTEGER PRIMARY KEY AUTOINCREMENT,
-    				key VARCHAR(255) unique,
-    				value VARCHAR(255),
-    				last_update_time DATETIME DEFAULT CURRENT_TIMESTAMP
-                                               					)`
+func (m *BiliSpiderHistory) BeforeUpdate(tx *gorm.DB) (err error) {
+	m.LastUpdateTime = time.Now()
+	return nil
 }
 
 // GetDynamicBaseline 获取上次获取动态的最后baseline
-func GetDynamicBaseline(db *sql.DB) string {
-	r, err := db.Query("select value from bili_spider_history where `key` = 'dynamic_baseline'")
-	if err != nil {
+func GetDynamicBaseline() string {
+	bsh := &BiliSpiderHistory{}
+
+	tx := gormDB.First(bsh, "key = ?", "dynamic_baseline")
+	if tx.Error != nil {
 		return ""
 	}
-	var value string
-	if r.Next() {
-		r.Scan(&value)
+	if tx.RowsAffected == 0 {
+		gormDB.Create(&BiliSpiderHistory{Key: "dynamic_baseline", Value: ""})
 	}
-	r.Close()
-	return value
+	return bsh.Value
+
 }
-func SaveDynamicBaseline(db *sql.DB, baseline string) {
-	db.Exec("INSERT OR REPLACE INTO bili_spider_history (`key`,value) VALUES (?,?)", "dynamic_baseline", baseline)
+func SaveDynamicBaseline(baseline string) {
+	gormDB.Model(&BiliSpiderHistory{}).Where("key = ?", "dynamic_baseline").Update("value", baseline)
+
 }
 
-func GetHistoryBaseLine(db *sql.DB) string {
-	r, err := db.Query("select value from bili_spider_history where `key` = 'history_baseline'")
-	if err != nil {
+func GetHistoryBaseLine() string {
+	bsh := &BiliSpiderHistory{}
+	tx := gormDB.First(bsh, "key = ?", "history_baseline")
+	if tx.Error != nil {
 		return ""
 	}
-	var value string
-	if r.Next() {
-		r.Scan(&value)
+	if tx.RowsAffected == 0 {
+		gormDB.Create(&BiliSpiderHistory{Key: "history_baseline", Value: ""})
 	}
-	r.Close()
-	return value
+	return bsh.Value
 }
-func SaveHistoryBaseLine(db *sql.DB, baseline string) {
-	db.Exec("INSERT OR REPLACE INTO bili_spider_history (`key`,value) VALUES (?,?)", "history_baseline", baseline)
+func SaveHistoryBaseLine(baseline string) {
+	gormDB.Model(&BiliSpiderHistory{}).Where("key = ?", "history_baseline").Update("value", baseline)
 }

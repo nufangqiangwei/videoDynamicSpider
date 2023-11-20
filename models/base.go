@@ -4,19 +4,34 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+	"gorm.io/gorm/schema"
 	"time"
 	"videoDynamicAcquisition/utils"
 )
 
 var (
 	dbLock *utils.Flock
-	db     *gorm.DB
+	gormDB *gorm.DB
 )
 
 func InitDB(dsn string) {
 	cacheWebSite = make(map[string]WebSite)
 	cacheAuthor = make(map[string]Author)
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	var err error
+	gormDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+		NamingStrategy: schema.NamingStrategy{
+			SingularTable: true, // 使用单数表名
+		},
+		Logger: logger.New(utils.DBlog, logger.Config{
+			SlowThreshold: 200 * time.Millisecond,
+			LogLevel:      logger.Warn,
+		}),
+	})
+	if err != nil {
+		return
+	}
+	err = gormDB.AutoMigrate(&BiliSpiderHistory{})
 	if err != nil {
 		return
 	}
@@ -40,4 +55,22 @@ func CreateDbLock(dbPath string) {
 	} else {
 		println("dbLock已经存在")
 	}
+}
+
+type CustomTime struct {
+	time.Time
+}
+
+func (t CustomTime) MarshalJSON() ([]byte, error) {
+	formatted := t.Format("2006-01-02 15:04:05")
+	return []byte(`"` + formatted + `"`), nil
+}
+
+func (t *CustomTime) UnmarshalJSON(data []byte) error {
+	parsed, err := time.Parse(`"2006-01-02 15:04:05"`, string(data))
+	if err != nil {
+		return err
+	}
+	t.Time = parsed
+	return nil
 }
