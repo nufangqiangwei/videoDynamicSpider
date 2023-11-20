@@ -100,7 +100,7 @@ type VideoList struct {
 	Review         int         `json:"review"`
 	Author         string      `json:"author"`
 	Mid            int         `json:"mid"`
-	Created        int         `json:"created"`
+	Created        int64       `json:"created"`
 	Length         string      `json:"length"`
 	VideoReview    int         `json:"video_review"`
 	Aid            int         `json:"aid"`

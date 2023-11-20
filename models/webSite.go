@@ -20,7 +20,7 @@ func (w *WebSite) GetOrCreate() error {
 		return nil
 	}
 
-	result := gormDB.FirstOrCreate(w, &WebSite{WebName: w.WebName})
+	result := GormDB.FirstOrCreate(w, &WebSite{WebName: w.WebName})
 	if result.Error != nil {
 		return result.Error
 	}

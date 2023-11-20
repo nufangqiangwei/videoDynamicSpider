@@ -8,8 +8,8 @@ import (
 // BiliSpiderHistory b站抓取记录
 type BiliSpiderHistory struct {
 	Id             int64  `gorm:"primaryKey"`
-	Key            string `gorm:"type:varchar(255);uniqueIndex"`
-	Value          string `gorm:"type:varchar(255)"`
+	KeyName        string `gorm:"type:varchar(255);uniqueIndex"`
+	Values         string `gorm:"type:varchar(255)"`
 	LastUpdateTime time.Time
 }
 
@@ -22,32 +22,32 @@ func (m *BiliSpiderHistory) BeforeUpdate(tx *gorm.DB) (err error) {
 func GetDynamicBaseline() string {
 	bsh := &BiliSpiderHistory{}
 
-	tx := gormDB.First(bsh, "key = ?", "dynamic_baseline")
+	tx := GormDB.First(bsh, "key = ?", "dynamic_baseline")
 	if tx.Error != nil {
 		return ""
 	}
 	if tx.RowsAffected == 0 {
-		gormDB.Create(&BiliSpiderHistory{Key: "dynamic_baseline", Value: ""})
+		GormDB.Create(&BiliSpiderHistory{KeyName: "dynamic_baseline", Values: ""})
 	}
-	return bsh.Value
+	return bsh.Values
 
 }
 func SaveDynamicBaseline(baseline string) {
-	gormDB.Model(&BiliSpiderHistory{}).Where("key = ?", "dynamic_baseline").Update("value", baseline)
+	GormDB.Model(&BiliSpiderHistory{}).Where("key = ?", "dynamic_baseline").Update("value", baseline)
 
 }
 
 func GetHistoryBaseLine() string {
 	bsh := &BiliSpiderHistory{}
-	tx := gormDB.First(bsh, "key = ?", "history_baseline")
+	tx := GormDB.First(bsh, "key = ?", "history_baseline")
 	if tx.Error != nil {
 		return ""
 	}
 	if tx.RowsAffected == 0 {
-		gormDB.Create(&BiliSpiderHistory{Key: "history_baseline", Value: ""})
+		GormDB.Create(&BiliSpiderHistory{KeyName: "history_baseline", Values: ""})
 	}
-	return bsh.Value
+	return bsh.Values
 }
 func SaveHistoryBaseLine(baseline string) {
-	gormDB.Model(&BiliSpiderHistory{}).Where("key = ?", "history_baseline").Update("value", baseline)
+	GormDB.Model(&BiliSpiderHistory{}).Where("key = ?", "history_baseline").Update("value", baseline)
 }

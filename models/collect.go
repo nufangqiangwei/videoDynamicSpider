@@ -19,19 +19,19 @@ type CollectVideo struct {
 }
 
 func (ci *Collect) Save() bool {
-	tx := gormDB.First(ci, "type = ? and bv_id = ?", ci.Type, ci.BvId)
+	tx := GormDB.First(ci, "type = ? and bv_id = ?", ci.Type, ci.BvId)
 	if tx.Error != nil {
 		return false
 	}
 	if tx.RowsAffected == 0 {
-		gormDB.Create(ci)
+		GormDB.Create(ci)
 		return false
 	}
 	return true
 }
 
 func (ci CollectVideo) Save() {
-	tx := gormDB.Create(&ci)
+	tx := GormDB.Create(&ci)
 	if tx.Error != nil {
 		// 如果是唯一索引处突就忽略
 		if strings.Contains(tx.Error.Error(), "UNIQUE constraint failed") || strings.Contains(tx.Error.Error(), "Duplicate entry") {
@@ -49,7 +49,7 @@ type CollectVideoInfo struct {
 func GetAllCollectVideo() []CollectVideoInfo {
 	// select cv.collect_id,v.* from collect_video cv inner join collect c on c.bv_id = cv.collect_id inner join video v on v.id = cv.video_id where c.`type` = 1 and mtime>'0001-01-01 00:00:00+00:00' order by cv.collect_id,mtime desc
 	var result []CollectVideoInfo
-	gormDB.Table("collect_video cv").
+	GormDB.Table("collect_video cv").
 		Select("cv.collect_id,v.*").
 		Joins("inner join collect c on c.bv_id = cv.collect_id").
 		Joins("inner join video v on v.id = cv.video_id").

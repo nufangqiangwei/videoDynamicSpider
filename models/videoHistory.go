@@ -13,7 +13,7 @@ type VideoHistory struct {
 }
 
 func (vh VideoHistory) Save() {
-	tx := gormDB.Create(&vh)
+	tx := GormDB.Create(&vh)
 	if tx.Error != nil {
 		utils.ErrorLog.Println("VideoHistory插入数据错误", tx.Error.Error())
 	}

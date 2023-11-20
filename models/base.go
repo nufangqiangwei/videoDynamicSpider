@@ -12,26 +12,26 @@ import (
 
 var (
 	dbLock *utils.Flock
-	gormDB *gorm.DB
+	GormDB *gorm.DB
 )
 
 func InitDB(dsn string) {
 	cacheWebSite = make(map[string]WebSite)
 	cacheAuthor = make(map[string]Author)
 	var err error
-	gormDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+	GormDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: true, // 使用单数表名
 		},
 		Logger: logger.New(utils.DBlog, logger.Config{
 			SlowThreshold: 200 * time.Millisecond,
-			LogLevel:      logger.Warn,
+			LogLevel:      logger.Error,
 		}),
 	})
 	if err != nil {
 		return
 	}
-	err = gormDB.AutoMigrate(&BiliSpiderHistory{})
+	err = GormDB.AutoMigrate(&BiliSpiderHistory{})
 	if err != nil {
 		return
 	}

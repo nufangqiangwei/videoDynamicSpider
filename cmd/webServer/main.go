@@ -69,7 +69,7 @@ func addAuthor(ctx *gin.Context) {
 		AuthorDesc:   desc,
 		Follow:       false,
 	}
-	author.GetOrCreate(db)
+	author.GetOrCreate()
 }
 
 func Cors() gin.HandlerFunc {

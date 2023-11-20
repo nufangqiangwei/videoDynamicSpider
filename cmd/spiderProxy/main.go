@@ -129,7 +129,7 @@ func getAuthorAllVideo(ctx *gin.Context) {
 				continue
 			}
 			file.file.Write(i)
-			file.file.Write([]byte{44, 10})
+			file.file.Write([]byte{10})
 		}
 		file.file.Close()
 		tarFolderFile(folderName, taskId)
@@ -200,7 +200,7 @@ func getVideoDetailList(videoUid []string, folderName, taskId string) {
 			continue
 		}
 		file.file.Write(i)
-		file.file.Write([]byte{44, 10})
+		file.file.Write([]byte{10})
 	}
 }
 

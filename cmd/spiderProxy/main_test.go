@@ -1,13 +1,21 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
+	"fmt"
 	"github.com/google/uuid"
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/bilibili"
+	"videoDynamicAcquisition/models"
+	"videoDynamicAcquisition/utils"
 )
 
 func TestUUID(t *testing.T) {
@@ -64,4 +72,89 @@ func TestWriteRequestParams(t *testing.T) {
 	slice2 = slice2[1:]
 	os.WriteFile(fileName, []byte(strings.Join(slice2, "\n")), fs.ModePerm)
 
+}
+
+func TestIntoFileData(t *testing.T) {
+
+	filePath := "E:\\GoCode\\videoDynamicAcquisition\\allVideo"
+	fileNameList := []string{}
+	filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasSuffix(info.Name(), "json") {
+			fileNameList = append(fileNameList, info.Name())
+		}
+		return nil
+	})
+	responseStruct := new(bilibili.VideoListPageResponse)
+	utils.InitLog(baseStruct.RootPath)
+	models.InitDB("spider:spider@tcp(100.124.177.135:3306)/videoSpider?charset=utf8mb4&parseTime=True&loc=Local")
+	testIndex := 0
+	for _, fileName := range fileNameList {
+		fmt.Printf("%s\n", fileName)
+		if testIndex >= 10 {
+			return
+		}
+		file, err := os.Open(path.Join(filePath, fileName))
+
+		if err != nil {
+			println(err.Error())
+			continue
+		}
+		scanner := bufio.NewScanner(file)
+		authorVideoUUIDList := []string{}
+		lastAuthorMid := 0
+		var authorId int64 = 0
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			err = json.Unmarshal(line, responseStruct)
+			if err != nil {
+				continue
+			}
+			authorMid := responseStruct.Data.List.Vlist[0].Mid
+			if lastAuthorMid != authorMid {
+				// 查询这个作者本地保存的视频信息
+				// select v.uuid from video v inner join author a on v.author_id = a.id where a.author_web_uid= 1635;
+				models.GormDB.Table("video v").
+					Select("v.uuid").
+					Joins("inner join author a on v.author_id = a.id").
+					Where("a.author_web_uid = ?", authorMid).
+					Find(&authorVideoUUIDList)
+				// 查询这个作者的id
+				// select id from author where author_web_uid= 1635;
+				models.GormDB.Table("author").
+					Select("id").
+					Where("author_web_uid = ?", authorMid).
+					Find(&authorId)
+				lastAuthorMid = authorMid
+			}
+			for _, videoInfo := range responseStruct.Data.List.Vlist {
+				if !utils.InArray(videoInfo.Bvid, authorVideoUUIDList) {
+					createdTime := time.Unix(videoInfo.Created, 0)
+					// 保存视频信息
+					vv := models.Video{
+						WebSiteId:  1,
+						AuthorId:   authorId,
+						Title:      videoInfo.Title,
+						VideoDesc:  videoInfo.Description,
+						Duration:   bilibili.HourAndMinutesAndSecondsToSeconds(videoInfo.Length),
+						Uuid:       videoInfo.Bvid,
+						Url:        "",
+						CoverUrl:   videoInfo.Pic,
+						UploadTime: &createdTime,
+						CreateTime: time.Now(),
+					}
+					vv.Save()
+					authorVideoUUIDList = append(authorVideoUUIDList, videoInfo.Bvid)
+				}
+			}
+
+		}
+		err = scanner.Err()
+		if err != nil {
+			println(err.Error())
+		}
+		testIndex++
+	}
 }

@@ -28,7 +28,7 @@ func (a *Author) GetOrCreate() error {
 		*a = author
 		return nil
 	}
-	result := gormDB.FirstOrCreate(a, &Author{WebSiteId: a.WebSiteId, AuthorWebUid: a.AuthorWebUid})
+	result := GormDB.FirstOrCreate(a, &Author{WebSiteId: a.WebSiteId, AuthorWebUid: a.AuthorWebUid})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -39,20 +39,20 @@ func (a *Author) GetOrCreate() error {
 
 func (a *Author) UpdateOrCreate() error {
 	auth := &Author{}
-	result := gormDB.Where(Author{WebSiteId: a.WebSiteId, AuthorWebUid: a.AuthorWebUid}).First(auth)
+	result := GormDB.Where(Author{WebSiteId: a.WebSiteId, AuthorWebUid: a.AuthorWebUid}).First(auth)
 	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
 		return result.Error
 	}
 
 	if result.Error == gorm.ErrRecordNotFound {
 		// 创建新用户
-		result := gormDB.Create(a)
+		result := GormDB.Create(a)
 		if result.Error != nil {
 			return result.Error
 		}
 	} else {
 		// 更新现有用户
-		result := gormDB.Model(auth).Updates(a)
+		result := GormDB.Model(auth).Updates(a)
 		if result.Error != nil {
 			return result.Error
 		}
@@ -64,7 +64,7 @@ func (a *Author) UpdateOrCreate() error {
 }
 
 func GetAuthorList(webSiteId int) (result []Author) {
-	tx := gormDB.Where("web_site_id=?", webSiteId).Find(&result)
+	tx := GormDB.Where("web_site_id=?", webSiteId).Find(&result)
 	if tx.Error != nil {
 		return
 	}
@@ -77,7 +77,7 @@ func (a *Author) Get(authorId int64) {
 		*a = author
 		return
 	}
-	tx := gormDB.First(a, authorId)
+	tx := GormDB.First(a, authorId)
 	if tx.Error != nil {
 		return
 	}
@@ -86,7 +86,7 @@ func (a *Author) Get(authorId int64) {
 }
 
 func GetFollowList(webSiteId int64) (result []Author) {
-	tx := gormDB.Where("follow=? and web_site_id=?", true, webSiteId).Find(&result)
+	tx := GormDB.Where("follow=? and web_site_id=?", true, webSiteId).Find(&result)
 	if tx.Error != nil {
 		return
 	}

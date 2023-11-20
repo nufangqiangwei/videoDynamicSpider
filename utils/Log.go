@@ -21,30 +21,53 @@ var (
 
 func InitLog(lofFilePath string) {
 	var (
-		writer    io.Writer
-		dbLogFile string
+		logWriter      io.Writer
+		dbWriter       io.Writer
+		timeWheelWrite io.Writer
+		dbLogFile      string
+		TimeWheeFile   string
 	)
 	if !strings.HasSuffix(lofFilePath, ".log") {
 		dbLogFile = path.Join(lofFilePath, "db.log")
 		lofFilePath = path.Join(lofFilePath, "videoSpider.log")
-	}
-	println("lofFilePath日志文件输出地址: ", lofFilePath)
-	if runtime.GOOS == "linux" {
-		writer, _ = rotateLogs.New(
-			lofFilePath+".%Y-%m-%d",
-			rotateLogs.WithLinkName(lofFilePath),
-			rotateLogs.WithMaxAge(time.Hour*24*30),
-			rotateLogs.WithRotationTime(time.Hour*24),
-		)
-	} else if runtime.GOOS == "windows" {
-		writer, _ = os.OpenFile(lofFilePath, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
-		dbWriter, _ := os.OpenFile(dbLogFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
-		DBlog = log.New(dbWriter, "DB:", log.Ldate|log.Ltime|log.Lshortfile)
+		TimeWheeFile = path.Join(lofFilePath, "timeWheel.log")
+	} else {
+		rootPath, _ := path.Split(lofFilePath)
+		dbLogFile = path.Join(rootPath, "db.log")
+		lofFilePath = path.Join(rootPath, "videoSpider.log")
+		TimeWheeFile = path.Join(rootPath, "timeWheel.log")
 	}
 
-	log.SetOutput(writer)
-	TimeWheelLog = log.New(writer, "定时:", log.Ldate|log.Ltime|log.Lshortfile)
-	Info = log.New(writer, "Info:", log.Ldate|log.Ltime|log.Lshortfile)
-	Warning = log.New(writer, "Warning:", log.Ldate|log.Ltime|log.Lshortfile)
-	ErrorLog = log.New(writer, "Error:", log.Ldate|log.Ltime|log.Lshortfile)
+	println("lofFilePath日志文件输出地址: ", lofFilePath)
+	if runtime.GOOS == "linux" {
+		logWriter, _ = rotateLogs.New(
+			lofFilePath+".%Y-%m-%d",
+			rotateLogs.WithLinkName(lofFilePath),
+			rotateLogs.WithRotationTime(time.Hour*24),
+		)
+		dbWriter, _ = rotateLogs.New(
+			dbLogFile+".%Y-%m-%d",
+			rotateLogs.WithLinkName(dbLogFile),
+			rotateLogs.WithRotationSize(50*1024*1024),
+		)
+		timeWheelWrite, _ = rotateLogs.New(
+			TimeWheeFile+".%Y-%m-%d",
+			rotateLogs.WithLinkName(TimeWheeFile),
+			rotateLogs.WithRotationSize(50*1024*1024),
+		)
+
+	} else if runtime.GOOS == "windows" {
+		logWriter, _ = os.OpenFile(lofFilePath, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
+		dbWriter, _ = os.OpenFile(dbLogFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
+		timeWheelWrite, _ = os.OpenFile(TimeWheeFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
+
+	}
+
+	log.SetOutput(logWriter)
+	Info = log.New(logWriter, "Info:", log.Ldate|log.Ltime|log.Lshortfile)
+	Warning = log.New(logWriter, "Warning:", log.Ldate|log.Ltime|log.Lshortfile)
+	ErrorLog = log.New(logWriter, "Error:", log.Ldate|log.Ltime|log.Lshortfile)
+
+	DBlog = log.New(dbWriter, "DB:", log.Ldate|log.Ltime|log.Lshortfile)
+	TimeWheelLog = log.New(timeWheelWrite, "定时:", log.Ldate|log.Ltime|log.Lshortfile)
 }

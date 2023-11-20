@@ -21,7 +21,7 @@ type Video struct {
 }
 
 func (v *Video) Save() bool {
-	tx := gormDB.Create(v)
+	tx := GormDB.Create(v)
 	if tx.Error != nil {
 		utils.ErrorLog.Println("保存视频错误: ")
 		utils.ErrorLog.Println(tx.Error.Error())
@@ -31,7 +31,7 @@ func (v *Video) Save() bool {
 }
 
 func (v *Video) GetByUid(uid string) {
-	tx := gormDB.Where("uuid = ?", uid).First(v)
+	tx := GormDB.Where("uuid = ?", uid).First(v)
 	if tx.Error != nil {
 		utils.ErrorLog.Println("获取视频错误: ")
 		utils.ErrorLog.Println(tx.Error.Error())
