@@ -22,7 +22,7 @@ func (m *BiliSpiderHistory) BeforeUpdate(tx *gorm.DB) (err error) {
 func GetDynamicBaseline() string {
 	bsh := &BiliSpiderHistory{}
 
-	tx := GormDB.First(bsh, "key = ?", "dynamic_baseline")
+	tx := GormDB.First(bsh, "key_name = ?", "dynamic_baseline")
 	if tx.Error != nil {
 		return ""
 	}
@@ -33,13 +33,13 @@ func GetDynamicBaseline() string {
 
 }
 func SaveDynamicBaseline(baseline string) {
-	GormDB.Model(&BiliSpiderHistory{}).Where("key = ?", "dynamic_baseline").Update("value", baseline)
+	GormDB.Model(&BiliSpiderHistory{}).Where("key_name = ?", "dynamic_baseline").Update("values", baseline)
 
 }
 
 func GetHistoryBaseLine() string {
 	bsh := &BiliSpiderHistory{}
-	tx := GormDB.First(bsh, "key = ?", "history_baseline")
+	tx := GormDB.First(bsh, "key_name = ?", "history_baseline")
 	if tx.Error != nil {
 		return ""
 	}
@@ -49,5 +49,5 @@ func GetHistoryBaseLine() string {
 	return bsh.Values
 }
 func SaveHistoryBaseLine(baseline string) {
-	GormDB.Model(&BiliSpiderHistory{}).Where("key = ?", "history_baseline").Update("value", baseline)
+	GormDB.Model(&BiliSpiderHistory{}).Where("key_name = ?", "history_baseline").Update("values", baseline)
 }

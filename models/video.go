@@ -1,6 +1,7 @@
 package models
 
 import (
+	"gorm.io/gorm"
 	"time"
 	"videoDynamicAcquisition/utils"
 )
@@ -32,7 +33,7 @@ func (v *Video) Save() bool {
 
 func (v *Video) GetByUid(uid string) {
 	tx := GormDB.Where("uuid = ?", uid).First(v)
-	if tx.Error != nil {
+	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
 		utils.ErrorLog.Println("获取视频错误: ")
 		utils.ErrorLog.Println(tx.Error.Error())
 	}

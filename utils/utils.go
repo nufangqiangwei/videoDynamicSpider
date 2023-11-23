@@ -1,9 +1,13 @@
 package utils
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"github.com/go-sql-driver/mysql"
 	"github.com/mattn/go-sqlite3"
+	"io"
+	"os"
 )
 
 func InArray[T string | int64](val T, array []T) bool {
@@ -56,4 +60,27 @@ func IsMysqlUniqueErr(err error) bool {
 
 type DBFileLock struct {
 	S string
+}
+
+// 计算文件的md5值
+func GetFileMd5(filePath string) (string, error) {
+	// 打开文件
+	file, err := os.Open(filePath)
+	if err != nil {
+		ErrorLog.Printf("无法打开文件:%s, 错误信息：%s", filePath, err.Error())
+		return "", err
+	}
+	defer file.Close()
+	// 创建一个MD5哈希对象
+	hash := md5.New()
+	// 将文件内容拷贝到哈希对象中
+	if _, err := io.Copy(hash, file); err != nil {
+		ErrorLog.Printf("无法拷贝文件内容:%s, 错误信息：%s", filePath, err.Error())
+		return "", err
+	}
+	// 计算MD5值
+	md5Hash := hash.Sum(nil)
+	// 将MD5值转换为字符串
+	md5Str := hex.EncodeToString(md5Hash)
+	return md5Str, nil
 }

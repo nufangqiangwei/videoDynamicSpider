@@ -6,8 +6,12 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	timeWheel "github.com/nufangqiangwei/timewheel"
+	"io/fs"
+	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
+	"path"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -302,6 +306,7 @@ func (s *Spider) getHistory(interface{}) {
 				WebSiteId: website.Id,
 				VideoId:   vi.Id,
 				ViewTime:  videoInfo.PushTime,
+				WebUUID:   videoInfo.VideoUuid,
 			}.Save()
 		case newestTimestamp := <-VideoHistoryCloseChan:
 			models.SaveHistoryBaseLine(strconv.FormatInt(newestTimestamp, 10))
@@ -657,4 +662,76 @@ func saveAuthorAllVideo(db *sql.DB, response bilibili.VideoListPageResponse, web
 
 	}
 	return result
+}
+
+// 更新正在代理中正在运行的任务状态
+func updateProxySpiderTaskStatus() {
+	// 获取正在运行的任务
+	runTaskList := make([]models.ProxySpiderTask, 0)
+	tx := models.GormDB.Where("status in ?", []int{1, 2}).Find(runTaskList)
+	if tx.Error != nil {
+		utils.ErrorLog.Println("获取正在运行的任务失败")
+		return
+	}
+	// 向代理的getTaskStatus这个路径发起get请求获取任务状态
+	var responseData struct {
+		Status int    `json:"status"`
+		Msg    string `json:"msg"`
+		Md5    string `json:"md5"`
+	}
+	for _, proxyInfo := range runTaskList {
+		request, _ := http.NewRequest("GET", fmt.Sprintf("http://%s/getTaskStatus"), nil)
+		q := request.URL.Query()
+		q.Add("taskType", proxyInfo.TaskType)
+		q.Add("taskId", proxyInfo.TaskId)
+		request.URL.RawQuery = q.Encode()
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			utils.ErrorLog.Printf("获取任务状态失败：%s\n", err.Error())
+			continue
+		}
+		body, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			utils.ErrorLog.Printf("读取响应失败：%s\n", err.Error())
+			continue
+		}
+		err = json.Unmarshal(body, &responseData)
+		if err != nil {
+			utils.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
+			continue
+		}
+		models.GormDB.Model(&proxyInfo).Update("status", responseData.Status)
+		if responseData.Status == 2 {
+			models.GormDB.Model(&proxyInfo).Update("result_file_md5", responseData.Md5)
+			// 任务完成
+			go downloadTaskResult(proxyInfo.SpiderIp, proxyInfo.TaskType, proxyInfo.TaskId, responseData.Md5)
+		}
+		response.Body.Close()
+	}
+	// 更新任务状态
+}
+
+func downloadTaskResult(ip, taskType, taskId, fileMd5 string) {
+	// 检查文件是否已经下载了
+	if m, _ := utils.GetFileMd5(path.Join(dataPath, taskType, taskId, "result")); m == fileMd5 {
+		return
+	}
+	// 直接去下载文件,服务方使用nginx做文件服务器，下载根路径是 taskResult
+	request, _ := http.NewRequest("GET", fmt.Sprintf("http://%s/taskResult/%s/%s", ip, taskType, taskId), nil)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		utils.ErrorLog.Printf("获取任务结果失败：%s\n", err.Error())
+		return
+	}
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		utils.ErrorLog.Printf("读取响应失败：%s\n", err.Error())
+		return
+	}
+	// 将文件写入到本地
+	err = ioutil.WriteFile(path.Join(dataPath, taskType, taskId, "result"), data, fs.ModePerm)
+	if err != nil {
+		utils.ErrorLog.Printf("写入文件失败：%s\n", err.Error())
+		return
+	}
 }

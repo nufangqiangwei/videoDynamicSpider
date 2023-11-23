@@ -10,6 +10,7 @@ type VideoHistory struct {
 	WebSiteId int64
 	VideoId   int64
 	ViewTime  time.Time
+	WebUUID   string
 }
 
 func (vh VideoHistory) Save() {

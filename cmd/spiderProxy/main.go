@@ -65,6 +65,7 @@ func main() {
 	server := gin.Default()
 	server.POST("getAuthorAllVideo", getAuthorAllVideo)
 	server.POST("getVideoDetail", getVideoDetailApi)
+	server.GET("getTaskStatus", getTaskStatus)
 	server.Run(":9000")
 }
 
@@ -165,6 +166,7 @@ func getVideoDetailApi(ctx *gin.Context) {
 	ctx.JSONP(200, map[string]string{"taskId": taskId})
 
 }
+
 func getVideoDetailList(videoUid []string, folderName, taskId string) {
 	resultChan := make(chan []byte, 5)
 	go func() {
@@ -202,6 +204,43 @@ func getVideoDetailList(videoUid []string, folderName, taskId string) {
 		file.file.Write(i)
 		file.file.Write([]byte{10})
 	}
+}
+
+func getTaskStatus(ctx *gin.Context) {
+	taskId := ctx.Query("taskId")
+	taskType := ctx.Query("taskType")
+	if taskType == "" {
+		ctx.JSONP(200, map[string]interface{}{"status": -1, "msg": "任务类型不存在"})
+		return
+	}
+	if taskId == "" {
+		ctx.JSONP(200, map[string]interface{}{"status": -1, "msg": "任务id不存在"})
+		return
+	}
+	fileName := path.Join(baseStruct.RootPath, taskType, taskId, "requestParams")
+	var (
+		file os.FileInfo
+		err  error
+	)
+	if file, err = os.Stat(fileName); os.IsNotExist(err) {
+		ctx.JSONP(200, map[string]interface{}{"status": -1, "msg": "任务不存在"})
+		return
+	}
+
+	if file.Size() == 0 {
+		// 获取打包后的文件MD5
+		fileName = path.Join(baseStruct.RootPath, taskType, fmt.Sprintf("%s.tar.gz", taskId))
+		// 获取文件MD5
+		md5, err := utils.GetFileMd5(fileName)
+		if err != nil {
+			ctx.JSONP(200, map[string]interface{}{"status": 1, "msg": "获取文件MD5失败"})
+			return
+		}
+
+		ctx.JSONP(200, map[string]interface{}{"status": 1, "md5": md5})
+		return
+	}
+	ctx.JSONP(200, map[string]int{"status": 0})
 }
 
 func createFolder(haveReturnError bool, elem ...string) error {
