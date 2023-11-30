@@ -343,6 +343,9 @@ func (s BiliSpider) GetFollowingList(resultChan chan<- FollowingUP, closeChan ch
 	}
 	for {
 		response := f.getResponse(0)
+		if response == nil {
+			response = &followingsResponse{}
+		}
 		if total == 0 {
 			total = response.Data.Total
 			if total%20 == 0 {

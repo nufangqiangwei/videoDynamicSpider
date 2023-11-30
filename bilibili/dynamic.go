@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/utils"
 )
@@ -301,49 +300,11 @@ func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (d
 		utils.ErrorLog.Println(err.Error())
 		return
 	}
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
-	//saveDynamicResponse(body, mid, offset)
-	if response.StatusCode != 200 {
-		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
-		utils.ErrorLog.Println(string(body))
-		return nil
-	}
+	err = responseCodeCheck(response, dynamicResponseBody)
 	if err != nil {
-		utils.ErrorLog.Println("读取响应失败")
-		utils.ErrorLog.Println(err.Error())
-		return
-	}
-	dynamicResponseBody = new(dynamicResponse)
-	err = json.Unmarshal(body, dynamicResponseBody)
-	if err != nil {
-		utils.ErrorLog.Println("解析响应失败")
-		utils.ErrorLog.Println(err.Error())
 		return nil
 	}
-	if dynamicResponseBody.Code == -101 {
-		// cookies失效
-		utils.ErrorLog.Println("cookies失效，请求出错")
-		bilibiliCookies.cookiesFail = false
-		bilibiliCookies.flushCookies()
-		if bilibiliCookies.cookiesFail {
-			time.Sleep(time.Second * 10)
-			return b.getResponse(retriesNumber+1, mid, offset)
-		} else {
-			utils.ErrorLog.Println("cookies失效，请更新cookies文件2")
-			return nil
-		}
-	}
-	if dynamicResponseBody.Code == -352 {
-		utils.ErrorLog.Println("352错误，拒绝访问")
-		return nil
-	}
-	if dynamicResponseBody.Code != 0 {
-		utils.ErrorLog.Println("响应状态码错误", dynamicResponseBody.Code)
-		utils.ErrorLog.Printf("%+v\n", dynamicResponseBody)
-		return nil
-	}
-	return
+	return dynamicResponseBody
 }
 func saveDynamicResponse(data []byte, mid int, offset string) {
 	os.Mkdir(fmt.Sprintf("%s\\%d", baseStruct.RootPath, mid), os.ModePerm)
@@ -353,4 +314,20 @@ func saveDynamicResponse(data []byte, mid int, offset string) {
 		utils.ErrorLog.Println("写文件失败")
 		utils.ErrorLog.Println(err.Error())
 	}
+}
+
+// updateVideoNumberResponse实现responseCheck接口
+func (u *updateVideoNumberResponse) getCode() int {
+	return u.Code
+}
+func (u *updateVideoNumberResponse) bingJSON(body []byte) error {
+	return json.Unmarshal(body, u)
+}
+
+// dynamicResponse实现responseCheck接口
+func (d *dynamicResponse) getCode() int {
+	return d.Code
+}
+func (d *dynamicResponse) bindJSON(body []byte) error {
+	return json.Unmarshal(body, d)
 }

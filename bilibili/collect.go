@@ -205,23 +205,12 @@ func getCollectList(mid string) *collectListResponse {
 		utils.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
-	if response.StatusCode != 200 {
-		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
-		return nil
-	}
-	var result collectListResponse
-	err = json.NewDecoder(response.Body).Decode(&result)
+	result := new(collectListResponse)
+	err = responseCodeCheck(response, result)
 	if err != nil {
-		utils.ErrorLog.Println("解析错误", err.Error())
 		return nil
 	}
-	if result.Code == -101 {
-		utils.ErrorLog.Println("cookie失效")
-		bilibiliCookies.cookiesFail = false
-		bilibiliCookies.flushCookies()
-		return nil
-	}
-	return &result
+	return result
 }
 
 // https://api.bilibili.com/x/v3/fav/folder/collected/list?pn=1&ps=20&up_mid=10932398&platform=web 获取收藏和订阅列表
@@ -240,23 +229,12 @@ func subscriptionList(mid string) *subscriptionListResponse {
 		utils.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
-	if response.StatusCode != 200 {
-		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
-		return nil
-	}
-	var result subscriptionListResponse
-	err = json.NewDecoder(response.Body).Decode(&result)
+	result := new(subscriptionListResponse)
+	err = responseCodeCheck(response, result)
 	if err != nil {
-		utils.ErrorLog.Println("解析错误", err.Error())
 		return nil
 	}
-	if result.Code == -101 {
-		utils.ErrorLog.Println("cookie失效")
-		bilibiliCookies.cookiesFail = false
-		bilibiliCookies.flushCookies()
-		return nil
-	}
-	return &result
+	return result
 }
 
 // GetCollectVideoList 只能获取个人收藏夹的视频列表
@@ -274,23 +252,12 @@ func GetCollectVideoList(id int64) *CollectAllVideoListResponse {
 		utils.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
-	if response.StatusCode != 200 {
-		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
-		return nil
-	}
-	var result CollectAllVideoListResponse
-	err = json.NewDecoder(response.Body).Decode(&result)
+	result := new(CollectAllVideoListResponse)
+	err = responseCodeCheck(response, result)
 	if err != nil {
-		utils.ErrorLog.Println("解析错误", err.Error())
 		return nil
 	}
-	if result.Code == -101 {
-		utils.ErrorLog.Println("cookie失效")
-		bilibiliCookies.cookiesFail = false
-		bilibiliCookies.flushCookies()
-		return nil
-	}
-	return &result
+	return result
 }
 
 // 只能获取个人收藏夹的视频列表
@@ -314,23 +281,12 @@ func getCollectVideoInfo(collectId int64, page int) *collectVideoDetailResponse 
 		utils.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
-	if response.StatusCode != 200 {
-		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
-		return nil
-	}
-	var result collectVideoDetailResponse
-	err = json.NewDecoder(response.Body).Decode(&result)
+	result := new(collectVideoDetailResponse)
+	err = responseCodeCheck(response, result)
 	if err != nil {
-		utils.ErrorLog.Println("解析错误", err.Error())
 		return nil
 	}
-	if result.Code == -101 {
-		utils.ErrorLog.Println("cookie失效")
-		bilibiliCookies.cookiesFail = false
-		bilibiliCookies.flushCookies()
-		return nil
-	}
-	return &result
+	return result
 
 }
 
@@ -349,21 +305,50 @@ func getSeasonVideoInfo(collectId int64, page int) *seasonAllVideoDetailResponse
 		utils.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
-	if response.StatusCode != 200 {
-		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
-		return nil
-	}
-	var result seasonAllVideoDetailResponse
-	err = json.NewDecoder(response.Body).Decode(&result)
+	result := new(seasonAllVideoDetailResponse)
+	err = responseCodeCheck(response, result)
 	if err != nil {
-		utils.ErrorLog.Println("解析错误", err.Error())
 		return nil
 	}
-	if result.Code == -101 {
-		utils.ErrorLog.Println("cookie失效")
-		bilibiliCookies.cookiesFail = false
-		bilibiliCookies.flushCookies()
-		return nil
-	}
-	return &result
+	return result
+}
+
+// collectListResponse实现responseCheck接口
+func (c *collectListResponse) getCode() int {
+	return c.Code
+}
+func (c *collectListResponse) bindJSON(body []byte) error {
+	return json.Unmarshal(body, c)
+}
+
+// subscriptionListResponse实现responseCheck接口
+func (c *subscriptionListResponse) getCode() int {
+	return c.Code
+}
+func (c *subscriptionListResponse) bindJSON(body []byte) error {
+	return json.Unmarshal(body, c)
+}
+
+//CollectAllVideoListResponse实现responseCheck接口
+func (c *CollectAllVideoListResponse) getCode() int {
+	return c.Code
+}
+func (c *CollectAllVideoListResponse) bindJSON(body []byte) error {
+	return json.Unmarshal(body, c)
+}
+
+// seasonAllVideoDetailResponse实现responseCheck接口
+func (c *seasonAllVideoDetailResponse) getCode() int {
+	return c.Code
+}
+func (c *seasonAllVideoDetailResponse) bindJSON(body []byte) error {
+	return json.Unmarshal(body, c)
+}
+
+// collectVideoDetailResponse实现responseCheck接口
+func (c *collectVideoDetailResponse) getCode() int {
+	return c.Code
+}
+func (c *collectVideoDetailResponse) bindJSON(body []byte) error {
+	return json.Unmarshal(body, c)
 }

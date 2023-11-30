@@ -446,6 +446,7 @@ type VideoDetailResponse struct {
 	} `json:"data"`
 }
 
+// VideoDetailResponse实现responseCheck接口
 func (vd *VideoDetailResponse) getCode() int {
 	return vd.Code
 }
@@ -477,12 +478,12 @@ func (receiver videoDetail) getResponse(bvid string) *VideoDetailResponse {
 		utils.ErrorLog.Println(err.Error())
 		return nil
 	}
-	responseStruct := new(VideoDetailResponse)
-	err = responseCodeCheck(response, responseStruct)
+	result := new(VideoDetailResponse)
+	err = responseCodeCheck(response, result)
 	if err != nil {
 		return nil
 	}
-	return responseStruct
+	return result
 }
 
 func GetVideoDetailByByte(bvid string) []byte {

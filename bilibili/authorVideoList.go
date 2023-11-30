@@ -171,46 +171,9 @@ func (v *videoListPage) getResponse(mid string, pageIndex int) *VideoListPageRes
 		utils.ErrorLog.Println(err.Error())
 		return nil
 	}
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
-	//saveVideoListResponse(body, mid, pageIndex)
-	if response.StatusCode != 200 {
-		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
-		utils.ErrorLog.Println(string(body))
-		return nil
-	}
-	if err != nil {
-		utils.ErrorLog.Println("读取响应失败")
-		utils.ErrorLog.Println(err.Error())
-		return nil
-	}
 	responseBody := new(VideoListPageResponse)
-	err = json.Unmarshal(body, responseBody)
+	err = responseCodeCheck(response, responseBody)
 	if err != nil {
-		utils.ErrorLog.Println("解析响应失败")
-		utils.ErrorLog.Println(err.Error())
-		return nil
-	}
-	if responseBody.Code == -101 {
-		// cookies失效
-		utils.ErrorLog.Println("cookies失效")
-		bilibiliCookies.cookiesFail = false
-		bilibiliCookies.flushCookies()
-		if bilibiliCookies.cookiesFail {
-			time.Sleep(time.Second * 10)
-			return nil
-		} else {
-			utils.ErrorLog.Println("cookies失效，请更新cookies文件2")
-			return nil
-		}
-	}
-	if responseBody.Code == -352 {
-		utils.ErrorLog.Println("352错误，拒绝访问")
-		return nil
-	}
-	if responseBody.Code != 0 {
-		utils.ErrorLog.Println("响应状态码错误", responseBody.Code)
-		utils.ErrorLog.Printf("%+v\n", responseBody)
 		return nil
 	}
 	return responseBody
@@ -273,4 +236,11 @@ func GetAuthorAllVideoListTOJSON(UId string, result chan<- []byte) error {
 	}
 	result <- nil
 	return nil
+}
+
+func (r *VideoListPageResponse) getCode() int {
+	return r.Code
+}
+func (r *VideoListPageResponse) bindJSON(data []byte) error {
+	return json.Unmarshal(data, r)
 }

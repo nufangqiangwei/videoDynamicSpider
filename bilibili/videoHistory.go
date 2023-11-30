@@ -2,13 +2,8 @@ package bilibili
 
 import (
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
 	"net/http"
-	"os"
-	"path"
 	"strconv"
-	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -95,46 +90,18 @@ func (h *historyRequest) getResponse(max int, viewAt int64, business string) *hi
 		utils.ErrorLog.Printf("获取历史记录错误:%s", err.Error())
 		return nil
 	}
-	defer response.Body.Close()
-	var responseData *historyResponse
-	body, err := ioutil.ReadAll(response.Body)
-
-	fName := path.Join(baseStruct.RootPath, "historyResponse", fmt.Sprintf("%d.json", viewAt))
-	os.WriteFile(fName, body, 0644)
-
-	if response.StatusCode != 200 {
-		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
-		utils.ErrorLog.Println(string(body))
-		return nil
-	}
+	result := new(historyResponse)
+	err = responseCodeCheck(response, result)
 	if err != nil {
-		utils.ErrorLog.Println("读取响应失败")
-		utils.ErrorLog.Println(err.Error())
 		return nil
 	}
-	responseData = new(historyResponse)
-	err = json.Unmarshal(body, responseData)
-	if err != nil {
-		utils.ErrorLog.Println("解析响应失败")
-		utils.ErrorLog.Println(err.Error())
-		return nil
-	}
-	if responseData.Code == -101 {
-		// cookies失效
-		utils.ErrorLog.Println("cookies失效")
-		bilibiliCookies.cookiesFail = false
-		bilibiliCookies.flushCookies()
-		return nil
-	}
-	if responseData.Code == -352 {
-		utils.ErrorLog.Println("352错误，拒绝访问")
-		return nil
-	}
-	if responseData.Code != 0 {
-		utils.ErrorLog.Println("响应状态码错误", responseData.Code)
-		utils.ErrorLog.Printf("%+v\n", responseData)
-		return nil
-	}
+	return result
+}
 
-	return responseData
+// historyResponse实现responseCheck接口
+func (h *historyResponse) getCode() int {
+	return h.Code
+}
+func (h *historyResponse) bindJSON(body []byte) error {
+	return json.Unmarshal(body, h)
 }

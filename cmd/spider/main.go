@@ -43,6 +43,7 @@ type VideoCollection interface {
 	GetWebSiteName() models.WebSite
 	GetVideoList(string, chan<- baseStruct.VideoInfo, chan<- baseStruct.TaskClose)
 }
+
 type Spider struct {
 	interval int64
 }

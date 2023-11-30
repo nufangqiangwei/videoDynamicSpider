@@ -8,17 +8,18 @@ import (
 
 // Video 视频信息
 type Video struct {
-	Id         int64 `json:"id" gorm:"primary_key"`
-	WebSiteId  int64
-	AuthorId   int64
-	Title      string
-	VideoDesc  string
-	Duration   int
-	Uuid       string
-	Url        string
-	CoverUrl   string
-	UploadTime *time.Time
-	CreateTime time.Time `gorm:"default:CURRENT_TIMESTAMP"`
+	Id               int64 `json:"id" gorm:"primary_key"`
+	WebSiteId        int64
+	AuthorId         int64
+	Title            string
+	VideoDesc        string
+	Duration         int
+	Uuid             string
+	Url              string
+	CoverUrl         string
+	UploadTime       *time.Time
+	CreateTime       time.Time `gorm:"default:CURRENT_TIMESTAMP"`
+	IsMultiplePeople bool      `gorm:"default:false"`
 }
 
 func (v *Video) Save() bool {
