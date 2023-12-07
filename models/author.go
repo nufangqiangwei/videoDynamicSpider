@@ -17,7 +17,8 @@ type Author struct {
 	Follow       bool       `gorm:"type:tinyint"`                    // 是否关注
 	FollowTime   *time.Time `gorm:"type:datetime"`                   // 关注时间
 	Crawl        bool       `gorm:"type:tinyint"`                    // 是否爬取
-	CreateTime   time.Time  `gorm:"default:CURRENT_TIMESTAMP"`
+	CreateTime   time.Time  `gorm:"default:CURRENT_TIMESTAMP(3)"`
+	FollowNumber uint64     `gorm:"default:0"` // 关注数
 }
 
 var cacheAuthor map[string]Author

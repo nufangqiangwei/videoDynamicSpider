@@ -24,7 +24,7 @@ type VideoDetailResponse struct {
 			Pic       string `json:"pic"`
 			Title     string `json:"title"`
 			Pubdate   int    `json:"pubdate"`
-			Ctime     int    `json:"ctime"`
+			Ctime     int64  `json:"ctime"`
 			Desc      string `json:"desc"`
 			DescV2    []struct {
 				RawText string `json:"raw_text"`
@@ -58,19 +58,19 @@ type VideoDetailResponse struct {
 				Mid  int    `json:"mid"`
 				Name string `json:"name"`
 				Face string `json:"face"`
-			} `json:"owner"`
+			} `json:"owner"` // 上传者
 			Stat struct {
-				Aid        int    `json:"aid"`
-				View       int    `json:"view"`
-				Danmaku    int    `json:"danmaku"`
-				Reply      int    `json:"reply"`
-				Favorite   int    `json:"favorite"`
-				Coin       int    `json:"coin"`
-				Share      int    `json:"share"`
-				NowRank    int    `json:"now_rank"`
-				HisRank    int    `json:"his_rank"`
-				Like       int    `json:"like"`
-				Dislike    int    `json:"dislike"`
+				Aid        int64  `json:"aid"`
+				View       int64  `json:"view"`
+				Danmaku    int64  `json:"danmaku"`
+				Reply      int64  `json:"reply"`
+				Favorite   int64  `json:"favorite"`
+				Coin       int64  `json:"coin"`
+				Share      int64  `json:"share"`
+				NowRank    int64  `json:"now_rank"`
+				HisRank    int64  `json:"his_rank"`
+				Like       int64  `json:"like"`
+				Dislike    int64  `json:"dislike"`
 				Evaluation string `json:"evaluation"`
 				ArgueMsg   string `json:"argue_msg"`
 				Vt         int    `json:"vt"`
@@ -171,9 +171,9 @@ type VideoDetailResponse struct {
 					Desc  string `json:"desc"`
 					Type  int    `json:"type"`
 				} `json:"official"`
-				Follower   int `json:"follower"`
-				LabelStyle int `json:"label_style"`
-			} `json:"staff"`
+				Follower   uint64 `json:"follower"`
+				LabelStyle int    `json:"label_style"`
+			} `json:"staff"` // 联合投稿人
 			IsSeasonDisplay bool `json:"is_season_display"`
 			UserGarb        struct {
 				UrlImageAniCut string `json:"url_image_ani_cut"`
@@ -288,7 +288,7 @@ type VideoDetailResponse struct {
 			LikeNum      int  `json:"like_num"`
 		} `json:"Card"`
 		Tags []struct {
-			TagId        int    `json:"tag_id"`
+			TagId        int64  `json:"tag_id"`
 			TagName      string `json:"tag_name"`
 			Cover        string `json:"cover"`
 			HeadCover    string `json:"head_cover"`
@@ -452,6 +452,9 @@ func (vd *VideoDetailResponse) getCode() int {
 }
 func (vd *VideoDetailResponse) bindJSON(data []byte) error {
 	return json.Unmarshal(data, vd)
+}
+func (vd *VideoDetailResponse) BindJSON(data []byte) error {
+	return vd.bindJSON(data)
 }
 
 type videoDetail struct {

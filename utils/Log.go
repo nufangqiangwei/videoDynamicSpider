@@ -38,7 +38,9 @@ func InitLog(lofFilePath string) {
 		TimeWheeFile = path.Join(rootPath, "timeWheel.log")
 	}
 
-	println("lofFilePath日志文件输出地址: ", lofFilePath)
+	println("日志文件路径：", lofFilePath)
+	println("数据库日志文件路径：", dbLogFile)
+	println("定时日志文件路径：", TimeWheeFile)
 	if runtime.GOOS == "linux" {
 		logWriter, _ = rotateLogs.New(
 			lofFilePath+".%Y-%m-%d",

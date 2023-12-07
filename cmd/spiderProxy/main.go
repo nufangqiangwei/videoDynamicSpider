@@ -77,7 +77,7 @@ func getAuthorAllVideo(ctx *gin.Context) {
 	requestBody := IdListRequest{}
 	err := ctx.ShouldBind(&requestBody)
 	if err != nil {
-		ctx.JSONP(403, map[string]string{"msg": "获取请求参数失败"})
+		ctx.JSONP(403, map[string]string{"msg": "获取请求参数失败", "taskId": ""})
 		return
 	}
 	folderName := "allVideo"
@@ -90,7 +90,7 @@ func getAuthorAllVideo(ctx *gin.Context) {
 			taskId = uuid.NewString()
 			err = createFolder(true, folderName, taskId)
 		} else {
-			ctx.JSONP(503, map[string]string{"msg": "创建文件夹失败"})
+			ctx.JSONP(503, map[string]string{"msg": "创建文件夹失败", "taskId": ""})
 			return
 		}
 	}

@@ -31,7 +31,12 @@ func InitDB(dsn string) {
 	if err != nil {
 		return
 	}
-	err = GormDB.AutoMigrate(&BiliSpiderHistory{})
+	err = GormDB.AutoMigrate(&BiliSpiderHistory{}, &Author{}, &Video{}, &VideoAuthor{}, &VideoTag{}, &WebSite{},
+		&Collect{}, &CollectVideo{}, &ProxySpiderTask{}, &Tag{}, &VideoHistory{})
+	if err != nil {
+		println(err.Error())
+		return
+	}
 	GormDB.Callback().Query().Before("gorm:query").Register("disable_raise_record_not_found", func(d *gorm.DB) {
 		d.Statement.RaiseErrorOnNotFound = false
 	})
