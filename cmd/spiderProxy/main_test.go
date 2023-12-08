@@ -135,7 +135,6 @@ func TestIntoFileData(t *testing.T) {
 					// 保存视频信息
 					vv := models.Video{
 						WebSiteId:  1,
-						AuthorId:   authorId,
 						Title:      videoInfo.Title,
 						VideoDesc:  videoInfo.Description,
 						Duration:   bilibili.HourAndMinutesAndSecondsToSeconds(videoInfo.Length),
@@ -157,4 +156,24 @@ func TestIntoFileData(t *testing.T) {
 		}
 		testIndex++
 	}
+}
+
+func TestPrefixByte(t *testing.T) {
+	// {"url":"","response":}
+	//prefix := "{\"url\":\""
+	//brackets := "}"
+	//suffix := "\",\"response\":"
+	//fmt.Printf("%v\n", []byte(prefix))
+	//fmt.Printf("%v\n", []byte(brackets))
+	//fmt.Printf("%v\n", []byte(suffix))
+	prefixByte := []byte{123, 34, 117, 114, 108, 34, 58, 34}
+	bracketsByte := []byte{125}
+	suffixByte := []byte{34, 44, 34, 114, 101, 115, 112, 111, 110, 115, 101, 34, 58}
+	responseByte := []byte(`{"code":0,"msg":"ok"}`)
+	urlByte := []byte(`https://api.bilibili.com/x/space/arc/search?mid=1635&ps=30&tid=0&pn=1&keyword=&order=pubdate&jsonp=jsonp`)
+	print(string(prefixByte))
+	print(string(urlByte))
+	print(string(suffixByte))
+	print(string(responseByte))
+	println(string(bracketsByte))
 }

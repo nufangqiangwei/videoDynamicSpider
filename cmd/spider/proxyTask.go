@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"path"
 	"time"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
@@ -26,7 +27,7 @@ func runToDoTask() {
 		return
 	}
 	// 从config.Proxy中找到空闲的代理,存入到leisureProxy中
-	var leisureProxy []ProxyInfo
+	var leisureProxy []utils.ProxyInfo
 	for _, proxy := range config.Proxy {
 		// 标记是否找到可用的代理
 		assigned := false
@@ -96,7 +97,7 @@ func runToDoTask() {
 }
 
 // 发送任务给代理进行执行
-func sendTasksToProxy(tasks []models.TaskToDoList, proxy ProxyInfo) (string, error) {
+func sendTasksToProxy(tasks []models.TaskToDoList, proxy utils.ProxyInfo) (string, error) {
 	if len(tasks) == 0 {
 		return "", errors.New("no tasks to send")
 	}
@@ -216,5 +217,41 @@ func checkProxyTaskStatus() {
 				continue
 			}
 		}
+	}
+}
+
+// 下载已完成的任务文件
+func downloadTaskDataFile(taskId, taskType, ip string) {
+	fileName := fmt.Sprintf("%s|%s.tar.gz", taskType, taskId)
+	// 下载任务文件,nginx作为文件服务器
+	url := fmt.Sprintf("http://%s/downloadTaskDataFile/%s", ip, fileName)
+	resp, err := http.Get(url)
+	if err != nil {
+		utils.ErrorLog.Println("下载任务文件错误:", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		utils.ErrorLog.Println("下载任务文件错误:unexpected response status:", resp.StatusCode)
+		return
+	}
+	responseBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		utils.ErrorLog.Println("下载任务文件错误:", err)
+		return
+	}
+	// 将文件保存到本地
+	err = ioutil.WriteFile(path.Join(config.ProxyDataRootPath, utils.WaitImportPrefix, fileName), responseBody, 0666)
+	if err != nil {
+		utils.ErrorLog.Println("将文件保存到本地错误:", err)
+		return
+	}
+	// 更新ProxySpiderTask表中的数据
+	err = models.GormDB.Model(&models.ProxySpiderTask{}).Where("task_id = ?", taskId).Updates(map[string]interface{}{
+		"status": 3,
+	}).Error
+	if err != nil {
+		utils.ErrorLog.Println("更新ProxySpiderTask表中的数据错误:", err)
+		return
 	}
 }

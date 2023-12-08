@@ -6,7 +6,6 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	timeWheel "github.com/nufangqiangwei/timewheel"
-	"gorm.io/gorm"
 	"io/fs"
 	"io/ioutil"
 	"math/rand"
@@ -31,16 +30,13 @@ const (
 	twelveTicket  = oneTicket * 12
 )
 
-type void struct{}
-
 var (
 	videoCollection []VideoCollection
 	wheel           *timeWheel.TimeWheel
 	spider          *Spider
 	historyTaskId   int64
 	dataPath        string
-	config          *Config
-	member          void
+	config          *utils.Config
 )
 
 type VideoCollection interface {
@@ -52,31 +48,13 @@ type Spider struct {
 	interval int64
 }
 
-type ProxyInfo struct {
-	IP    string `json:"IP"`
-	HOST  int    `json:"HOST"`
-	Token string `json:"Token"`
-}
-
-type Config struct {
-	DB struct {
-		HOST         string `json:"HOST"`
-		Port         int    `json:"Port"`
-		User         string `json:"User"`
-		Password     string `json:"Password"`
-		DatabaseName string `json:"DatabaseName"`
-	} `json:"DB"`
-	Proxy    []ProxyInfo `json:"Proxy"`
-	DataPath string
-}
-
 func readConfig() error {
 	fileData, err := os.ReadFile("./config.json")
 	if err != nil {
 		println(err.Error())
 		return err
 	}
-	config = &Config{}
+	config = &utils.Config{}
 	err = json.Unmarshal(fileData, config)
 	if err != nil {
 		println(err.Error())
@@ -749,180 +727,4 @@ func saveBilibiliCollectAllVideo(response []bilibili.CollectVideoDetailInfo, web
 			Mtime:     time.Unix(info.FavTime, 0),
 		}.Save()
 	}
-}
-
-func saveBilibiliAuthorVideoList(response bilibili.VideoListPageResponse, WebSiteId, authorId int64, authorVideoUUIDMap map[string]struct{}) {
-	if len(response.Data.List.Vlist) == 0 {
-		return
-	}
-	if authorId == 0 {
-		authorMid := response.Data.List.Vlist[0].Mid
-		// 查询这个作者的id
-		models.GormDB.Table("author").
-			Select("id").
-			Where("author_web_uid = ?", authorMid).
-			Find(&authorId)
-	}
-	if len(authorVideoUUIDMap) == 0 {
-		var authorVideoUUIDList []string
-		// 查询这个作者本地保存的视频信息
-		models.GormDB.Table("video v").
-			Select("v.uuid").
-			Where("a.author_id = ?", authorId).
-			Find(&authorVideoUUIDList)
-		for _, videoUuid := range authorVideoUUIDList {
-			authorVideoUUIDMap[videoUuid] = member
-		}
-	}
-	var (
-		ok          bool
-		insertVideo []*models.Video
-	)
-	for _, videoInfo := range response.Data.List.Vlist {
-		_, ok = authorVideoUUIDMap[videoInfo.Bvid]
-		if !ok {
-			createdTime := time.Unix(videoInfo.Created, 0)
-			// 保存视频信息
-			vv := models.Video{
-				WebSiteId: WebSiteId,
-				Authors: []models.VideoAuthor{
-					{AuthorId: authorId, Uuid: videoInfo.Bvid},
-				},
-				Title:      videoInfo.Title,
-				VideoDesc:  videoInfo.Description,
-				Duration:   bilibili.HourAndMinutesAndSecondsToSeconds(videoInfo.Length),
-				Uuid:       videoInfo.Bvid,
-				Url:        "",
-				CoverUrl:   videoInfo.Pic,
-				UploadTime: &createdTime,
-				CreateTime: time.Now(),
-			}
-			insertVideo = append(insertVideo, &vv)
-			authorVideoUUIDMap[videoInfo.Bvid] = member
-		}
-	}
-	models.GormDB.Create(insertVideo)
-}
-
-func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSiteId int64) {
-	video := models.Video{}
-	var tx *gorm.DB
-	tx = models.GormDB.Where("uuid = ?", response.Data.View.Bvid).Preload("Authors").Preload("Tag").
-		Limit(1).Find(&video)
-	if tx.Error != nil {
-		utils.ErrorLog.Printf("获取视频信息失败：%s\n", tx.Error.Error())
-		return
-	}
-	if video.Id == 0 {
-		// 视频不存在，video表中创建这条视频数据
-		uploadTime := time.Unix(response.Data.View.Ctime, 0)
-		video = models.Video{
-			WebSiteId:  WebSiteId,
-			Title:      response.Data.View.Title,
-			Uuid:       response.Data.View.Bvid,
-			CoverUrl:   response.Data.View.Pic,
-			VideoDesc:  response.Data.View.Desc,
-			CreateTime: time.Now(),
-			UploadTime: &uploadTime,
-			Duration:   response.Data.View.Duration,
-		}
-		models.GormDB.Create(&video)
-	}
-	// 更新视频信息
-	video.View = response.Data.View.Stat.View
-	video.Danmaku = response.Data.View.Stat.Danmaku
-	video.Reply = response.Data.View.Stat.Reply
-	video.Favorite = response.Data.View.Stat.Favorite
-	video.Coin = response.Data.View.Stat.Coin
-	video.Share = response.Data.View.Stat.Share
-	video.NowRank = response.Data.View.Stat.NowRank
-	video.HisRank = response.Data.View.Stat.HisRank
-	video.Like = response.Data.View.Stat.Like
-	video.Dislike = response.Data.View.Stat.Dislike
-	video.Evaluation = response.Data.View.Stat.Evaluation
-	models.GormDB.Model(&video).Updates(map[string]interface{}{
-		"View":       response.Data.View.Stat.View,
-		"Danmaku":    response.Data.View.Stat.Danmaku,
-		"Reply":      response.Data.View.Stat.Reply,
-		"Favorite":   response.Data.View.Stat.Favorite,
-		"Coin":       response.Data.View.Stat.Coin,
-		"Share":      response.Data.View.Stat.Share,
-		"NowRank":    response.Data.View.Stat.NowRank,
-		"HisRank":    response.Data.View.Stat.HisRank,
-		"Like":       response.Data.View.Stat.Like,
-		"Dislike":    response.Data.View.Stat.Dislike,
-		"Evaluation": response.Data.View.Stat.Evaluation,
-	})
-	// 更新作者和协作者信息
-	// 查询作者信息
-	DatabaseAuthorInfo := []models.Author{}
-	authorIdList := []int64{}
-	for _, a := range video.Authors {
-		authorIdList = append(authorIdList, a.AuthorId)
-	}
-	models.GormDB.Where("id in ?", authorIdList).Find(&DatabaseAuthorInfo)
-	// models.VideoAuthor 和 response.Data.View.Staff 两边信息做对比，models.VideoAuthor缺少的就添加，models.Author缺少的就添加
-	authorHave := false
-	for _, b := range response.Data.View.Staff {
-		for _, a := range DatabaseAuthorInfo {
-			if a.AuthorWebUid == strconv.Itoa(b.Mid) {
-				authorHave = true
-				break
-			}
-		}
-		if !authorHave {
-			// 查询这个作者在Author表中是否存在
-			author := models.Author{}
-			models.GormDB.Where("author_web_uid = ?", strconv.Itoa(b.Mid)).Find(&author)
-			if author.Id == 0 {
-				// 作者不存在，数据库中添加作者信息
-				author = models.Author{
-					AuthorName:   b.Name,
-					WebSiteId:    WebSiteId,
-					AuthorWebUid: strconv.Itoa(b.Mid),
-					Avatar:       b.Face,
-					FollowNumber: b.Follower,
-				}
-				models.GormDB.Create(&author)
-			}
-			va := models.VideoAuthor{
-				Uuid:       response.Data.View.Bvid,
-				VideoId:    video.Id,
-				AuthorId:   author.Id,
-				Contribute: b.Title,
-			}
-			models.GormDB.Create(&va)
-		}
-	}
-
-	// 更新视频标签信息
-	var tagHave bool
-	for _, v := range response.Data.Tags {
-		// 循环video.Tag，如果有这个标签，就标记已存在,并且在videoTag中删除这个标签
-		tagHave = false
-		for index, tag := range video.Tag {
-			if tag.Id == v.TagId {
-				tagHave = true
-				video.Tag = append(video.Tag[:index], video.Tag[index+1:]...)
-				break
-			}
-		}
-
-		if !tagHave {
-			tag := models.Tag{}
-			models.GormDB.Find(&tag, "id=?", v.TagId)
-			if tag.Name == "" {
-				tag.Id = v.TagId
-				tag.Name = v.TagName
-				models.GormDB.Create(&tag)
-			}
-			videoTag := models.VideoTag{
-				VideoId: video.Id,
-				TagId:   v.TagId,
-			}
-			models.GormDB.Create(&videoTag)
-		}
-
-	}
-
 }

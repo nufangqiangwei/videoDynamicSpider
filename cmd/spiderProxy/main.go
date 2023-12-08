@@ -22,6 +22,13 @@ import (
 //const rootPath = "C:\\Code\\GO\\videoDynamicSpider\\cmd\\appendBiliVideo"
 const maxFileSize = 100 * 1024 * 1024
 
+// {"url":"","response":""}
+//var (
+//	prefixByte   = []byte{123, 34, 117, 114, 108, 34, 58, 34}
+//	bracketsByte = []byte{125}
+//	suffixByte   = []byte{34, 44, 34, 114, 101, 115, 112, 111, 110, 115, 101, 34, 58}
+//)
+
 type WriteFile struct {
 	folderPrefix   []string
 	fileNamePrefix string
@@ -99,6 +106,9 @@ func getAuthorAllVideo(ctx *gin.Context) {
 
 	go func() {
 		defer close(videoChan)
+		// 请求出错的id写入到文件中，文件名 errRequestParams
+		errRequestParams, _ := os.Open(path.Join(baseStruct.RootPath, folderName, taskId, "errRequestParams"))
+		defer errRequestParams.Close()
 		fileName := path.Join(baseStruct.RootPath, folderName, taskId, "requestParams")
 		slice2 := make([]string, len(requestBody.IdList))
 		copy(slice2, requestBody.IdList)
@@ -106,6 +116,8 @@ func getAuthorAllVideo(ctx *gin.Context) {
 		for _, i := range requestBody.IdList {
 			err := bilibili.GetAuthorAllVideoListTOJSON(i, videoChan)
 			if err != nil {
+				errRequestParams.Write([]byte(i))
+				errRequestParams.Write([]byte{10})
 				utils.ErrorLog.Printf("爬取失败%s", err.Error())
 			}
 			time.Sleep(time.Second * 10)
@@ -119,7 +131,7 @@ func getAuthorAllVideo(ctx *gin.Context) {
 	go func() {
 		file := WriteFile{
 			folderPrefix:   []string{baseStruct.RootPath, folderName, taskId},
-			fileNamePrefix: "allVideo",
+			fileNamePrefix: folderName,
 		}
 		file.checkFileSize()
 		defer file.file.Close()
@@ -171,13 +183,18 @@ func getVideoDetailList(videoUid []string, folderName, taskId string) {
 	resultChan := make(chan []byte, 5)
 	go func() {
 		defer close(resultChan)
-		fileName := path.Join(baseStruct.RootPath, folderName, taskId, "getVideoDetailParams")
+		// 请求出错的id写入到文件中，文件名 errRequestParams
+		errRequestParams, _ := os.Open(path.Join(baseStruct.RootPath, folderName, taskId, "errRequestParams"))
+		defer errRequestParams.Close()
+		fileName := path.Join(baseStruct.RootPath, folderName, taskId, "requestParams")
 		slice2 := make([]string, len(videoUid))
 		copy(slice2, videoUid)
 		os.WriteFile(fileName, []byte(strings.Join(slice2, "\n")), fs.ModePerm)
 		for _, i := range videoUid {
 			data := bilibili.GetVideoDetailByByte(i)
 			if data == nil {
+				errRequestParams.Write([]byte(i))
+				errRequestParams.Write([]byte{10})
 				continue
 			}
 			resultChan <- data
@@ -191,7 +208,7 @@ func getVideoDetailList(videoUid []string, folderName, taskId string) {
 	}()
 	file := WriteFile{
 		folderPrefix:   []string{baseStruct.RootPath, folderName, taskId},
-		fileNamePrefix: "videoDetail",
+		fileNamePrefix: folderName,
 	}
 	file.checkFileSize()
 	defer file.file.Close()
@@ -267,7 +284,7 @@ func createFolder(haveReturnError bool, elem ...string) error {
 func tarFolderFile(folderName, taskId string) {
 	// 设置源文件夹和目标文件名
 	sourceFolder := path.Join(baseStruct.RootPath, folderName, taskId)
-	targetFile := path.Join(baseStruct.RootPath, folderName, fmt.Sprintf("%s.tar.gz", taskId))
+	targetFile := path.Join(baseStruct.RootPath, folderName, fmt.Sprintf("%s|%s.tar.gz", folderName, taskId))
 	baseFolder := path.Join(baseStruct.RootPath, folderName, taskId)
 	// 创建目标文件
 	file, err := os.Create(targetFile)

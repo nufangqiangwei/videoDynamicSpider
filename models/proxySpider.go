@@ -23,7 +23,7 @@ type ProxySpiderTask struct {
 	TaskId         string    `gorm:"varchar(255);notnull" json:"task_id"`
 	StartTimestamp time.Time `gorm:"type:datetime;default:CURRENT_TIMESTAMP" json:"start_timestamp"`
 	EndTimestamp   time.Time `gorm:"type:datetime" json:"end_timestamp"`
-	Status         int       `gorm:"type:int;default:0" json:"status"` //-1:错误的任务 0:未开始 1:进行中 2:已完成
+	Status         int       `gorm:"type:int;default:0" json:"status"` //-1:错误的任务 0:未开始 1:进行中 2:已完成 3:已下载
 	ResultFileMd5  string    `gorm:"varchar(255)" json:"result_file_md5"`
 }
 

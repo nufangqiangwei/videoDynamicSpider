@@ -84,3 +84,17 @@ func GetFileMd5(filePath string) (string, error) {
 	md5Str := hex.EncodeToString(md5Hash)
 	return md5Str, nil
 }
+
+func CheckFileWriteStatus(filePath string) bool {
+	// 检查文件是否正在写入
+	file, err := os.OpenFile(filePath, os.O_RDWR, 0666)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+	_, err = file.Seek(0, 2)
+	if err != nil {
+		return false
+	}
+	return true
+}
