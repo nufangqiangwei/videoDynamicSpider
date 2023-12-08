@@ -25,22 +25,22 @@ func InitLog(lofFilePath string) {
 		dbWriter       io.Writer
 		timeWheelWrite io.Writer
 		dbLogFile      string
-		TimeWheeFile   string
+		timeWheeFile   string
 	)
 	if !strings.HasSuffix(lofFilePath, ".log") {
 		dbLogFile = path.Join(lofFilePath, "db.log")
 		lofFilePath = path.Join(lofFilePath, "videoSpider.log")
-		TimeWheeFile = path.Join(lofFilePath, "timeWheel.log")
+		timeWheeFile = path.Join(lofFilePath, "timeWheel.log")
 	} else {
 		rootPath, _ := path.Split(lofFilePath)
 		dbLogFile = path.Join(rootPath, "db.log")
 		lofFilePath = path.Join(rootPath, "videoSpider.log")
-		TimeWheeFile = path.Join(rootPath, "timeWheel.log")
+		timeWheeFile = path.Join(rootPath, "timeWheel.log")
 	}
 
 	println("日志文件路径：", lofFilePath)
 	println("数据库日志文件路径：", dbLogFile)
-	println("定时日志文件路径：", TimeWheeFile)
+	println("定时日志文件路径：", timeWheeFile)
 	if runtime.GOOS == "linux" {
 		logWriter, _ = rotateLogs.New(
 			lofFilePath+".%Y-%m-%d",
@@ -53,15 +53,15 @@ func InitLog(lofFilePath string) {
 			rotateLogs.WithRotationSize(50*1024*1024),
 		)
 		timeWheelWrite, _ = rotateLogs.New(
-			TimeWheeFile+".%Y-%m-%d",
-			rotateLogs.WithLinkName(TimeWheeFile),
+			timeWheeFile+".%Y-%m-%d",
+			rotateLogs.WithLinkName(timeWheeFile),
 			rotateLogs.WithRotationSize(50*1024*1024),
 		)
 
 	} else if runtime.GOOS == "windows" {
 		logWriter, _ = os.OpenFile(lofFilePath, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
 		dbWriter, _ = os.OpenFile(dbLogFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
-		timeWheelWrite, _ = os.OpenFile(TimeWheeFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
+		timeWheelWrite, _ = os.OpenFile(timeWheeFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
 
 	}
 

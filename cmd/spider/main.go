@@ -1,20 +1,14 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	timeWheel "github.com/nufangqiangwei/timewheel"
-	"io/fs"
-	"io/ioutil"
 	"math/rand"
-	"net/http"
 	"os"
-	"path"
 	"runtime/debug"
 	"strconv"
-	"strings"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
@@ -336,7 +330,40 @@ func (s *Spider) updateCollectList(interface{}) {
 	}
 	newCollectList := bilibili.Spider.GetCollectList()
 	for _, collectId := range newCollectList.Collect {
-		saveBilibiliCollectAllVideo(bilibili.Spider.GetCollectAllVideo(collectId, 0), web.Id, collectId)
+		for _, info := range bilibili.Spider.GetCollectAllVideo(collectId, 0) {
+			author := models.Author{
+				WebSiteId:    web.Id,
+				AuthorWebUid: strconv.Itoa(info.Upper.Mid),
+				AuthorName:   info.Upper.Name,
+				Avatar:       info.Upper.Face,
+				Follow:       false,
+				Crawl:        true,
+			}
+			err := author.GetOrCreate()
+			if err != nil {
+				utils.ErrorLog.Printf("获取作者信息失败：%s\n", err.Error())
+				continue
+			}
+			uploadTime := time.Unix(info.Ctime, 0)
+			vi := models.Video{
+				WebSiteId: web.Id,
+				Authors: []models.VideoAuthor{
+					{AuthorId: author.Id, Uuid: info.BvId},
+				},
+				Title:      info.Title,
+				VideoDesc:  info.Intro,
+				Duration:   info.Duration,
+				Uuid:       info.Bvid,
+				CoverUrl:   info.Cover,
+				UploadTime: &uploadTime,
+			}
+			vi.Save()
+			models.CollectVideo{
+				CollectId: collectId,
+				VideoId:   vi.Id,
+				Mtime:     time.Unix(info.FavTime, 0),
+			}.Save()
+		}
 	}
 	for _, collectId := range newCollectList.Season {
 		for _, info := range bilibili.Spider.GetSeasonAllVideo(collectId) {
@@ -574,157 +601,4 @@ func historyRunTime() int64 {
 		return 3600 + rand.Int63n(100)
 	}
 	return 7200 + rand.Int63n(100)
-}
-
-func saveAuthorAllVideo(db *sql.DB, response bilibili.VideoListPageResponse, webSiteId int64) []string {
-	var (
-		authorVideoUUID map[string]string
-		videoUUID       string
-		ok              bool
-		result          []string
-		authorId        int64
-		err             error
-	)
-	if len(response.Data.List.Vlist) > 0 {
-		err = db.QueryRow("select id from main.author where author_web_uid=?", response.Data.List.Vlist[0].Mid).Scan(&authorId)
-		if err != nil {
-			utils.ErrorLog.Printf(err.Error())
-			return nil
-		}
-	} else {
-		return []string{}
-	}
-	uuidQuery, err := db.Query("select uuid from video where author_id=?", authorId)
-	if err != nil {
-		utils.ErrorLog.Printf("saveAuthorAllVideo方法查询已有存有视频信息出错")
-		return nil
-	}
-
-	for uuidQuery.Next() {
-		err = uuidQuery.Scan(&videoUUID)
-		if err == nil {
-			authorVideoUUID[videoUUID] = ""
-		}
-	}
-	uuidQuery.Close()
-
-	for _, videoInfo := range response.Data.List.Vlist {
-		if _, ok = authorVideoUUID[videoInfo.Bvid]; ok {
-			continue
-		}
-		result = append(result,
-			fmt.Sprintf("(%d, %d,'%s','%s',%d,'%s','%s','%s')", webSiteId, authorId, videoInfo.Title, strings.Replace(videoInfo.Description, " ", "", -1),
-				bilibili.HourAndMinutesAndSecondsToSeconds(videoInfo.Length), videoInfo.Bvid, videoInfo.Pic, time.Unix(int64(videoInfo.Created), 0).Format("2006-01-02 15:04:05-07:00")))
-
-	}
-	return result
-}
-
-// 更新正在代理中正在运行的任务状态
-func updateProxySpiderTaskStatus() {
-	// 获取正在运行的任务
-	runTaskList := make([]models.ProxySpiderTask, 0)
-	tx := models.GormDB.Where("status in ?", []int{1, 2}).Find(runTaskList)
-	if tx.Error != nil {
-		utils.ErrorLog.Println("获取正在运行的任务失败")
-		return
-	}
-	// 向代理的getTaskStatus这个路径发起get请求获取任务状态
-	var responseData struct {
-		Status int    `json:"status"`
-		Msg    string `json:"msg"`
-		Md5    string `json:"md5"`
-	}
-	for _, proxyInfo := range runTaskList {
-		request, _ := http.NewRequest("GET", fmt.Sprintf("http://%s/getTaskStatus", proxyInfo.SpiderIp), nil)
-		q := request.URL.Query()
-		q.Add("taskType", proxyInfo.TaskType)
-		q.Add("taskId", proxyInfo.TaskId)
-		request.URL.RawQuery = q.Encode()
-		response, err := http.DefaultClient.Do(request)
-		if err != nil {
-			utils.ErrorLog.Printf("获取任务状态失败：%s\n", err.Error())
-			continue
-		}
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			utils.ErrorLog.Printf("读取响应失败：%s\n", err.Error())
-			continue
-		}
-		err = json.Unmarshal(body, &responseData)
-		if err != nil {
-			utils.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
-			continue
-		}
-		models.GormDB.Model(&proxyInfo).Update("status", responseData.Status)
-		if responseData.Status == 2 {
-			models.GormDB.Model(&proxyInfo).Update("result_file_md5", responseData.Md5)
-			// 任务完成
-			go downloadTaskResult(proxyInfo.SpiderIp, proxyInfo.TaskType, proxyInfo.TaskId, responseData.Md5)
-		}
-		response.Body.Close()
-	}
-	// 更新任务状态
-}
-
-func downloadTaskResult(ip, taskType, taskId, fileMd5 string) {
-	// 检查文件是否已经下载了
-	if m, _ := utils.GetFileMd5(path.Join(dataPath, taskType, taskId, "result")); m == fileMd5 {
-		return
-	}
-	// 直接去下载文件,服务方使用nginx做文件服务器，下载根路径是 taskResult
-	request, _ := http.NewRequest("GET", fmt.Sprintf("http://%s/taskResult/%s/%s", ip, taskType, taskId), nil)
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		utils.ErrorLog.Printf("获取任务结果失败：%s\n", err.Error())
-		return
-	}
-	data, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		utils.ErrorLog.Printf("读取响应失败：%s\n", err.Error())
-		return
-	}
-	// 将文件写入到本地
-	err = ioutil.WriteFile(path.Join(dataPath, taskType, taskId, "result"), data, fs.ModePerm)
-	if err != nil {
-		utils.ErrorLog.Printf("写入文件失败：%s\n", err.Error())
-		return
-	}
-}
-
-func saveBilibiliCollectAllVideo(response []bilibili.CollectVideoDetailInfo, webSiteId, collectId int64) {
-	for _, info := range response {
-		author := models.Author{
-			WebSiteId:    webSiteId,
-			AuthorWebUid: strconv.Itoa(info.Upper.Mid),
-			AuthorName:   info.Upper.Name,
-			Avatar:       info.Upper.Face,
-			Follow:       false,
-			Crawl:        true,
-		}
-		err := author.GetOrCreate()
-		if err != nil {
-			utils.ErrorLog.Printf("获取作者信息失败：%s\n", err.Error())
-			continue
-		}
-		uploadTime := time.Unix(info.Ctime, 0)
-		vi := models.Video{
-			WebSiteId: webSiteId,
-			Authors: []models.VideoAuthor{
-				{AuthorId: author.Id, Uuid: info.BvId},
-			},
-			Title:      info.Title,
-			VideoDesc:  info.Intro,
-			Duration:   info.Duration,
-			Uuid:       info.Bvid,
-			CoverUrl:   info.Cover,
-			UploadTime: &uploadTime,
-		}
-		vi.Save()
-		models.CollectVideo{
-			CollectId: collectId,
-			VideoId:   vi.Id,
-			Mtime:     time.Unix(info.FavTime, 0),
-		}.Save()
-	}
 }
