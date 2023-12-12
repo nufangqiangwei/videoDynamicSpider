@@ -102,52 +102,7 @@ func getAuthorAllVideo(ctx *gin.Context) {
 		}
 	}
 
-	videoChan := make(chan []byte, 5)
-
-	go func() {
-		defer close(videoChan)
-		// 请求出错的id写入到文件中，文件名 errRequestParams
-		errRequestParams, _ := os.Open(path.Join(baseStruct.RootPath, folderName, taskId, "errRequestParams"))
-		defer errRequestParams.Close()
-		fileName := path.Join(baseStruct.RootPath, folderName, taskId, "requestParams")
-		slice2 := make([]string, len(requestBody.IdList))
-		copy(slice2, requestBody.IdList)
-		os.WriteFile(fileName, []byte(strings.Join(slice2, "\n")), fs.ModePerm)
-		for _, i := range requestBody.IdList {
-			err := bilibili.GetAuthorAllVideoListTOJSON(i, videoChan)
-			if err != nil {
-				errRequestParams.Write([]byte(i))
-				errRequestParams.Write([]byte{10})
-				utils.ErrorLog.Printf("爬取失败%s", err.Error())
-			}
-			time.Sleep(time.Second * 10)
-			utils.Info.Printf("%s 爬取完成", i)
-			if len(slice2) > 0 {
-				slice2 = slice2[1:]
-				os.WriteFile(fileName, []byte(strings.Join(slice2, "\n")), fs.ModePerm)
-			}
-		}
-	}()
-	go func() {
-		file := WriteFile{
-			folderPrefix:   []string{baseStruct.RootPath, folderName, taskId},
-			fileNamePrefix: folderName,
-		}
-		file.checkFileSize()
-		defer file.file.Close()
-		utils.Info.Println("开始运行")
-		for i := range videoChan {
-			if i == nil {
-				file.checkFileSize()
-				continue
-			}
-			file.file.Write(i)
-			file.file.Write([]byte{10})
-		}
-		file.file.Close()
-		tarFolderFile(folderName, taskId)
-	}()
-
+	go getAuthorVideoList(requestBody.IdList, folderName, taskId)
 	ctx.JSONP(200, map[string]string{"taskId": taskId})
 }
 
@@ -171,15 +126,69 @@ func getVideoDetailApi(ctx *gin.Context) {
 			return
 		}
 	}
-	go func() {
-		getVideoDetailList(requestBody.IdList, folderName, taskId)
-		tarFolderFile(folderName, taskId)
-	}()
+	go getVideoDetailList(requestBody.IdList, folderName, taskId)
 	ctx.JSONP(200, map[string]string{"taskId": taskId})
 
 }
 
+func getAuthorVideoList(videoUid []string, folderName, taskId string) {
+	defer func() {
+		if err := recover(); err != nil {
+			utils.ErrorLog.Printf("getVideoDetailList panic %s", err)
+			os.WriteFile(path.Join(baseStruct.RootPath, folderName, taskId, "funcError"), []byte(err.(error).Error()), fs.ModePerm)
+		}
+	}()
+	videoChan := make(chan []byte, 5)
+	go func() {
+		defer close(videoChan)
+		// 请求出错的id写入到文件中，文件名 errRequestParams
+		errRequestParams, _ := os.Open(path.Join(baseStruct.RootPath, folderName, taskId, "errRequestParams"))
+		defer errRequestParams.Close()
+		fileName := path.Join(baseStruct.RootPath, folderName, taskId, "requestParams")
+		slice2 := make([]string, len(videoUid))
+		copy(slice2, videoUid)
+		os.WriteFile(fileName, []byte(strings.Join(slice2, "\n")), fs.ModePerm)
+		for _, i := range videoUid {
+			err := bilibili.GetAuthorAllVideoListTOJSON(i, videoChan)
+			if err != nil {
+				errRequestParams.Write([]byte(i))
+				errRequestParams.Write([]byte{10})
+				utils.ErrorLog.Printf("爬取失败%s", err.Error())
+			}
+			time.Sleep(time.Second * 10)
+			utils.Info.Printf("%s 爬取完成", i)
+			if len(slice2) > 0 {
+				slice2 = slice2[1:]
+				os.WriteFile(fileName, []byte(strings.Join(slice2, "\n")), fs.ModePerm)
+			}
+		}
+	}()
+
+	file := WriteFile{
+		folderPrefix:   []string{baseStruct.RootPath, folderName, taskId},
+		fileNamePrefix: folderName,
+	}
+	file.checkFileSize()
+	defer file.file.Close()
+	utils.Info.Println("开始运行")
+	for i := range videoChan {
+		if i == nil {
+			file.checkFileSize()
+			continue
+		}
+		file.file.Write(i)
+		file.file.Write([]byte{10})
+	}
+	file.file.Close()
+	tarFolderFile(folderName, taskId)
+}
+
 func getVideoDetailList(videoUid []string, folderName, taskId string) {
+	defer func() {
+		if err := recover(); err != nil {
+			utils.ErrorLog.Printf("getVideoDetailList panic %s", err)
+		}
+	}()
 	resultChan := make(chan []byte, 5)
 	go func() {
 		defer close(resultChan)
@@ -221,6 +230,7 @@ func getVideoDetailList(videoUid []string, folderName, taskId string) {
 		file.file.Write(i)
 		file.file.Write([]byte{10})
 	}
+	tarFolderFile(folderName, taskId)
 }
 
 func getTaskStatus(ctx *gin.Context) {
@@ -284,7 +294,7 @@ func createFolder(haveReturnError bool, elem ...string) error {
 func tarFolderFile(folderName, taskId string) {
 	// 设置源文件夹和目标文件名
 	sourceFolder := path.Join(baseStruct.RootPath, folderName, taskId)
-	targetFile := path.Join(baseStruct.RootPath, folderName, fmt.Sprintf("%s|%s.tar.gz", folderName, taskId))
+	targetFile := path.Join(baseStruct.RootPath, folderName, fmt.Sprintf("%s_%s.tar.gz", folderName, taskId))
 	baseFolder := path.Join(baseStruct.RootPath, folderName, taskId)
 	// 创建目标文件
 	file, err := os.Create(targetFile)

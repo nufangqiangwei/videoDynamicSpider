@@ -287,11 +287,11 @@ func saveBilibiliAuthorVideoList(response bilibili.VideoListPageResponse, WebSit
 }
 
 func importFileData(fileName string) {
-	// 文件是 cmd/spiderProxy/main.go这个tarFolderFile函数打包出来的文件，文件名格式{taskType}|{taskId}.tar.gz
+	// 文件是 cmd/spiderProxy/main.go这个tarFolderFile函数打包出来的文件，文件名格式{taskType}_{taskId}.tar.gz
 	// 内部包含三种文件 requestParams请求参数 errRequestParams出现错误的请求参数  {taskId}.json结果集，100M一个文件
 	defer moveFile(fileName)
 	// 解析文件名，获取taskType和taskId
-	fileNameList := strings.Split(fileName, "|")
+	fileNameList := strings.Split(fileName, "_")
 	if len(fileNameList) != 2 {
 		utils.ErrorLog.Printf("文件名格式错误：%s\n", fileName)
 		return
