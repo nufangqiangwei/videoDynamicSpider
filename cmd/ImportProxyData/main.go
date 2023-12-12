@@ -34,7 +34,7 @@ const (
 )
 
 func readConfig() error {
-	fileData, err := os.ReadFile("./config.json")
+	fileData, err := os.ReadFile("C:\\Code\\GO\\videoDynamicSpider\\cmd\\ImportProxyData\\config.json")
 	if err != nil {
 		println(err.Error())
 		return err
@@ -74,40 +74,41 @@ func main() {
 	waitImportPath = path.Join(baseStruct.RootPath, utils.WaitImportPrefix)
 	importingPath = path.Join(baseStruct.RootPath, utils.ImportingPrefix)
 	finishImportPath = path.Join(baseStruct.RootPath, utils.FinishImportPrefix)
-	for {
-		// 检查importingPath目录下的文件是否有上次异常退出残留下来的文件
-		importingFileList, err := os.ReadDir(importingPath)
-		if err != nil {
-			utils.ErrorLog.Printf("读取目录失败：%s\n", err.Error())
-		} else {
-			for _, importingFile := range importingFileList {
-				importFileData(importingFile.Name())
-			}
+	//for {
+	// 检查importingPath目录下的文件是否有上次异常退出残留下来的文件
+	importingFileList, err := os.ReadDir(importingPath)
+	if err != nil {
+		utils.ErrorLog.Printf("读取目录失败：%s\n", err.Error())
+	} else {
+		for _, importingFile := range importingFileList {
+			importFileData(importingFile.Name())
 		}
-		// 读取waitImportPath目录下的文件
-		waitImportFileList, err := os.ReadDir(waitImportPath)
+	}
+	// 读取waitImportPath目录下的文件
+	waitImportFileList, err := os.ReadDir(waitImportPath)
+	if err != nil {
+		utils.ErrorLog.Printf("读取目录失败：%s\n", err.Error())
+		//time.Sleep(sleepTime)
+		//continue
+		return
+	}
+	for _, waitImportFile := range waitImportFileList {
+		// 检查文件是否正在写入
+		if !utils.CheckFileWriteStatus(path.Join(waitImportPath, waitImportFile.Name())) {
+			continue
+		}
+		// 将这个文件移动到importingPath目录下
+		err = os.Rename(path.Join(waitImportPath, waitImportFile.Name()), path.Join(importingPath, waitImportFile.Name()))
 		if err != nil {
-			utils.ErrorLog.Printf("读取目录失败：%s\n", err.Error())
+			utils.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
 			time.Sleep(sleepTime)
 			continue
 		}
-		for _, waitImportFile := range waitImportFileList {
-			// 检查文件是否正在写入
-			if utils.CheckFileWriteStatus(path.Join(waitImportPath, waitImportFile.Name())) {
-				continue
-			}
-			// 将这个文件移动到importingPath目录下
-			err = os.Rename(path.Join(waitImportPath, waitImportFile.Name()), path.Join(importingPath, waitImportFile.Name()))
-			if err != nil {
-				utils.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
-				time.Sleep(sleepTime)
-				continue
-			}
-			// 开始导入数据
-			importFileData(waitImportFile.Name())
-		}
-		time.Sleep(sleepTime)
+		// 开始导入数据
+		importFileData(waitImportFile.Name())
 	}
+	//time.Sleep(sleepTime)
+	//}
 }
 
 func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSiteId int64) {
@@ -297,16 +298,18 @@ func importFileData(fileName string) {
 		return
 	}
 	taskType := fileNameList[0]
+	var aa taskWorker
 	switch taskType {
-	case "bilibiliVideoDetail":
-		a := biliAuthorVideoList{}
-		a.initStruct(taskType)
-		gzFileUnzip(path.Join(importingPath, fileName), fileNameList[1], &a)
-	case "bilibiliAuthorVideoList":
-		a := biliVideoDetail{}
-		a.initStruct(taskType)
-		gzFileUnzip(path.Join(importingPath, fileName), fileNameList[1], &a)
+	case baseStruct.VideoDetail:
+		aa = &biliAuthorVideoList{}
+		aa.initStruct(taskType)
+		gzFileUnzip(path.Join(importingPath, fileName), fileNameList[1], aa)
+	case baseStruct.AuthorVideoList:
+		aa = &biliVideoDetail{}
+		aa.initStruct(taskType)
+		gzFileUnzip(path.Join(importingPath, fileName), fileNameList[1], aa)
 	}
+	aa.endOffWorker()
 
 }
 
@@ -353,12 +356,12 @@ func gzFileUnzip(fileNamePath, taskId string, handler taskWorker) {
 					utils.ErrorLog.Printf("读取文件行失败：%s\n", err.Error())
 					continue
 				}
-				switch hdr.Name {
-				case "requestParams":
+				switch {
+				case hdr.Name == "requestParams":
 					handler.requestHandle(bytes)
-				case "errRequestParams":
+				case hdr.Name == "errRequestParams":
 					handler.errorRequestHandle(bytes)
-				case taskId:
+				case strings.HasSuffix(hdr.Name, "json"):
 					handler.responseHandle(bytes)
 				}
 			}
@@ -395,7 +398,7 @@ type biliAuthorVideoList struct {
 func (avl *biliAuthorVideoList) initStruct(apiType string) {
 	avl.notRequestParams = []string{}
 	avl.apiType = apiType
-	models.GormDB.Table("website").Select("id").Where("website_name = ?", "bilibili").Find(&avl.webSiteId)
+	models.GormDB.Table("web_site").Select("id").Where("web_name = ?", "bilibili").Find(&avl.webSiteId)
 }
 func (avl *biliAuthorVideoList) requestHandle(data []byte) {
 	avl.notRequestParams = append(avl.notRequestParams, string(data))
@@ -436,7 +439,7 @@ type biliVideoDetail struct {
 func (vd *biliVideoDetail) initStruct(apiType string) {
 	vd.notRequestParams = []string{}
 	vd.apiType = apiType
-	models.GormDB.Table("website").Select("id").Where("website_name = ?", "bilibili").Find(&vd.webSiteId)
+	models.GormDB.Table("web_site").Select("id").Where("web_name = ?", "bilibili").Find(&vd.webSiteId)
 }
 func (vd *biliVideoDetail) requestHandle(data []byte) {
 	vd.notRequestParams = append(vd.notRequestParams, string(data))

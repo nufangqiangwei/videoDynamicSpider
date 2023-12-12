@@ -68,12 +68,13 @@ func (wf *WriteFile) checkFileSize() {
 }
 
 func main() {
+	baseStruct.RootPath = "C:\\Code\\GO\\videoDynamicSpider\\cmd\\spiderProxy"
 	utils.InitLog(baseStruct.RootPath)
 	server := gin.Default()
-	server.POST("getAuthorAllVideo", getAuthorAllVideo)
-	server.POST("getVideoDetail", getVideoDetailApi)
+	server.POST("authorAllVideo", getAuthorAllVideo)
+	server.POST("videoDetail", getVideoDetailApi)
 	server.GET("getTaskStatus", getTaskStatus)
-	server.Run(":9000")
+	server.Run(":8080")
 }
 
 type IdListRequest struct {
@@ -256,10 +257,11 @@ func getTaskStatus(ctx *gin.Context) {
 
 	if file.Size() == 0 {
 		// 获取打包后的文件MD5
-		fileName = path.Join(baseStruct.RootPath, taskType, fmt.Sprintf("%s.tar.gz", taskId))
+		fileName = path.Join(baseStruct.RootPath, taskType, fmt.Sprintf("%s_%s.tar.gz", taskType, taskId))
 		// 获取文件MD5
 		md5, err := utils.GetFileMd5(fileName)
 		if err != nil {
+			println(err.Error())
 			ctx.JSONP(200, map[string]interface{}{"status": 1, "msg": "获取文件MD5失败"})
 			return
 		}

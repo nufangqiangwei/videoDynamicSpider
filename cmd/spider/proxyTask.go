@@ -173,6 +173,12 @@ func groupTasks(tasks []models.TaskToDoList, size int) [][]models.TaskToDoList {
 	return groups
 }
 
+type proxyTaskStatusResponse struct {
+	Status int
+	Msg    string
+	Md5    string
+}
+
 // 查询当前正在进行的代理任务是否已经完成
 func checkProxyTaskStatus() {
 	var proxyTasks []models.ProxySpiderTask
@@ -184,6 +190,7 @@ func checkProxyTaskStatus() {
 	for _, proxyTask := range proxyTasks {
 		// 查询代理任务是否已经完成
 		url := fmt.Sprintf("http://%s/getTaskStatus?taskId=%s&taskType=%s", proxyTask.SpiderIp, proxyTask.TaskId, proxyTask.TaskType)
+		println(url)
 		resp, err := http.Get(url)
 		if err != nil {
 			utils.ErrorLog.Println("查询代理任务是否已经完成错误:", err)
@@ -199,18 +206,19 @@ func checkProxyTaskStatus() {
 			utils.ErrorLog.Println("查询代理任务是否已经完成错误:", err)
 			continue
 		}
-		var responseData map[string]interface{}
+		responseData := proxyTaskStatusResponse{}
 		err = json.Unmarshal(responseBody, &responseData)
 		if err != nil {
 			utils.ErrorLog.Println("查询代理任务是否已经完成错误:", err)
 			continue
 		}
-		if responseData["status"].(int) == 1 {
+		fmt.Printf("%v\n", responseData)
+		if responseData.Status == 1 {
 			// 代理任务已经完成，更新ProxySpiderTask表中的数据
 			err = models.GormDB.Model(&models.ProxySpiderTask{}).Where("id = ?", proxyTask.ID).Updates(map[string]interface{}{
 				"status":          2,
 				"end_timestamp":   time.Now(),
-				"result_file_md5": responseData["md5"].(string),
+				"result_file_md5": responseData.Md5,
 			}).Error
 			if err != nil {
 				utils.ErrorLog.Println("更新ProxySpiderTask表中的数据错误:", err)
@@ -222,9 +230,10 @@ func checkProxyTaskStatus() {
 
 // 下载已完成的任务文件
 func downloadTaskDataFile(taskId, taskType, ip string) {
-	fileName := fmt.Sprintf("%s|%s.tar.gz", taskType, taskId)
+	fileName := fmt.Sprintf("%s_%s.tar.gz", taskType, taskId)
 	// 下载任务文件,nginx作为文件服务器
-	url := fmt.Sprintf("http://%s/downloadTaskDataFile/%s", ip, fileName)
+	url := fmt.Sprintf("http://%s/downloadTaskDataFile/%s/%s", ip, taskType, fileName)
+	println(url)
 	resp, err := http.Get(url)
 	if err != nil {
 		utils.ErrorLog.Println("下载任务文件错误:", err)

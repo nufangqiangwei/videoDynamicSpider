@@ -76,7 +76,7 @@ func TestWriteRequestParams(t *testing.T) {
 
 func TestIntoFileData(t *testing.T) {
 
-	filePath := "E:\\GoCode\\videoDynamicAcquisition\\allVideo"
+	filePath := "C:\\Code\\GO\\videoDynamicSpider\\cmd\\spiderProxy\\allVideo"
 	fileNameList := []string{}
 	filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -89,8 +89,9 @@ func TestIntoFileData(t *testing.T) {
 	})
 	responseStruct := new(bilibili.VideoListPageResponse)
 	utils.InitLog(baseStruct.RootPath)
-	models.InitDB("spider:spider@tcp(100.124.177.135:3306)/videoSpider?charset=utf8mb4&parseTime=True&loc=Local")
+	models.InitDB("spider:spider@tcp(192.168.1.25:3306)/videoSpider?charset=utf8mb4&parseTime=True&loc=Local")
 	testIndex := 0
+	nowTime := time.Now()
 	for _, fileName := range fileNameList {
 		fmt.Printf("%s\n", fileName)
 		if testIndex >= 10 {
@@ -103,13 +104,25 @@ func TestIntoFileData(t *testing.T) {
 			continue
 		}
 		scanner := bufio.NewScanner(file)
-		authorVideoUUIDList := []string{}
+		buf := make([]byte, 0, 64*1024)
+		scanner.Buffer(buf, 1024*1024)
+		authorVideoUUIDList := []models.Video{}
 		lastAuthorMid := 0
 		var authorId int64 = 0
 		for scanner.Scan() {
 			line := scanner.Bytes()
+			if len(line) == 0 {
+				continue
+			}
+			if line[len(line)-1] == 44 {
+				line = line[:len(line)-1]
+			}
 			err = json.Unmarshal(line, responseStruct)
 			if err != nil {
+				println(err.Error())
+				continue
+			}
+			if len(responseStruct.Data.List.Vlist) == 0 {
 				continue
 			}
 			authorMid := responseStruct.Data.List.Vlist[0].Mid
@@ -117,7 +130,6 @@ func TestIntoFileData(t *testing.T) {
 				// 查询这个作者本地保存的视频信息
 				// select v.uuid from video v inner join author a on v.author_id = a.id where a.author_web_uid= 1635;
 				models.GormDB.Table("video v").
-					Select("v.uuid").
 					Joins("inner join author a on v.author_id = a.id").
 					Where("a.author_web_uid = ?", authorMid).
 					Find(&authorVideoUUIDList)
@@ -128,9 +140,28 @@ func TestIntoFileData(t *testing.T) {
 					Where("author_web_uid = ?", authorMid).
 					Find(&authorId)
 				lastAuthorMid = authorMid
+				println(responseStruct.Data.List.Vlist[0].Author)
 			}
 			for _, videoInfo := range responseStruct.Data.List.Vlist {
-				if !utils.InArray(videoInfo.Bvid, authorVideoUUIDList) {
+				have := false
+				for _, mysqlVideo := range authorVideoUUIDList {
+					if mysqlVideo.Uuid == videoInfo.Bvid {
+						createdTime := time.Unix(videoInfo.Created, 0)
+						if mysqlVideo.CreateTime.IsZero() {
+							mysqlVideo.CreateTime = nowTime
+						}
+						models.GormDB.Model(&mysqlVideo).Updates(map[string]interface{}{
+							"upload_time": createdTime,
+							"video_desc":  videoInfo.Description,
+							"duration":    bilibili.HourAndMinutesAndSecondsToSeconds(videoInfo.Length),
+							"cover_url":   videoInfo.Pic,
+							"create_time": mysqlVideo.CreateTime,
+						})
+						have = true
+						break
+					}
+				}
+				if !have {
 					createdTime := time.Unix(videoInfo.Created, 0)
 					// 保存视频信息
 					vv := models.Video{
@@ -145,8 +176,8 @@ func TestIntoFileData(t *testing.T) {
 						CreateTime: time.Now(),
 					}
 					vv.Save()
-					authorVideoUUIDList = append(authorVideoUUIDList, videoInfo.Bvid)
 				}
+
 			}
 
 		}

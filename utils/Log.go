@@ -19,20 +19,21 @@ var (
 	DBlog        *log.Logger
 )
 
-func InitLog(lofFilePath string) {
+func InitLog(logPath string) {
 	var (
 		logWriter      io.Writer
 		dbWriter       io.Writer
 		timeWheelWrite io.Writer
 		dbLogFile      string
 		timeWheeFile   string
+		lofFilePath    string
 	)
-	if !strings.HasSuffix(lofFilePath, ".log") {
-		dbLogFile = path.Join(lofFilePath, "db.log")
-		lofFilePath = path.Join(lofFilePath, "videoSpider.log")
-		timeWheeFile = path.Join(lofFilePath, "timeWheel.log")
+	if !strings.HasSuffix(logPath, ".log") {
+		dbLogFile = path.Join(logPath, "db.log")
+		lofFilePath = path.Join(logPath, "videoSpider.log")
+		timeWheeFile = path.Join(logPath, "timeWheel.log")
 	} else {
-		rootPath, _ := path.Split(lofFilePath)
+		rootPath, _ := path.Split(logPath)
 		dbLogFile = path.Join(rootPath, "db.log")
 		lofFilePath = path.Join(rootPath, "videoSpider.log")
 		timeWheeFile = path.Join(rootPath, "timeWheel.log")

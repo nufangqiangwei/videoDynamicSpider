@@ -43,7 +43,7 @@ type Spider struct {
 }
 
 func readConfig() error {
-	fileData, err := os.ReadFile("./config.json")
+	fileData, err := os.ReadFile("C:\\Code\\GO\\videoDynamicSpider\\cmd\\spider\\config.json")
 	if err != nil {
 		println(err.Error())
 		return err

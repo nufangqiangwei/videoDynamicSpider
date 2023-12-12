@@ -15,7 +15,7 @@ type VideoHistory struct {
 
 func (vh VideoHistory) Save() {
 	tx := GormDB.Create(&vh)
-	if tx.Error != nil {
+	if tx.Error != nil && !utils.IsMysqlUniqueErr(tx.Error) {
 		utils.ErrorLog.Println("VideoHistory插入数据错误", tx.Error.Error())
 	}
 }
