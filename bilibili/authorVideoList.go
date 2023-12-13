@@ -238,6 +238,21 @@ func GetAuthorAllVideoListTOJSON(UId string, result chan<- []byte) error {
 	return nil
 }
 
+func GetAuthorAllVideoListByByte(uid string, pageIndex int) ([]byte, error, string) {
+	v := videoListPage{}
+	response, err := http.DefaultClient.Do(v.getRequest(uid, pageIndex))
+
+	if err != nil {
+		return nil, err, response.Request.URL.String()
+	}
+	defer response.Body.Close()
+	data, err := ioutil.ReadAll(response.Body)
+	if response.StatusCode != 200 {
+		return data, errors.New(fmt.Sprintf("StatusCode错误%d", response.StatusCode)), response.Request.URL.String()
+	}
+	return data, err, response.Request.URL.String()
+}
+
 func (r *VideoListPageResponse) getCode() int {
 	return r.Code
 }

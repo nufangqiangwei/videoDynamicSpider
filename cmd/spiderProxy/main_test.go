@@ -42,7 +42,7 @@ func TestCreateFolder(t *testing.T) {
 }
 func TestWriteFile(t *testing.T) {
 	taskId := "f4c37262-c9e3-4e38-8717-7962ca7dfc79"
-	file := WriteFile{
+	file := writeFile{
 		folderPrefix:   []string{baseStruct.RootPath, "allVideo", taskId},
 		fileNamePrefix: "allVideo",
 	}
@@ -197,14 +197,25 @@ func TestPrefixByte(t *testing.T) {
 	//fmt.Printf("%v\n", []byte(prefix))
 	//fmt.Printf("%v\n", []byte(brackets))
 	//fmt.Printf("%v\n", []byte(suffix))
+	requestUrl := `https://api.bilibili.com/x/space/arc/search?mid=1635&ps=30&tid=0&pn=1&keyword=&order=pubdate&jsonp=jsonp`
 	prefixByte := []byte{123, 34, 117, 114, 108, 34, 58, 34}
 	bracketsByte := []byte{125}
 	suffixByte := []byte{34, 44, 34, 114, 101, 115, 112, 111, 110, 115, 101, 34, 58}
 	responseByte := []byte(`{"code":0,"msg":"ok"}`)
-	urlByte := []byte(`https://api.bilibili.com/x/space/arc/search?mid=1635&ps=30&tid=0&pn=1&keyword=&order=pubdate&jsonp=jsonp`)
+	urlByte := []byte(requestUrl)
 	print(string(prefixByte))
 	print(string(urlByte))
 	print(string(suffixByte))
 	print(string(responseByte))
 	println(string(bracketsByte))
+	println()
+	println(string(writeRequestUrl(requestUrl, responseByte)))
+}
+
+func TestStr(t *testing.T) {
+	xxx := "Go语言的字符有以下两种："
+	yyy := []byte(xxx)
+	fmt.Printf("%v\n", yyy)
+	yyy = []byte("{}\n")
+	fmt.Printf("%v\n", yyy)
 }

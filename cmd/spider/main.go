@@ -22,6 +22,7 @@ const (
 	sixTime       = oneTicket * 6
 	twentyTime    = oneTicket * 20
 	twelveTicket  = oneTicket * 12
+	configPath    = "C:\\Code\\GO\\videoDynamicSpider\\cmd\\spider\\config.json"
 )
 
 var (
@@ -43,7 +44,7 @@ type Spider struct {
 }
 
 func readConfig() error {
-	fileData, err := os.ReadFile("C:\\Code\\GO\\videoDynamicSpider\\cmd\\spider\\config.json")
+	fileData, err := os.ReadFile(configPath)
 	if err != nil {
 		println(err.Error())
 		return err
@@ -95,27 +96,39 @@ func main() {
 	spider = &Spider{
 		interval: defaultTicket,
 	}
-	//_, err := wheel.AppendOnceFunc(spider.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
-	//if err != nil {
-	//	return
-	//}
-	//historyTaskId, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: 10})
-	//if err != nil {
-	//	return
-	//}
-	//_, err = wheel.AppendOnceFunc(spider.updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + 120})
-	//if err != nil {
-	//	return
-	//}
-	//_, err = wheel.AppendOnceFunc(spider.updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: oneTicket})
-	//if err != nil {
-	//	return
-	//}
-	//_, err = wheel.AppendOnceFunc(spider.updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
-	//if err != nil {
-	//	return
-	//}
-	//wheel.Start()
+	_, err := wheel.AppendOnceFunc(spider.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
+	if err != nil {
+		return
+	}
+	historyTaskId, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: 10})
+	if err != nil {
+		return
+	}
+	_, err = wheel.AppendOnceFunc(spider.updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + 120})
+	if err != nil {
+		return
+	}
+	_, err = wheel.AppendOnceFunc(spider.updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: oneTicket})
+	if err != nil {
+		return
+	}
+	_, err = wheel.AppendOnceFunc(spider.updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
+	if err != nil {
+		return
+	}
+	_, err = wheel.AppendCycleFunc(runToDoTask, nil, "pushTaskToProxy", timeWheel.Crontab{ExpiredTime: defaultTicket + 30})
+	if err != nil {
+		return
+	}
+	_, err = wheel.AppendCycleFunc(checkProxyTaskStatus, nil, "getTaskStatus", timeWheel.Crontab{ExpiredTime: defaultTicket * 2})
+	if err != nil {
+		return
+	}
+	_, err = wheel.AppendCycleFunc(loadProxyInfo, nil, "loadConfigProxyInfo", timeWheel.Crontab{ExpiredTime: defaultTicket})
+	if err != nil {
+		return
+	}
+	wheel.Start()
 	spider.getHistory(nil)
 }
 
@@ -601,4 +614,19 @@ func historyRunTime() int64 {
 		return 3600 + rand.Int63n(100)
 	}
 	return 7200 + rand.Int63n(100)
+}
+
+func loadProxyInfo(interface{}) {
+	fileData, err := os.ReadFile(configPath)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+	configFile := &utils.Config{}
+	err = json.Unmarshal(fileData, configFile)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+	config.Proxy = configFile.Proxy
 }

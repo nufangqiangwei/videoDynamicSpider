@@ -13,7 +13,7 @@ import (
 	"videoDynamicAcquisition/utils"
 )
 
-func runToDoTask() {
+func runToDoTask(interface{}) {
 	// 查询正在执行任务的代理
 	var proxyTasks []models.ProxySpiderTask
 	err := models.GormDB.Where("status = ?", 1).Find(&proxyTasks).Error
@@ -180,7 +180,7 @@ type proxyTaskStatusResponse struct {
 }
 
 // 查询当前正在进行的代理任务是否已经完成
-func checkProxyTaskStatus() {
+func checkProxyTaskStatus(interface{}) {
 	var proxyTasks []models.ProxySpiderTask
 	err := models.GormDB.Where("status = ?", 1).Find(&proxyTasks).Error
 	if err != nil {

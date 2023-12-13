@@ -208,7 +208,7 @@ type VideoDetailResponse struct {
 				Description string        `json:"description"`
 				Article     int           `json:"article"`
 				Attentions  []interface{} `json:"attentions"`
-				Fans        int           `json:"fans"`
+				Fans        uint64        `json:"fans"`
 				Friend      int           `json:"friend"`
 				Attention   int           `json:"attention"`
 				Sign        string        `json:"sign"`
@@ -489,13 +489,13 @@ func (receiver videoDetail) getResponse(bvid string) *VideoDetailResponse {
 	return result
 }
 
-func GetVideoDetailByByte(bvid string) []byte {
+func GetVideoDetailByByte(bvid string) ([]byte, string) {
 	response, err := http.DefaultClient.Do(videoDetail{}.getRequest(bvid))
 	if err != nil {
 		utils.ErrorLog.Println(err.Error())
-		return nil
+		return nil, response.Request.URL.String()
 	}
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
-	return body
+	return body, response.Request.URL.String()
 }

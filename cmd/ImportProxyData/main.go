@@ -2,7 +2,7 @@ package main
 
 import (
 	"archive/tar"
-	"bufio"
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
@@ -34,7 +34,7 @@ const (
 )
 
 func readConfig() error {
-	fileData, err := os.ReadFile("C:\\Code\\GO\\videoDynamicSpider\\cmd\\ImportProxyData\\config.json")
+	fileData, err := os.ReadFile("E:\\GoCode\\videoDynamicAcquisition\\cmd\\ImportProxyData\\config.json")
 	if err != nil {
 		println(err.Error())
 		return err
@@ -161,47 +161,78 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 		"Evaluation": response.Data.View.Stat.Evaluation,
 	})
 	// 更新作者和协作者信息
-	// 查询作者信息
-	DatabaseAuthorInfo := []models.Author{}
-	authorIdList := []int64{}
-	for _, a := range video.Authors {
-		authorIdList = append(authorIdList, a.AuthorId)
-	}
-	models.GormDB.Where("id in ?", authorIdList).Find(&DatabaseAuthorInfo)
-	// models.VideoAuthor 和 response.Data.View.Staff 两边信息做对比，models.VideoAuthor缺少的就添加，models.Author缺少的就添加
-	authorHave := false
-	for _, b := range response.Data.View.Staff {
-		for _, a := range DatabaseAuthorInfo {
-			if a.AuthorWebUid == strconv.Itoa(b.Mid) {
-				authorHave = true
-				break
+	if len(response.Data.View.Staff) > 0 {
+		DatabaseAuthorInfo := []models.Author{}
+		authorIdList := []int64{}
+		for _, a := range video.Authors {
+			authorIdList = append(authorIdList, a.AuthorId)
+		}
+		models.GormDB.Where("id in ?", authorIdList).Find(&DatabaseAuthorInfo)
+		// models.VideoAuthor 和 response.Data.View.Staff 两边信息做对比，models.VideoAuthor缺少的就添加，models.Author缺少的就添加
+		authorHave := false
+		for _, b := range response.Data.View.Staff {
+			for _, a := range DatabaseAuthorInfo {
+				if a.AuthorWebUid == strconv.Itoa(b.Mid) {
+					authorHave = true
+					break
+				}
+			}
+			if !authorHave {
+				// 查询这个作者在Author表中是否存在
+				author := models.Author{}
+				models.GormDB.Where("author_web_uid = ?", strconv.Itoa(b.Mid)).Find(&author)
+				if author.Id == 0 {
+					// 作者不存在，数据库中添加作者信息
+					author = models.Author{
+						AuthorName:   b.Name,
+						WebSiteId:    WebSiteId,
+						AuthorWebUid: strconv.Itoa(b.Mid),
+						Avatar:       b.Face,
+						FollowNumber: b.Follower,
+					}
+					models.GormDB.Create(&author)
+				}
+				va := models.VideoAuthor{
+					Uuid:       response.Data.View.Bvid,
+					VideoId:    video.Id,
+					AuthorId:   author.Id,
+					Contribute: b.Title,
+				}
+				models.GormDB.Create(&va)
 			}
 		}
-		if !authorHave {
-			// 查询这个作者在Author表中是否存在
-			author := models.Author{}
-			models.GormDB.Where("author_web_uid = ?", strconv.Itoa(b.Mid)).Find(&author)
-			if author.Id == 0 {
-				// 作者不存在，数据库中添加作者信息
-				author = models.Author{
-					AuthorName:   b.Name,
-					WebSiteId:    WebSiteId,
-					AuthorWebUid: strconv.Itoa(b.Mid),
-					Avatar:       b.Face,
-					FollowNumber: b.Follower,
-				}
-				models.GormDB.Create(&author)
+	} else {
+		// 没有协作者
+		author := response.Data.Card.Card
+		AuthorInfo := models.Author{}
+		models.GormDB.Where("author_web_uid=?", author.Mid).Find(&AuthorInfo)
+		if AuthorInfo.Id == 0 {
+			// 作者不存在，数据库中添加作者信息
+			AuthorInfo = models.Author{
+				AuthorName:   author.Name,
+				WebSiteId:    WebSiteId,
+				AuthorWebUid: author.Mid,
+				Avatar:       author.Face,
+				FollowNumber: author.Fans,
+				AuthorDesc:   author.Sign,
 			}
-			va := models.VideoAuthor{
+			models.GormDB.Create(&AuthorInfo)
+		}
+		if len(video.Authors) > 0 {
+			if video.Authors[0].AuthorId != AuthorInfo.Id {
+				// 协作者发生变化
+				models.GormDB.Model(&video).Association("Authors").Replace(&AuthorInfo)
+			}
+		} else {
+			models.GormDB.Create(&models.VideoAuthor{
 				Uuid:       response.Data.View.Bvid,
 				VideoId:    video.Id,
-				AuthorId:   author.Id,
-				Contribute: b.Title,
-			}
-			models.GormDB.Create(&va)
+				AuthorId:   AuthorInfo.Id,
+				Contribute: "UP主",
+			})
 		}
-	}
 
+	}
 	// 更新视频标签信息
 	var tagHave bool
 	for _, v := range response.Data.Tags {
@@ -301,11 +332,11 @@ func importFileData(fileName string) {
 	var aa taskWorker
 	switch taskType {
 	case baseStruct.VideoDetail:
-		aa = &biliAuthorVideoList{}
+		aa = &biliVideoDetail{}
 		aa.initStruct(taskType)
 		gzFileUnzip(path.Join(importingPath, fileName), fileNameList[1], aa)
 	case baseStruct.AuthorVideoList:
-		aa = &biliVideoDetail{}
+		aa = &biliAuthorVideoList{}
 		aa.initStruct(taskType)
 		gzFileUnzip(path.Join(importingPath, fileName), fileNameList[1], aa)
 	}
@@ -345,24 +376,23 @@ func gzFileUnzip(fileNamePath, taskId string, handler taskWorker) {
 		case tar.TypeDir: // 如果是目录时候，跳过
 			continue
 		case tar.TypeReg: // 如果是文件就结果按行输出到外部
-
-			bufioRead := bufio.NewReader(tarRead)
-			for {
-				bytes, _, err := bufioRead.ReadLine()
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					utils.ErrorLog.Printf("读取文件行失败：%s\n", err.Error())
-					continue
-				}
-				switch {
-				case hdr.Name == "requestParams":
-					handler.requestHandle(bytes)
-				case hdr.Name == "errRequestParams":
-					handler.errorRequestHandle(bytes)
-				case strings.HasSuffix(hdr.Name, "json"):
-					handler.responseHandle(bytes)
+			switch {
+			case hdr.Name == "requestParams":
+				handler.requestHandle([]byte{})
+			case hdr.Name == "errRequestParams":
+				handler.errorRequestHandle([]byte{})
+			case strings.HasSuffix(hdr.Name, "json"):
+				bufioRead := newReaderJSONFile(tarRead)
+				for {
+					byteData, _, err := bufioRead.line()
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						utils.ErrorLog.Printf("读取文件行失败：%s\n", err.Error())
+						continue
+					}
+					handler.responseHandle(byteData)
 				}
 			}
 		}
@@ -462,4 +492,51 @@ func (vd *biliVideoDetail) responseHandle(data []byte) {
 }
 func (vd *biliVideoDetail) endOffWorker() {
 
+}
+
+func newReaderJSONFile(rd io.Reader) readJsonFile {
+	rf := readJsonFile{}
+	rf.readObject = rd
+	return rf
+}
+
+type readJsonFile struct {
+	readObject io.Reader
+	cache      []byte
+}
+
+// 读取一个完整的json对象，从123->{字符读到125->}字符。两边的字符必须是对称出现，返回这样的一个json字符串
+func (ro readJsonFile) line() ([]byte, int, error) {
+	var buf bytes.Buffer
+	started := false
+	count := 0
+
+	for {
+		b := make([]byte, 1)
+		_, err := ro.readObject.Read(b)
+		if err != nil {
+			if err == io.EOF {
+				return buf.Bytes(), buf.Len(), io.EOF
+			}
+			return nil, 0, err
+		}
+
+		if b[0] == '{' {
+			started = true
+			count++
+		}
+
+		if started {
+			buf.Write(b)
+		}
+
+		if b[0] == '}' {
+			count--
+			if count == 0 {
+				break
+			}
+		}
+	}
+
+	return buf.Bytes(), buf.Len(), nil
 }
