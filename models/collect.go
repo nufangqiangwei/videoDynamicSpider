@@ -7,15 +7,16 @@ import (
 )
 
 type Collect struct {
-	Id   int64  `json:"id" gorm:"primaryKey"`
-	Type int    `json:"type"`  // 1: 收藏夹 2: 专栏
-	BvId int64  `json:"bv_id"` // 收藏夹的bv号
-	Name string `json:"name"`  // 收藏夹的名字
+	Id        int64          `json:"id" gorm:"primaryKey"`
+	Type      int            `json:"type"`                 // 1: 收藏夹 2: 专栏
+	BvId      int64          `json:"bv_id"`                // 收藏夹的bv号
+	Name      string         `json:"name" gorm:"size:255"` // 收藏夹的名字
+	VideoInfo []CollectVideo `gorm:"foreignKey:CollectId;references:Id"`
 }
 type CollectVideo struct {
-	CollectId int64     `json:"collect_id" gorm:"uniqueIndex:collectId_videoId"`
-	VideoId   int64     `json:"video_id" gorm:"uniqueIndex:collectId_videoId"`
-	Mtime     time.Time `json:"mtime"`
+	CollectId int64      `json:"collect_id" gorm:"uniqueIndex:collectId_videoId"`
+	VideoId   int64      `json:"video_id" gorm:"uniqueIndex:collectId_videoId"`
+	Mtime     *time.Time `json:"mtime"`
 }
 
 func (ci *Collect) Save() bool {

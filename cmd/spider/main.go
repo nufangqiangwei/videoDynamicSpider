@@ -22,7 +22,7 @@ const (
 	sixTime       = oneTicket * 6
 	twentyTime    = oneTicket * 20
 	twelveTicket  = oneTicket * 12
-	configPath    = "C:\\Code\\GO\\videoDynamicSpider\\cmd\\spider\\config.json"
+	configPath    = "E:\\GoCode\\videoDynamicAcquisition\\cmd\\spider\\config.json"
 )
 
 var (
@@ -36,7 +36,7 @@ var (
 
 type VideoCollection interface {
 	GetWebSiteName() models.WebSite
-	GetVideoList(string, chan<- baseStruct.VideoInfo, chan<- baseStruct.TaskClose)
+	GetVideoList(string, chan<- models.Video, chan<- baseStruct.TaskClose)
 }
 
 type Spider struct {
@@ -129,7 +129,6 @@ func main() {
 		return
 	}
 	wheel.Start()
-	spider.getHistory(nil)
 }
 
 func arrangeRunTime(defaultValue, leftBorder, rightBorder int64) int64 {
@@ -162,7 +161,7 @@ func (s *Spider) getDynamic(interface{}) {
 	}()
 
 	dynamicBaseLine := models.GetDynamicBaseline()
-	videoResultChan := make(chan baseStruct.VideoInfo)
+	videoResultChan := make(chan models.Video)
 	closeChan := make(chan baseStruct.TaskClose)
 	runWebSite := make([]string, 0)
 
@@ -172,40 +171,14 @@ func (s *Spider) getDynamic(interface{}) {
 	}
 
 	var (
-		videoInfo baseStruct.VideoInfo
+		videoInfo models.Video
 		closeInfo baseStruct.TaskClose
 		err       error
 	)
 	for {
 		select {
 		case videoInfo = <-videoResultChan:
-			website := models.WebSite{WebName: videoInfo.WebSite}
-			err = website.GetOrCreate()
-			if err != nil {
-				utils.ErrorLog.Printf("获取网站信息失败：%s\n", err.Error())
-				continue
-			}
-			author := models.Author{AuthorName: videoInfo.AuthorName, WebSiteId: website.Id, AuthorWebUid: videoInfo.AuthorUuid}
-			err = author.GetOrCreate()
-			if err != nil {
-				utils.ErrorLog.Printf("获取作者信息失败：%s\n", err.Error())
-				continue
-			}
-			videoModel := models.Video{
-				WebSiteId: website.Id,
-				Authors: []models.VideoAuthor{
-					{AuthorId: author.Id, Uuid: videoInfo.VideoUuid},
-				},
-				Title:      videoInfo.Title,
-				VideoDesc:  videoInfo.Desc,
-				Duration:   videoInfo.Duration,
-				Url:        videoInfo.Url,
-				Uuid:       videoInfo.VideoUuid,
-				CoverUrl:   videoInfo.CoverUrl,
-				UploadTime: &videoInfo.PushTime,
-			}
-			videoModel.Save()
-
+			videoInfo.UpdateVideo()
 		case closeInfo = <-closeChan:
 			// 删除closeInfo.WebSite的任务
 			for index, v := range runWebSite {
@@ -265,7 +238,7 @@ func (s *Spider) getHistory(interface{}) {
 			return
 		}
 	}
-	VideoHistoryChan := make(chan baseStruct.VideoInfo)
+	VideoHistoryChan := make(chan models.Video)
 	VideoHistoryCloseChan := make(chan int64)
 	go bilibili.Spider.GetVideoHistoryList(lastHistoryTimestamp, VideoHistoryChan, VideoHistoryCloseChan)
 	website := models.WebSite{WebName: "bilibili"}
@@ -277,33 +250,7 @@ func (s *Spider) getHistory(interface{}) {
 	for {
 		select {
 		case videoInfo := <-VideoHistoryChan:
-			author := models.Author{
-				AuthorName:   videoInfo.AuthorName,
-				WebSiteId:    website.Id,
-				AuthorWebUid: videoInfo.AuthorUuid,
-				Crawl:        true,
-			}
-			err = author.GetOrCreate()
-			if err != nil {
-				utils.ErrorLog.Printf("获取作者信息失败：%s\n", err.Error())
-				continue
-			}
-			vi := models.Video{
-				CreateTime: videoInfo.PushTime,
-				Title:      videoInfo.Title,
-				Uuid:       videoInfo.VideoUuid,
-				Authors: []models.VideoAuthor{
-					{AuthorId: author.Id, Uuid: videoInfo.VideoUuid},
-				},
-			}
-			vi.Save()
-
-			models.VideoHistory{
-				WebSiteId: website.Id,
-				VideoId:   vi.Id,
-				ViewTime:  videoInfo.PushTime,
-				WebUUID:   videoInfo.VideoUuid,
-			}.Save()
+			videoInfo.UpdateVideo()
 		case newestTimestamp := <-VideoHistoryCloseChan:
 			models.SaveHistoryBaseLine(strconv.FormatInt(newestTimestamp, 10))
 			historyTaskId, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
@@ -344,37 +291,33 @@ func (s *Spider) updateCollectList(interface{}) {
 	newCollectList := bilibili.Spider.GetCollectList()
 	for _, collectId := range newCollectList.Collect {
 		for _, info := range bilibili.Spider.GetCollectAllVideo(collectId, 0) {
-			author := models.Author{
-				WebSiteId:    web.Id,
-				AuthorWebUid: strconv.Itoa(info.Upper.Mid),
-				AuthorName:   info.Upper.Name,
-				Avatar:       info.Upper.Face,
-				Follow:       false,
-				Crawl:        true,
-			}
-			err := author.GetOrCreate()
-			if err != nil {
-				utils.ErrorLog.Printf("获取作者信息失败：%s\n", err.Error())
-				continue
-			}
 			uploadTime := time.Unix(info.Ctime, 0)
 			vi := models.Video{
-				WebSiteId: web.Id,
-				Authors: []models.VideoAuthor{
-					{AuthorId: author.Id, Uuid: info.BvId},
-				},
+				WebSiteId:  web.Id,
 				Title:      info.Title,
 				VideoDesc:  info.Intro,
 				Duration:   info.Duration,
 				Uuid:       info.Bvid,
 				CoverUrl:   info.Cover,
 				UploadTime: &uploadTime,
+				Authors: []models.VideoAuthor{
+					{Uuid: info.BvId, AuthorUUID: strconv.Itoa(info.Upper.Mid)},
+				},
+				StructAuthor: []models.Author{
+					{
+						WebSiteId:    web.Id,
+						AuthorName:   info.Upper.Name,
+						AuthorWebUid: strconv.Itoa(info.Upper.Mid),
+						Avatar:       info.Upper.Face,
+					},
+				},
 			}
-			vi.Save()
+			vi.UpdateVideo()
+			mtine := time.Unix(info.FavTime, 0)
 			models.CollectVideo{
 				CollectId: collectId,
 				VideoId:   vi.Id,
-				Mtime:     time.Unix(info.FavTime, 0),
+				Mtime:     &mtine,
 			}.Save()
 		}
 	}
@@ -399,10 +342,17 @@ func (s *Spider) updateCollectList(interface{}) {
 				Uuid:      info.Bvid,
 				CoverUrl:  info.Cover,
 				Authors: []models.VideoAuthor{
-					{AuthorId: author.Id, Uuid: info.Bvid},
+					{Uuid: info.Bvid, AuthorUUID: strconv.Itoa(info.Upper.Mid)},
+				},
+				StructAuthor: []models.Author{
+					{
+						WebSiteId:    web.Id,
+						AuthorName:   info.Upper.Name,
+						AuthorWebUid: strconv.Itoa(info.Upper.Mid),
+					},
 				},
 			}
-			vi.Save()
+			vi.UpdateVideo()
 			models.CollectVideo{
 				CollectId: collectId,
 				VideoId:   vi.Id,
@@ -471,14 +421,6 @@ func (s *Spider) updateCollectVideoList(interface{}) {
 		videoList = collectVideoGroup[collectId]
 		for _, info := range r {
 			if !utils.InArray(info.BvId, videoList) {
-				author := models.Author{
-					WebSiteId:    web.Id,
-					AuthorWebUid: strconv.Itoa(info.Upper.Mid),
-					AuthorName:   info.Upper.Name,
-					Follow:       false,
-					Crawl:        true,
-				}
-				author.GetOrCreate()
 				vi := models.Video{
 					WebSiteId: web.Id,
 					Title:     info.Title,
@@ -486,10 +428,17 @@ func (s *Spider) updateCollectVideoList(interface{}) {
 					Uuid:      info.Bvid,
 					CoverUrl:  info.Cover,
 					Authors: []models.VideoAuthor{
-						{AuthorId: author.Id, Uuid: info.BvId},
+						{Uuid: info.BvId, AuthorUUID: strconv.Itoa(info.Upper.Mid)},
+					},
+					StructAuthor: []models.Author{
+						{
+							WebSiteId:    web.Id,
+							AuthorWebUid: strconv.Itoa(info.Upper.Mid),
+							AuthorName:   info.Upper.Name,
+						},
 					},
 				}
-				vi.Save()
+				vi.UpdateVideo()
 				models.CollectVideo{
 					CollectId: collectId,
 					VideoId:   vi.Id,

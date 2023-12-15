@@ -5,10 +5,10 @@ import "time"
 // WebSite 网站列表，网站信息
 type WebSite struct {
 	Id               int64     `gorm:"primaryKey"`
-	WebName          string    `gorm:"unique;type:varchar(255)"`
-	WebHost          string    `gorm:"type:varchar(255)"`
-	WebAuthorBaseUrl string    `gorm:"type:varchar(255)"`
-	WebVideoBaseUrl  string    `gorm:"type:varchar(255)"`
+	WebName          string    `gorm:"unique;size:255"`
+	WebHost          string    `gorm:"size:255"`
+	WebAuthorBaseUrl string    `gorm:"size:255"`
+	WebVideoBaseUrl  string    `gorm:"size:255"`
 	CreateTime       time.Time `gorm:"type:datetime;default:CURRENT_TIMESTAMP"`
 }
 

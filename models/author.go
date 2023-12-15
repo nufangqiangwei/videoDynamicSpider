@@ -1,51 +1,43 @@
 package models
 
 import (
-	"fmt"
+	"errors"
 	"gorm.io/gorm"
 	"time"
 )
 
 // Author 作者信息
 type Author struct {
-	Id           int64      `json:"id" gorm:"primaryKey"`
-	WebSiteId    int64      `json:"webSiteId" gorm:"type:bigint(20)"`
-	AuthorWebUid string     `json:"authorWebUid" gorm:"type:varchar(255);uniqueIndex"`
-	AuthorName   string     `json:"authorName" gorm:"type:varchar(255)"`
-	Avatar       string     `json:"avatar" gorm:"type:varchar(255)"` // 头像
-	AuthorDesc   string     `json:"desc" gorm:"type:varchar(255)"`   // 简介
-	Follow       bool       `gorm:"type:tinyint"`                    // 是否关注
-	FollowTime   *time.Time `gorm:"type:datetime"`                   // 关注时间
-	Crawl        bool       `gorm:"type:tinyint"`                    // 是否爬取
-	CreateTime   time.Time  `gorm:"default:CURRENT_TIMESTAMP(3)"`
-	FollowNumber uint64     `gorm:"default:0"` // 关注数
+	Id           int64         `json:"id" gorm:"primaryKey"`
+	WebSiteId    int64         `json:"webSiteId" gorm:"type:bigint(20)"`
+	AuthorWebUid string        `json:"authorWebUid" gorm:"size:255;uniqueIndex"`
+	AuthorName   string        `json:"authorName" gorm:"size:255"`
+	Avatar       string        `json:"avatar" gorm:"size:255"`     // 头像
+	AuthorDesc   string        `json:"desc" gorm:"size:255"`       // 简介
+	Follow       bool          `gorm:"type:tinyint;default:false"` // 是否关注
+	FollowTime   *time.Time    `gorm:"type:datetime"`              // 关注时间
+	Crawl        bool          `gorm:"type:tinyint;default:false"` // 是否爬取
+	CreateTime   time.Time     `gorm:"default:CURRENT_TIMESTAMP(3)"`
+	FollowNumber uint64        `gorm:"default:0"` // 关注数
+	Videos       []VideoAuthor `gorm:"foreignKey:AuthorId;references:Id"`
 }
 
-var cacheAuthor map[string]Author
-
 func (a *Author) GetOrCreate() error {
-	key := fmt.Sprintf("%d-%s", a.WebSiteId, a.AuthorWebUid)
-	if author, ok := cacheAuthor[key]; ok {
-		*a = author
-		return nil
-	}
 	result := GormDB.FirstOrCreate(a, &Author{WebSiteId: a.WebSiteId, AuthorWebUid: a.AuthorWebUid})
 	if result.Error != nil {
 		return result.Error
 	}
-
-	cacheAuthor[key] = *a
 	return nil
 }
 
 func (a *Author) UpdateOrCreate() error {
 	auth := &Author{}
 	result := GormDB.Where(Author{WebSiteId: a.WebSiteId, AuthorWebUid: a.AuthorWebUid}).First(auth)
-	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
+	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return result.Error
 	}
 
-	if result.Error == gorm.ErrRecordNotFound {
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		// 创建新用户
 		result := GormDB.Create(a)
 		if result.Error != nil {
@@ -59,7 +51,6 @@ func (a *Author) UpdateOrCreate() error {
 		}
 	}
 
-	cacheAuthor[fmt.Sprintf("%d-%s", a.WebSiteId, a.AuthorWebUid)] = *a
 	return nil
 
 }
@@ -73,17 +64,10 @@ func GetAuthorList(webSiteId int) (result []Author) {
 }
 
 func (a *Author) Get(authorId int64) {
-	key := fmt.Sprintf("%d-%s", a.WebSiteId, a.AuthorWebUid)
-	if author, ok := cacheAuthor[key]; ok {
-		*a = author
-		return
-	}
 	tx := GormDB.First(a, authorId)
 	if tx.Error != nil {
 		return
 	}
-
-	cacheAuthor[key] = *a
 }
 
 func GetFollowList(webSiteId int64) (result []Author) {

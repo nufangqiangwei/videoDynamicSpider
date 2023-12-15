@@ -6,11 +6,11 @@ import (
 )
 
 type VideoHistory struct {
-	Id        int64
+	Id        int64 `gorm:"primaryKey"`
 	WebSiteId int64
 	VideoId   int64
 	ViewTime  time.Time
-	WebUUID   string
+	WebUUID   string `gorm:"size:255"`
 }
 
 func (vh VideoHistory) Save() {

@@ -300,6 +300,7 @@ func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (d
 		utils.ErrorLog.Println(err.Error())
 		return
 	}
+	dynamicResponseBody = &dynamicResponse{}
 	err = responseCodeCheck(response, dynamicResponseBody)
 	if err != nil {
 		return nil

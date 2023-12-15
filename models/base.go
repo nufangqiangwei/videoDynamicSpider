@@ -17,7 +17,6 @@ var (
 
 func InitDB(dsn string) {
 	cacheWebSite = make(map[string]WebSite)
-	cacheAuthor = make(map[string]Author)
 	var err error
 	GormDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{

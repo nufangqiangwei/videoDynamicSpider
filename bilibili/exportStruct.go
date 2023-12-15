@@ -21,7 +21,7 @@ func (s BiliSpider) GetWebSiteName() models.WebSite {
 	}
 }
 
-func (s BiliSpider) GetVideoList(latestBaseline string, result chan<- baseStruct.VideoInfo, closeChan chan<- baseStruct.TaskClose) {
+func (s BiliSpider) GetVideoList(latestBaseline string, result chan<- models.Video, closeChan chan<- baseStruct.TaskClose) {
 	var (
 		intLatestBaseline int
 		videoBaseLine     int
@@ -42,7 +42,9 @@ func (s BiliSpider) GetVideoList(latestBaseline string, result chan<- baseStruct
 			updateNumber = 20
 		}
 	}
-
+	webSite := models.WebSite{}
+	models.GormDB.Where("web_name=?", "bilibili").First(&webSite)
+	var pushTime time.Time
 	for {
 		response := dynamicVideoObject.getResponse(0, 0, baseLine)
 
@@ -85,20 +87,27 @@ func (s BiliSpider) GetVideoList(latestBaseline string, result chan<- baseStruct
 			if requestNumber == 0 && infoIndex == 0 {
 				startBaseLine = videoBaseLine
 			}
-
-			result <- baseStruct.VideoInfo{
-				WebSite:    "bilibili",
+			pushTime = time.Unix(info.Modules.ModuleAuthor.PubTs, 0)
+			result <- models.Video{
+				WebSiteId:  webSite.Id,
 				Title:      info.Modules.ModuleDynamic.Major.Archive.Title,
-				Desc:       info.Modules.ModuleDynamic.Major.Archive.Desc,
+				VideoDesc:  info.Modules.ModuleDynamic.Major.Archive.Desc,
 				Duration:   HourAndMinutesAndSecondsToSeconds(info.Modules.ModuleDynamic.Major.Archive.DurationText),
-				VideoUuid:  info.Modules.ModuleDynamic.Major.Archive.Bvid,
+				Uuid:       info.Modules.ModuleDynamic.Major.Archive.Bvid,
 				Url:        info.Modules.ModuleDynamic.Major.Archive.JumpUrl,
 				CoverUrl:   info.Modules.ModuleDynamic.Major.Archive.Cover,
-				AuthorUuid: strconv.Itoa(info.Modules.ModuleAuthor.Mid),
-				AuthorName: info.Modules.ModuleAuthor.Name,
-				AuthorUrl:  info.Modules.ModuleAuthor.JumpUrl,
-				PushTime:   time.Unix(info.Modules.ModuleAuthor.PubTs, 0),
-				Baseline:   Baseline,
+				UploadTime: &pushTime,
+				Authors: []models.VideoAuthor{
+					{Contribute: "UP主", AuthorUUID: strconv.Itoa(info.Modules.ModuleAuthor.Mid)},
+				},
+				StructAuthor: []models.Author{
+					{
+						WebSiteId:    webSite.Id,
+						AuthorName:   info.Modules.ModuleAuthor.Name,
+						AuthorWebUid: strconv.Itoa(info.Modules.ModuleAuthor.Mid),
+						Avatar:       info.Modules.ModuleAuthor.Face,
+					},
+				},
 			}
 
 			if latestBaseline == "" {
@@ -172,7 +181,7 @@ func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageInd
 
 }
 
-func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64, VideoHistoryChan chan<- baseStruct.VideoInfo, VideoHistoryCloseChan chan<- int64) {
+func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64, VideoHistoryChan chan<- models.Video, VideoHistoryCloseChan chan<- int64) {
 	history := historyRequest{}
 	var (
 		maxNumber       = 100
@@ -185,7 +194,9 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64, VideoHistory
 	println("lastHistoryTimestamp: ", lastHistoryTimestamp)
 
 	business = ""
-
+	webSite := models.WebSite{}
+	models.GormDB.Where("web_name=?", "bilibili").First(&webSite)
+	var pushTime time.Time
 	for {
 		data := history.getResponse(max, viewAt, business)
 		if data == nil {
@@ -213,13 +224,24 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64, VideoHistory
 			switch info.Badge {
 			// 稿件视频 / 剧集 / 笔记 / 纪录片 / 专栏 / 国创 / 番剧
 			case "": // 稿件视频
-				VideoHistoryChan <- baseStruct.VideoInfo{
-					WebSite:    "bilibili",
+				pushTime = time.Unix(info.ViewAt, 0)
+				VideoHistoryChan <- models.Video{
+					WebSiteId:  webSite.Id,
 					Title:      info.Title,
-					VideoUuid:  info.History.Bvid,
-					AuthorUuid: strconv.FormatInt(info.AuthorMid, 10),
-					AuthorName: info.AuthorName,
-					PushTime:   time.Unix(info.ViewAt, 0),
+					Uuid:       info.History.Bvid,
+					UploadTime: &pushTime,
+					CoverUrl:   info.Cover,
+					Authors: []models.VideoAuthor{
+						{Contribute: "UP主", AuthorUUID: strconv.FormatInt(info.AuthorMid, 10)},
+					},
+					StructAuthor: []models.Author{
+						{
+							AuthorWebUid: strconv.FormatInt(info.AuthorMid, 10),
+							AuthorName:   info.AuthorName,
+							WebSiteId:    webSite.Id,
+							Avatar:       info.AuthorFace,
+						},
+					},
 				}
 			case "剧集":
 			case "笔记":

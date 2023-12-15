@@ -8,8 +8,8 @@ import (
 // BiliSpiderHistory b站抓取记录
 type BiliSpiderHistory struct {
 	Id             int64  `gorm:"primaryKey"`
-	KeyName        string `gorm:"type:varchar(255);uniqueIndex"`
-	Values         string `gorm:"type:varchar(255)"`
+	KeyName        string `gorm:"size:255;uniqueIndex"`
+	Values         string `gorm:"size:255"`
 	LastUpdateTime time.Time
 }
 
