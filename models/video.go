@@ -173,7 +173,9 @@ func (v *Video) UpdateVideo() error {
 		}
 
 	}
-	GormDB.Save(&saveAuthors)
+	if len(saveAuthors) > 0 {
+		GormDB.Save(&saveAuthors)
+	}
 	// 保存标签信息
 	for _, videoTag := range v.Tag {
 		have = false
@@ -222,7 +224,9 @@ func (v *Video) UpdateVideo() error {
 			saveTags = append(saveTags, videoTag)
 		}
 	}
-	GormDB.Save(&saveTags)
+	if len(saveTags) > 0 {
+		GormDB.Save(&saveTags)
+	}
 	// 取出v.ViewHistory中的数据，添加video_id后保存
 	for _, history := range v.ViewHistory {
 		history.VideoId = DBvideo.Id
