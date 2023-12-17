@@ -34,7 +34,7 @@ const (
 )
 
 func readConfig() error {
-	fileData, err := os.ReadFile("E:\\GoCode\\videoDynamicAcquisition\\cmd\\ImportProxyData\\config.json")
+	fileData, err := os.ReadFile("C:\\Code\\GO\\videoDynamicSpider\\cmd\\ImportProxyData\\config.json")
 	if err != nil {
 		println(err.Error())
 		return err
@@ -81,7 +81,9 @@ func main() {
 		utils.ErrorLog.Printf("读取目录失败：%s\n", err.Error())
 	} else {
 		for _, importingFile := range importingFileList {
-			importFileData(importingFile.Name())
+			if strings.HasSuffix(importingFile.Name(), "tar.gz") {
+				importFileData(importingFile.Name())
+			}
 		}
 	}
 	// 读取waitImportPath目录下的文件
@@ -93,19 +95,21 @@ func main() {
 		return
 	}
 	for _, waitImportFile := range waitImportFileList {
-		// 检查文件是否正在写入
-		if !utils.CheckFileWriteStatus(path.Join(waitImportPath, waitImportFile.Name())) {
-			continue
+		if strings.HasSuffix(waitImportFile.Name(), "tar.gz") {
+			// 检查文件是否正在写入
+			if !utils.CheckFileWriteStatus(path.Join(waitImportPath, waitImportFile.Name())) {
+				continue
+			}
+			// 将这个文件移动到importingPath目录下
+			err = os.Rename(path.Join(waitImportPath, waitImportFile.Name()), path.Join(importingPath, waitImportFile.Name()))
+			if err != nil {
+				utils.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
+				time.Sleep(sleepTime)
+				continue
+			}
+			// 开始导入数据
+			importFileData(waitImportFile.Name())
 		}
-		// 将这个文件移动到importingPath目录下
-		err = os.Rename(path.Join(waitImportPath, waitImportFile.Name()), path.Join(importingPath, waitImportFile.Name()))
-		if err != nil {
-			utils.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
-			time.Sleep(sleepTime)
-			continue
-		}
-		// 开始导入数据
-		importFileData(waitImportFile.Name())
 	}
 	//time.Sleep(sleepTime)
 	//}
@@ -478,16 +482,19 @@ func (vd *biliVideoDetail) errorRequestHandle(data []byte) {
 	vd.notRequestParams = append(vd.notRequestParams, string(data))
 }
 func (vd *biliVideoDetail) responseHandle(data []byte) {
-	response := bilibili.VideoDetailResponse{}
+	response := struct {
+		Url      string
+		Response bilibili.VideoDetailResponse
+	}{}
 	err := json.Unmarshal(data, &response)
 	if err != nil {
 		utils.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
 		return
 	}
-	if response.Code != 0 {
+	if response.Response.Code != 0 {
 		return
 	}
-	updateBilibiliVideoDetailInfo(response, vd.webSiteId)
+	updateBilibiliVideoDetailInfo(response.Response, vd.webSiteId)
 
 }
 func (vd *biliVideoDetail) endOffWorker() {

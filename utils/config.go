@@ -2,7 +2,6 @@ package utils
 
 type ProxyInfo struct {
 	IP    string `json:"IP"`
-	HOST  int    `json:"HOST"`
 	Token string `json:"Token"`
 }
 
@@ -14,9 +13,10 @@ type Config struct {
 		Password     string `json:"Password"`
 		DatabaseName string `json:"DatabaseName"`
 	} `json:"DB"`
-	Proxy             []ProxyInfo `json:"Proxy"`
-	DataPath          string
-	ProxyDataRootPath string
+	Proxy                   []ProxyInfo `json:"Proxy"`
+	DataPath                string
+	ProxyDataRootPath       string
+	ProxyWebServerLocalPort int
 }
 
 const WaitImportPrefix = "waitImportFile"

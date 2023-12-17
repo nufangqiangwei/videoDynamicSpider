@@ -416,7 +416,7 @@ type VideoDetailResponse struct {
 			MissionId   int    `json:"mission_id,omitempty"`
 			UpFromV2    int    `json:"up_from_v2,omitempty"`
 			PubLocation string `json:"pub_location,omitempty"`
-			SeasonId    int    `json:"season_id,omitempty"`
+			SeasonId    int    `json:"season_id,omitempty"` // 视频所属合集的id
 			FirstFrame  string `json:"first_frame,omitempty"`
 			RedirectUrl string `json:"redirect_url,omitempty"`
 		} `json:"Related"`
@@ -467,7 +467,6 @@ func (receiver videoDetail) getRequest(byid string) *http.Request {
 	request.URL.RawQuery = q.Encode()
 	request.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69")
 	//request.Header.Add("Cookie", bilibiliCookies.cookies)
-	println(request.RequestURI)
 	return request
 }
 

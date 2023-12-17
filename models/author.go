@@ -32,12 +32,12 @@ func (a *Author) GetOrCreate() error {
 
 func (a *Author) UpdateOrCreate() error {
 	auth := &Author{}
-	result := GormDB.Where(Author{WebSiteId: a.WebSiteId, AuthorWebUid: a.AuthorWebUid}).First(auth)
+	result := GormDB.Where(Author{WebSiteId: a.WebSiteId, AuthorWebUid: a.AuthorWebUid}).Find(auth)
 	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return result.Error
 	}
 
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	if auth.Id <= 0 {
 		// 创建新用户
 		result := GormDB.Create(a)
 		if result.Error != nil {

@@ -13,8 +13,8 @@ type Video struct {
 	WebSiteId         int64
 	Authors           []VideoAuthor  `gorm:"foreignKey:VideoId;references:Id"`
 	Tag               []VideoTag     `gorm:"foreignKey:VideoId;references:Id"`
-	ViewHistory       []VideoHistory `gorm:"foreignKey:VideoId;references:Id"`
 	CollectList       []CollectVideo `gorm:"foreignKey:VideoId;references:Id"`
+	ViewHistory       []VideoHistory `gorm:"foreignKey:VideoId;references:Id"`
 	Title             string         `gorm:"size:255"`
 	VideoDesc         string         `gorm:"size:2000"`
 	Duration          int
@@ -39,44 +39,6 @@ type Video struct {
 	StructCollectList []Collect `gorm:"-"`
 }
 
-func (v *Video) sSave() bool {
-	video := Video{}
-	video.GetByUid(v.Uuid)
-	var tx *gorm.DB
-	if video.Id == 0 {
-		tx = GormDB.Save(v)
-	} else {
-		var (
-			authors     []VideoAuthor
-			authorHave  bool
-			saveAuthors []VideoAuthor
-		)
-		GormDB.Where("video_id=?", video.Id).Find(&authors)
-		// 排除已存在的作者信息
-		for _, author := range v.Authors {
-			authorHave = false
-			for _, a := range authors {
-				if a.AuthorId == author.AuthorId {
-					authorHave = true
-					break
-				}
-			}
-			if !authorHave {
-				author.VideoId = video.Id
-				saveAuthors = append(saveAuthors, author)
-			}
-		}
-		tx = GormDB.Save(&saveAuthors)
-		v.Id = video.Id
-	}
-	if tx.Error != nil {
-		utils.ErrorLog.Println("保存视频错误: ")
-		utils.ErrorLog.Println(tx.Error.Error())
-		return false
-	}
-	return true
-}
-
 func (v *Video) GetByUid(uid string) {
 	tx := GormDB.Where("uuid = ?", uid).First(v)
 	if tx.Error != nil && !errors.Is(tx.Error, gorm.ErrRecordNotFound) {
@@ -85,7 +47,7 @@ func (v *Video) GetByUid(uid string) {
 	}
 }
 
-// 数据储存到数据库中，如果存在则更新，不存在则插入。many to many的表,如果中间表不存在就插入，存在就更新。这里只做增量更新，不做删除。删除操作，有别的同步方法自行执行。
+// UpdateVideo 数据储存到数据库中，如果存在则更新，不存在则插入。many to many的表,如果中间表不存在就插入，存在就更新。这里只做增量更新，不做删除。删除操作，有别的同步方法自行执行。
 func (v *Video) UpdateVideo() error {
 	if v.WebSiteId == 0 || v.Uuid == "" {
 		return errors.New("缺少必要参数")
@@ -96,8 +58,8 @@ func (v *Video) UpdateVideo() error {
 		var (
 			authorList  []VideoAuthor
 			tagList     []VideoTag
-			historyList []VideoHistory
 			collectList []CollectVideo
+			historyList []VideoHistory
 		)
 		authorList = v.Authors
 		tagList = v.Tag
@@ -227,6 +189,7 @@ func (v *Video) UpdateVideo() error {
 	if len(saveTags) > 0 {
 		GormDB.Save(&saveTags)
 	}
+	// 保存收藏信息,先查出StructCollectList所有的信息，然后在插入CollectVideo
 	// 取出v.ViewHistory中的数据，添加video_id后保存
 	for _, history := range v.ViewHistory {
 		history.VideoId = DBvideo.Id
@@ -235,7 +198,40 @@ func (v *Video) UpdateVideo() error {
 	if len(saveHistory) > 0 {
 		GormDB.Save(&saveHistory)
 	}
+	if v.Id == 0 {
+		*v = DBvideo
+	}
 	return nil
+}
+
+// GetVideoFullData 获取视频全部信息，包括作者，标签，收藏列表，观看历史列表。中间表，子表，和其他多对多的表数据
+func GetVideoFullData(gromDb *gorm.DB, webSiteId int64, videoUuid string) Video {
+	video := Video{}
+	var tx *gorm.DB
+	tx = gromDb.Debug().Where("web_site_id=? and uuid=?", webSiteId, videoUuid).Preload("Authors").Preload("Tag").Preload("CollectList").Preload("ViewHistory").First(&video)
+	if tx.Error != nil {
+		println(tx.Error.Error())
+	}
+	authorIds := make([]int64, 0)
+	tagIds := make([]int64, 0)
+	collectIds := make([]int64, 0)
+	for _, videoAthorInfo := range video.Authors {
+		authorIds = append(authorIds, videoAthorInfo.AuthorId)
+	}
+	for _, videoTagInfo := range video.Tag {
+		tagIds = append(tagIds, videoTagInfo.TagId)
+	}
+	for _, videoCollectInfo := range video.CollectList {
+		collectIds = append(collectIds, videoCollectInfo.CollectId)
+	}
+	video.StructAuthor = make([]Author, 0)
+	video.StructTag = make([]Tag, 0)
+	video.StructCollectList = make([]Collect, 0)
+	gromDb.Where("id in (?)", authorIds).Find(&video.StructAuthor)
+	gromDb.Where("id in (?)", tagIds).Find(&video.StructTag)
+	gromDb.Where("id in (?)", collectIds).Find(&video.StructCollectList)
+	return video
+
 }
 
 type VideoAuthor struct {

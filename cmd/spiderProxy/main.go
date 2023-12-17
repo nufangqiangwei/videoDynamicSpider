@@ -28,6 +28,7 @@ var (
 	prefixByte   = []byte{123, 34, 117, 114, 108, 34, 58, 34}
 	bracketsByte = []byte{125}
 	suffixByte   = []byte{34, 44, 34, 114, 101, 115, 112, 111, 110, 115, 101, 34, 58}
+	config       *utils.Config
 )
 
 func writeRequestUrl(url string, responseBody []byte) []byte {
@@ -92,15 +93,34 @@ func (wf *writeFile) write(data []byte) (int, error) {
 	wf.writeNumber++
 	return wf.file.Write(data)
 }
-
+func readConfig() error {
+	fileData, err := os.ReadFile(path.Join(baseStruct.RootPath, "config.json"))
+	if err != nil {
+		println(err.Error())
+		return err
+	}
+	config = &utils.Config{}
+	err = json.Unmarshal(fileData, config)
+	if err != nil {
+		println(err.Error())
+		return err
+	}
+	fmt.Printf("%v\n", *config)
+	return nil
+}
 func main() {
-	baseStruct.RootPath = "C:\\Code\\GO\\videoDynamicSpider\\cmd\\spiderProxy"
+	//baseStruct.RootPath = "C:\\Code\\GO\\videoDynamicSpider\\cmd\\spiderProxy"
+	err := readConfig()
+	if err != nil {
+		println(err.Error())
+		return
+	}
 	utils.InitLog(baseStruct.RootPath)
 	server := gin.Default()
 	server.POST(baseStruct.AuthorVideoList, getAuthorAllVideo)
 	server.POST(baseStruct.VideoDetail, getVideoDetailApi)
 	server.GET("getTaskStatus", getTaskStatus)
-	server.Run(":8080")
+	server.Run(fmt.Sprintf(":%d", config.ProxyWebServerLocalPort))
 }
 
 type IdListRequest struct {
@@ -175,10 +195,8 @@ func getAuthorVideoList(videoUid []string, folderName, taskId string) {
 	// 请求出错的id写入到文件中，文件名 errRequestParams
 	errRequestParams, _ := os.Open(path.Join(baseStruct.RootPath, folderName, taskId, "errRequestParams"))
 	defer errRequestParams.Close()
-	fileName := path.Join(baseStruct.RootPath, folderName, taskId, "requestParams")
-	slice2 := make([]string, len(videoUid))
-	copy(slice2, videoUid)
-	os.WriteFile(fileName, []byte(strings.Join(slice2, "\n")), fs.ModePerm)
+	requestParamsFileName := path.Join(baseStruct.RootPath, folderName, taskId, "requestParams")
+	os.WriteFile(requestParamsFileName, []byte(strings.Join(videoUid, "\n")), fs.ModePerm)
 	for _, i := range videoUid {
 		pageIndex := 1
 		maxPage := 1
@@ -188,6 +206,8 @@ func getAuthorVideoList(videoUid []string, folderName, taskId string) {
 			file.write(writeRequestUrl(requestUrl, response))
 			if err != nil {
 				utils.ErrorLog.Println(err.Error())
+				errRequestParams.Write([]byte(i + "\n"))
+				pageIndex = maxPage + 1
 				continue
 			}
 			if maxPage == 1 {
@@ -209,10 +229,6 @@ func getAuthorVideoList(videoUid []string, folderName, taskId string) {
 			time.Sleep(time.Second * 3)
 		}
 		utils.Info.Printf("%s 爬取完成", i)
-		if len(slice2) > 0 {
-			slice2 = slice2[1:]
-			os.WriteFile(fileName, []byte(strings.Join(slice2, "\n")), fs.ModePerm)
-		}
 	}
 	file.file.Close()
 	tarFolderFile(folderName, taskId)
@@ -247,10 +263,6 @@ func getVideoDetailList(videoUid []string, folderName, taskId string) {
 		}
 		time.Sleep(time.Second * 4)
 		utils.Info.Printf("%s 爬取完成", i)
-		if len(slice2) > 0 {
-			slice2 = slice2[1:]
-			os.WriteFile(fileName, []byte(strings.Join(slice2, "\n")), fs.ModePerm)
-		}
 	}
 	file.file.Close()
 	tarFolderFile(folderName, taskId)
@@ -267,31 +279,31 @@ func getTaskStatus(ctx *gin.Context) {
 		ctx.JSONP(200, map[string]interface{}{"status": -1, "msg": "任务id不存在"})
 		return
 	}
-	fileName := path.Join(baseStruct.RootPath, taskType, taskId, "requestParams")
+	writeFilePath := path.Join(baseStruct.RootPath, taskType, taskId)
+	fileName := path.Join(config.ProxyDataRootPath, taskType, fmt.Sprintf("%s_%s.tar.gz", taskType, taskId))
 	var (
-		file os.FileInfo
-		err  error
+		err error
 	)
-	if file, err = os.Stat(fileName); os.IsNotExist(err) {
+	if _, err = os.Stat(writeFilePath); os.IsNotExist(err) {
 		ctx.JSONP(200, map[string]interface{}{"status": -1, "msg": "任务不存在"})
 		return
 	}
-
-	if file.Size() == 0 {
-		// 获取打包后的文件MD5
-		fileName = path.Join(baseStruct.RootPath, taskType, fmt.Sprintf("%s_%s.tar.gz", taskType, taskId))
-		// 获取文件MD5
-		md5, err := utils.GetFileMd5(fileName)
-		if err != nil {
-			println(err.Error())
-			ctx.JSONP(200, map[string]interface{}{"status": 1, "msg": "获取文件MD5失败"})
-			return
-		}
-
-		ctx.JSONP(200, map[string]interface{}{"status": 1, "md5": md5})
+	_, err = os.Stat(fileName)
+	if os.IsNotExist(err) {
+		ctx.JSONP(200, map[string]int{"status": 0})
 		return
 	}
-	ctx.JSONP(200, map[string]int{"status": 0})
+	// 获取打包后的文件MD5
+	// 获取文件MD5
+	md5, err := utils.GetFileMd5(fileName)
+	if err != nil {
+		println(err.Error())
+		ctx.JSONP(200, map[string]interface{}{"status": 1, "msg": "获取文件MD5失败"})
+		return
+	}
+
+	ctx.JSONP(200, map[string]interface{}{"status": 1, "md5": md5})
+	return
 }
 
 func createFolder(haveReturnError bool, elem ...string) error {
@@ -318,7 +330,7 @@ func createFolder(haveReturnError bool, elem ...string) error {
 func tarFolderFile(folderName, taskId string) {
 	// 设置源文件夹和目标文件名
 	sourceFolder := path.Join(baseStruct.RootPath, folderName, taskId)
-	targetFile := path.Join(baseStruct.RootPath, folderName, fmt.Sprintf("%s_%s.tar.gz", folderName, taskId))
+	targetFile := path.Join(config.ProxyDataRootPath, folderName, fmt.Sprintf("%s_%s.tar.gz", folderName, taskId))
 	baseFolder := path.Join(baseStruct.RootPath, folderName, taskId)
 	// 创建目标文件
 	file, err := os.Create(targetFile)

@@ -22,7 +22,7 @@ type collectListResponse struct {
 			Attr       int    `json:"attr"`
 			Title      string `json:"title"`
 			FavState   int    `json:"fav_state"`
-			MediaCount int    `json:"media_count"`
+			MediaCount int64  `json:"media_count"`
 		} `json:"list"`
 		Season interface{} `json:"season"`
 	} `json:"data"`
@@ -35,9 +35,9 @@ type subscriptionListResponse struct {
 	Data    struct {
 		Count int `json:"count"`
 		List  []struct {
-			Id    int64  `json:"id"`
+			Id    int64  `json:"id"` // 对应视频详情中的VideoDetailResponse.Data.Related.SeasonId字段信息
 			Fid   int    `json:"fid"`
-			Mid   int64  `json:"mid"`
+			Mid   int64  `json:"mid"` // 作者的uid
 			Attr  int    `json:"attr"`
 			Title string `json:"title"`
 			Cover string `json:"cover"`
@@ -52,7 +52,7 @@ type subscriptionListResponse struct {
 			Mtime      int    `json:"mtime"`
 			State      int    `json:"state"`
 			FavState   int    `json:"fav_state"`
-			MediaCount int    `json:"media_count"`
+			MediaCount int64  `json:"media_count"`
 			ViewCount  int    `json:"view_count"`
 			Vt         int    `json:"vt"`
 			PlaySwitch int    `json:"play_switch"`
@@ -193,11 +193,13 @@ type CollectVideoDetailInfo struct {
 }
 
 // https://api.bilibili.com/x/v3/fav/folder/created/list-all?up_mid=10932398 获取收藏夹列表
-func getCollectList(mid string) *collectListResponse {
+func getCollectList(mid string, pageIndex int) *collectListResponse {
 	bilibiliCookies.flushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/v3/fav/folder/created/list-all", nil)
 	q := request.URL.Query()
 	q.Add("up_mid", mid)
+	q.Add("pn", strconv.Itoa(pageIndex))
+	q.Add("ps", "50")
 	request.URL.RawQuery = q.Encode()
 	request.Header.Add("Cookie", bilibiliCookies.cookies)
 	response, err := http.DefaultClient.Do(request)
@@ -214,13 +216,13 @@ func getCollectList(mid string) *collectListResponse {
 }
 
 // https://api.bilibili.com/x/v3/fav/folder/collected/list?pn=1&ps=20&up_mid=10932398&platform=web 获取收藏和订阅列表
-func subscriptionList(mid string) *subscriptionListResponse {
+func subscriptionList(mid string, pageIndex int) *subscriptionListResponse {
 	bilibiliCookies.flushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/v3/fav/folder/collected/list", nil)
 	q := request.URL.Query()
 	q.Add("up_mid", mid)
-	q.Add("pn", "1")
-	q.Add("ps", "20")
+	q.Add("pn", strconv.Itoa(pageIndex))
+	q.Add("ps", "50")
 	q.Add("platform", "web")
 	request.URL.RawQuery = q.Encode()
 	request.Header.Add("Cookie", bilibiliCookies.cookies)

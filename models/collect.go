@@ -14,6 +14,7 @@ type Collect struct {
 	VideoInfo []CollectVideo `gorm:"foreignKey:CollectId;references:Id"`
 }
 type CollectVideo struct {
+	Id        int64      `gorm:"primary_key"`
 	CollectId int64      `json:"collect_id" gorm:"uniqueIndex:collectId_videoId"`
 	VideoId   int64      `json:"video_id" gorm:"uniqueIndex:collectId_videoId"`
 	Mtime     *time.Time `json:"mtime"`

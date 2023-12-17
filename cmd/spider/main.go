@@ -22,7 +22,7 @@ const (
 	sixTime       = oneTicket * 6
 	twentyTime    = oneTicket * 20
 	twelveTicket  = oneTicket * 12
-	configPath    = "E:\\GoCode\\videoDynamicAcquisition\\cmd\\spider\\config.json"
+	configPath    = "./config.json"
 )
 
 var (
@@ -96,7 +96,8 @@ func main() {
 	spider = &Spider{
 		interval: defaultTicket,
 	}
-	_, err := wheel.AppendOnceFunc(spider.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
+	var err error
+	_, err = wheel.AppendOnceFunc(spider.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
 	if err != nil {
 		return
 	}
@@ -105,10 +106,6 @@ func main() {
 		return
 	}
 	_, err = wheel.AppendOnceFunc(spider.updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + 120})
-	if err != nil {
-		return
-	}
-	_, err = wheel.AppendOnceFunc(spider.updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: oneTicket})
 	if err != nil {
 		return
 	}
@@ -125,6 +122,10 @@ func main() {
 		return
 	}
 	_, err = wheel.AppendCycleFunc(loadProxyInfo, nil, "loadConfigProxyInfo", timeWheel.Crontab{ExpiredTime: defaultTicket})
+	if err != nil {
+		return
+	}
+	_, err = wheel.AppendCycleFunc(downloadProxyTaskDataFile, nil, "downloadProxyTaskDataFile", timeWheel.Crontab{ExpiredTime: oneTicket})
 	if err != nil {
 		return
 	}
@@ -290,76 +291,87 @@ func (s *Spider) updateCollectList(interface{}) {
 	}
 	newCollectList := bilibili.Spider.GetCollectList()
 	for _, collectId := range newCollectList.Collect {
-		for _, info := range bilibili.Spider.GetCollectAllVideo(collectId, 0) {
-			uploadTime := time.Unix(info.Ctime, 0)
-			vi := models.Video{
-				WebSiteId:  web.Id,
-				Title:      info.Title,
-				VideoDesc:  info.Intro,
-				Duration:   info.Duration,
-				Uuid:       info.Bvid,
-				CoverUrl:   info.Cover,
-				UploadTime: &uploadTime,
-				Authors: []models.VideoAuthor{
-					{Uuid: info.BvId, AuthorUUID: strconv.Itoa(info.Upper.Mid)},
-				},
-				StructAuthor: []models.Author{
-					{
-						WebSiteId:    web.Id,
-						AuthorName:   info.Upper.Name,
-						AuthorWebUid: strconv.Itoa(info.Upper.Mid),
-						Avatar:       info.Upper.Face,
+		var collectNumber int64
+		models.GormDB.Table("collect_video").Where("collect_id=?", collectId.CollectId).Count(&collectNumber)
+		if collectNumber != collectId.CollectNumber {
+			for _, info := range bilibili.Spider.GetCollectAllVideo(collectId.BvId, 0) {
+				uploadTime := time.Unix(info.Ctime, 0)
+				vi := models.Video{
+					WebSiteId:  web.Id,
+					Title:      info.Title,
+					VideoDesc:  info.Intro,
+					Duration:   info.Duration,
+					Uuid:       info.Bvid,
+					CoverUrl:   info.Cover,
+					UploadTime: &uploadTime,
+					Authors: []models.VideoAuthor{
+						{Uuid: info.BvId, AuthorUUID: strconv.Itoa(info.Upper.Mid)},
 					},
-				},
+					StructAuthor: []models.Author{
+						{
+							WebSiteId:    web.Id,
+							AuthorName:   info.Upper.Name,
+							AuthorWebUid: strconv.Itoa(info.Upper.Mid),
+							Avatar:       info.Upper.Face,
+						},
+					},
+				}
+				vi.UpdateVideo()
+				mtine := time.Unix(info.FavTime, 0)
+				models.CollectVideo{
+					CollectId: collectId.CollectId,
+					VideoId:   vi.Id,
+					Mtime:     &mtine,
+				}.Save()
 			}
-			vi.UpdateVideo()
-			mtine := time.Unix(info.FavTime, 0)
-			models.CollectVideo{
-				CollectId: collectId,
-				VideoId:   vi.Id,
-				Mtime:     &mtine,
-			}.Save()
+			println(collectId.BvId)
+			time.Sleep(time.Second * 5)
 		}
 	}
 	for _, collectId := range newCollectList.Season {
-		for _, info := range bilibili.Spider.GetSeasonAllVideo(collectId) {
-			author := models.Author{
-				WebSiteId:    web.Id,
-				AuthorWebUid: strconv.Itoa(info.Upper.Mid),
-				AuthorName:   info.Upper.Name,
-				Follow:       false,
-				Crawl:        true,
-			}
-			err = author.GetOrCreate()
-			if err != nil {
-				utils.ErrorLog.Printf("获取作者信息失败：%s\n", err.Error())
-				continue
-			}
-			vi := models.Video{
-				WebSiteId: web.Id,
-				Title:     info.Title,
-				Duration:  info.Duration,
-				Uuid:      info.Bvid,
-				CoverUrl:  info.Cover,
-				Authors: []models.VideoAuthor{
-					{Uuid: info.Bvid, AuthorUUID: strconv.Itoa(info.Upper.Mid)},
-				},
-				StructAuthor: []models.Author{
-					{
-						WebSiteId:    web.Id,
-						AuthorName:   info.Upper.Name,
-						AuthorWebUid: strconv.Itoa(info.Upper.Mid),
+		var collectNumber int64
+		models.GormDB.Table("collect_video").Where("collect_id=?", collectId.CollectId).Count(&collectNumber)
+		if collectNumber != collectId.CollectNumber {
+			for _, info := range bilibili.Spider.GetSeasonAllVideo(collectId.BvId) {
+				author := models.Author{
+					WebSiteId:    web.Id,
+					AuthorWebUid: strconv.Itoa(info.Upper.Mid),
+					AuthorName:   info.Upper.Name,
+					Follow:       false,
+					Crawl:        true,
+				}
+				err = author.GetOrCreate()
+				if err != nil {
+					utils.ErrorLog.Printf("获取作者信息失败：%s\n", err.Error())
+					continue
+				}
+				vi := models.Video{
+					WebSiteId: web.Id,
+					Title:     info.Title,
+					Duration:  info.Duration,
+					Uuid:      info.Bvid,
+					CoverUrl:  info.Cover,
+					Authors: []models.VideoAuthor{
+						{Uuid: info.Bvid, AuthorUUID: strconv.Itoa(info.Upper.Mid)},
 					},
-				},
-			}
-			vi.UpdateVideo()
-			models.CollectVideo{
-				CollectId: collectId,
-				VideoId:   vi.Id,
-			}.Save()
+					StructAuthor: []models.Author{
+						{
+							WebSiteId:    web.Id,
+							AuthorName:   info.Upper.Name,
+							AuthorWebUid: strconv.Itoa(info.Upper.Mid),
+						},
+					},
+				}
+				vi.UpdateVideo()
+				models.CollectVideo{
+					CollectId: collectId.CollectId,
+					VideoId:   vi.Id,
+				}.Save()
 
+			}
+			println(collectId.BvId)
+			time.Sleep(time.Second * 5)
 		}
-		time.Sleep(time.Second * 5)
 	}
 
 	_, err = wheel.AppendOnceFunc(spider.updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + rand.Int63n(100)})
@@ -503,7 +515,6 @@ func (s *Spider) updateFollowInfo(interface{}) {
 				Follow:       true,
 				FollowTime:   &followTime,
 			}
-			fmt.Printf("%v\n", upInfo)
 			err = author.UpdateOrCreate()
 			if err != nil {
 				utils.ErrorLog.Printf("更新作者信息失败：%s\n", err.Error())
@@ -529,7 +540,7 @@ func (s *Spider) updateFollowInfo(interface{}) {
 			v.Follow = false
 			err = v.UpdateOrCreate()
 			if err != nil {
-				utils.ErrorLog.Printf("更新作者信息失败：%s\n", err.Error())
+				utils.ErrorLog.Printf("取消关注作者信息失败：%s\n", err.Error())
 				continue
 			}
 		}

@@ -3,6 +3,7 @@ package bilibili
 import (
 	"encoding/json"
 	"strconv"
+	"strings"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/models"
@@ -232,7 +233,7 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64, VideoHistory
 					UploadTime: &pushTime,
 					CoverUrl:   info.Cover,
 					Authors: []models.VideoAuthor{
-						{Contribute: "UP主", AuthorUUID: strconv.FormatInt(info.AuthorMid, 10)},
+						{Contribute: "UP主", AuthorUUID: strconv.FormatInt(info.AuthorMid, 10), Uuid: info.History.Bvid},
 					},
 					StructAuthor: []models.Author{
 						{
@@ -266,42 +267,93 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64, VideoHistory
 	}
 }
 
+type WaitUpdateCollect struct {
+	BvId          int64
+	CollectId     int64
+	CollectNumber int64
+}
+
 type NewCollect struct {
-	Collect []int64
-	Season  []int64
+	Collect []WaitUpdateCollect
+	Season  []WaitUpdateCollect
 }
 
 // GetCollectList 获取收藏夹和专栏列表,不包含里面的视频信息
 func (s BiliSpider) GetCollectList() NewCollect {
-	a := getCollectList("10932398")
 	result := new(NewCollect)
-	var x models.Collect
-	if a != nil {
-		for _, info := range a.Data.List {
-			x = models.Collect{
-				Type: 1,
-				BvId: info.Id,
-				Name: info.Title,
+	var (
+		collectInfo models.Collect
+		err         error
+		PageIndex   int
+	)
+	PageIndex = 1
+	for {
+		a := getCollectList("10932398", PageIndex)
+		if a != nil {
+			for _, info := range a.Data.List {
+				collectInfo = models.Collect{}
+				err = models.GormDB.Where("`type`=? and bv_id=?", 1, info.Id).Find(&collectInfo).Error
+				if err != nil {
+					utils.ErrorLog.Printf("GetCollectList查询Collect表出错")
+					continue
+				}
+				if collectInfo.Id == 0 {
+					collectInfo.Type = 1
+					collectInfo.BvId = info.Id
+					collectInfo.Name = info.Title
+					err = models.GormDB.Create(&collectInfo).Error
+				}
+				if err == nil {
+					result.Collect = append(result.Collect, WaitUpdateCollect{BvId: info.Id, CollectId: collectInfo.Id, CollectNumber: info.MediaCount})
+				}
 			}
-			if x.Save() {
-				result.Collect = append(result.Collect, x.BvId)
-			}
+		} else {
+			break
 		}
+		if a.Data.Count <= (PageIndex * 50) {
+			break
+		}
+		PageIndex++
 	}
 	time.Sleep(time.Second)
-	b := subscriptionList("10932398")
-	if b != nil {
-		for _, info := range b.Data.List {
-			x = models.Collect{
-				Type: 2,
-				BvId: info.Id,
-				Name: info.Title,
+	PageIndex = 1
+	for {
+		b := subscriptionList("10932398", PageIndex)
+		if b != nil {
+			for _, info := range b.Data.List {
+				collectInfo = models.Collect{}
+				err = models.GormDB.Where("`type`=? and bv_id=?", 2, info.Id).Find(&collectInfo).Error
+				if err != nil {
+					utils.ErrorLog.Printf("GetCollectList查询Collect表出错")
+					continue
+				}
+				if info.Mid == 0 {
+					if collectInfo.Id > 0 && !strings.Contains(collectInfo.Name, "合集已失效") {
+						// 该合集以失效，更新数据
+						collectInfo.Name += "(合集已失效)"
+						models.GormDB.Model(&collectInfo).Update("name", collectInfo.Name)
+					}
+					continue
+				}
+				if collectInfo.Id == 0 {
+					collectInfo.Type = 2
+					collectInfo.BvId = info.Id
+					collectInfo.Name = info.Title
+					err = models.GormDB.Create(&collectInfo).Error
+				}
+				if err == nil {
+					result.Season = append(result.Season, WaitUpdateCollect{BvId: info.Id, CollectId: collectInfo.Id, CollectNumber: info.MediaCount})
+				}
 			}
-			if x.Save() {
-				result.Season = append(result.Season, x.BvId)
-			}
+		} else {
+			break
 		}
+		if b.Data.Count <= (PageIndex * 50) {
+			break
+		}
+		PageIndex++
 	}
+
 	return *result
 }
 
@@ -346,6 +398,10 @@ func (s BiliSpider) GetSeasonAllVideo(seasonId int64) []SeasonAllVideoDetailInfo
 		result   []SeasonAllVideoDetailInfo
 	)
 	response = getSeasonVideoInfo(seasonId, 1)
+	if response == nil {
+		println(seasonId, "合集返回空")
+		return result
+	}
 	for _, info := range response.Data.Medias {
 		result = append(result, info)
 	}

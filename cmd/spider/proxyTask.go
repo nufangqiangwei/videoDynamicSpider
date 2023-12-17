@@ -47,7 +47,7 @@ func runToDoTask(interface{}) {
 	}
 	// 查询待执行的任务
 	var tasks []models.TaskToDoList
-	err = models.GormDB.Where("status = ?", 0).Order("task_type , created_at desc").Find(&tasks).Error
+	err = models.GormDB.Where("status = ?", 0).Order("task_type , created_at desc").Limit(len(leisureProxy) * 300).Find(&tasks).Error
 	if err != nil {
 		fmt.Println("Failed to query tasks:", err)
 		return
@@ -56,7 +56,7 @@ func runToDoTask(interface{}) {
 	if len(tasks) == 0 {
 		return
 	}
-	taskGroup := groupTasks(tasks, 100)
+	taskGroup := groupTasks(tasks, 300)
 	// 分配任务给代理
 	for _, waitRunTask := range taskGroup {
 		if len(waitRunTask) == 0 {
@@ -83,6 +83,7 @@ func runToDoTask(interface{}) {
 			fmt.Println("添加数据到ProxySpiderTask表中出错:", err.Error())
 			continue
 		}
+		fmt.Printf("分配 %d 个%s任务给代理 %s\n", len(waitRunTask), waitRunTask[0].TaskType, proxy.IP)
 		// TaskToDoList 更新已进行
 		taskToDoListID := make([]uint, 0)
 		for _, task := range waitRunTask {
@@ -117,7 +118,7 @@ func sendTasksToProxy(tasks []models.TaskToDoList, proxy utils.ProxyInfo) (strin
 	proxyIp := proxy.IP
 
 	// 发送POST请求给代理
-	url := fmt.Sprintf("http://%s/%s", proxyIp, tasks[0].TaskType)
+	url := fmt.Sprintf("%s/%s", proxyIp, tasks[0].TaskType)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
 		return "", err
@@ -189,8 +190,7 @@ func checkProxyTaskStatus(interface{}) {
 	}
 	for _, proxyTask := range proxyTasks {
 		// 查询代理任务是否已经完成
-		url := fmt.Sprintf("http://%s/getTaskStatus?taskId=%s&taskType=%s", proxyTask.SpiderIp, proxyTask.TaskId, proxyTask.TaskType)
-		println(url)
+		url := fmt.Sprintf("%s/getTaskStatus?taskId=%s&taskType=%s", proxyTask.SpiderIp, proxyTask.TaskId, proxyTask.TaskType)
 		resp, err := http.Get(url)
 		if err != nil {
 			utils.ErrorLog.Println("查询代理任务是否已经完成错误:", err)
@@ -228,39 +228,59 @@ func checkProxyTaskStatus(interface{}) {
 	}
 }
 
+func downloadProxyTaskDataFile(interface{}) {
+	var proxyTasks []models.ProxySpiderTask
+	models.GormDB.Where("status = ?", 2).Find(&proxyTasks)
+	var err error
+	for _, proxyTask := range proxyTasks {
+		err = downloadTaskDataFile(proxyTask.TaskId, proxyTask.TaskType, proxyTask.SpiderIp)
+		if err == nil {
+			// 更新ProxySpiderTask表中的数据
+			err = models.GormDB.Model(&models.ProxySpiderTask{}).Where("id = ?", proxyTask.ID).Updates(map[string]interface{}{
+				"status": 3,
+			}).Error
+			if err != nil {
+				utils.ErrorLog.Println("更新ProxySpiderTask表中的数据错误:", err)
+				continue
+			}
+		}
+
+	}
+}
+
 // 下载已完成的任务文件
-func downloadTaskDataFile(taskId, taskType, ip string) {
+func downloadTaskDataFile(taskId, taskType, ip string) error {
 	fileName := fmt.Sprintf("%s_%s.tar.gz", taskType, taskId)
 	// 下载任务文件,nginx作为文件服务器
-	url := fmt.Sprintf("http://%s/downloadTaskDataFile/%s/%s", ip, taskType, fileName)
-	println(url)
+	url := fmt.Sprintf("%s/downloadTaskDataFile/%s/%s", ip, taskType, fileName)
 	resp, err := http.Get(url)
 	if err != nil {
-		utils.ErrorLog.Println("下载任务文件错误:", err)
-		return
+		utils.ErrorLog.Println(url, "下载任务文件错误:", err)
+		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		utils.ErrorLog.Println("下载任务文件错误:unexpected response status:", resp.StatusCode)
-		return
+		utils.ErrorLog.Println(url, "下载任务文件响应码错误:", resp.StatusCode)
+		return errors.New("响应码错误")
 	}
 	responseBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		utils.ErrorLog.Println("下载任务文件错误:", err)
-		return
+		utils.ErrorLog.Println(url, "下载任务文件错误:", err)
+		return err
 	}
 	// 将文件保存到本地
 	err = ioutil.WriteFile(path.Join(config.ProxyDataRootPath, utils.WaitImportPrefix, fileName), responseBody, 0666)
 	if err != nil {
-		utils.ErrorLog.Println("将文件保存到本地错误:", err)
-		return
+		utils.ErrorLog.Println(url, "将文件保存到本地错误:", err)
+		return err
 	}
 	// 更新ProxySpiderTask表中的数据
 	err = models.GormDB.Model(&models.ProxySpiderTask{}).Where("task_id = ?", taskId).Updates(map[string]interface{}{
 		"status": 3,
 	}).Error
 	if err != nil {
-		utils.ErrorLog.Println("更新ProxySpiderTask表中的数据错误:", err)
-		return
+		utils.ErrorLog.Println(url, "更新ProxySpiderTask表中的数据错误:", err)
+		return err
 	}
+	return nil
 }

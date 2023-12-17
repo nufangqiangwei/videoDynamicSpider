@@ -24,14 +24,14 @@ func InitDB(dsn string) {
 		},
 		Logger: logger.New(utils.DBlog, logger.Config{
 			SlowThreshold: 200 * time.Millisecond,
-			LogLevel:      logger.Error,
+			LogLevel:      logger.Info,
 		}),
 	})
 	if err != nil {
-		return
+		panic(err.Error())
 	}
-	err = GormDB.AutoMigrate(&BiliSpiderHistory{}, &Author{}, &Video{}, &VideoAuthor{}, &VideoTag{}, &WebSite{},
-		&Collect{}, &CollectVideo{}, &ProxySpiderTask{}, &Tag{}, &VideoHistory{}, &TaskToDoList{})
+	//err = GormDB.AutoMigrate(&BiliSpiderHistory{}, &Author{}, &Video{}, &VideoAuthor{}, &VideoTag{}, &WebSite{},
+	//	&Collect{}, &CollectVideo{}, &ProxySpiderTask{}, &Tag{}, &VideoHistory{}, &TaskToDoList{})
 	if err != nil {
 		println(err.Error())
 		return
