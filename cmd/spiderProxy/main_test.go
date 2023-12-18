@@ -42,7 +42,7 @@ func TestCreateFolder(t *testing.T) {
 }
 func TestWriteFile(t *testing.T) {
 	taskId := "f4c37262-c9e3-4e38-8717-7962ca7dfc79"
-	file := writeFile{
+	file := utils.WriteFile{
 		folderPrefix:   []string{baseStruct.RootPath, "allVideo", taskId},
 		fileNamePrefix: "allVideo",
 	}

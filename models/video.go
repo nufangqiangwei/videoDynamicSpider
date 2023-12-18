@@ -243,11 +243,12 @@ type VideoAuthor struct {
 	AuthorUUID string `json:"-" gorm:"size:255"`
 }
 
-// b站的tagId=0指bgm需要重新指定个id
+// Tag b站的tagId=0指bgm需要重新指定个id
 type Tag struct {
 	Id   int64  `json:"id" gorm:"index:id"`
 	Name string `json:"name" gorm:"size:255"`
 }
+
 type VideoTag struct {
 	Id      int64 `gorm:"primary_key"`
 	VideoId int64 `gorm:"index:video_id"`

@@ -21,7 +21,6 @@ import (
 )
 
 //const rootPath = "C:\\Code\\GO\\videoDynamicSpider\\cmd\\appendBiliVideo"
-const maxFileSize = 100 * 1024 * 1024
 
 // {"url":"","response":}
 var (
@@ -30,6 +29,15 @@ var (
 	suffixByte   = []byte{34, 44, 34, 114, 101, 115, 112, 111, 110, 115, 101, 34, 58}
 	config       *utils.Config
 )
+
+func checkToken(ctx *gin.Context) {
+	token := ctx.Query("token")
+	if token != config.Token {
+		ctx.JSONP(403, map[string]string{"msg": "token错误"})
+		return
+	}
+	ctx.Next()
+}
 
 func writeRequestUrl(url string, responseBody []byte) []byte {
 	var result []byte
@@ -46,53 +54,6 @@ func writeRequestUrl(url string, responseBody []byte) []byte {
 
 }
 
-type writeFile struct {
-	folderPrefix   []string
-	fileNamePrefix string
-	file           *os.File
-	writeNumber    int
-}
-
-func (wf *writeFile) checkFileSize() {
-	if wf.file == nil {
-		filePath := append(wf.folderPrefix, fmt.Sprintf("%s-%s.json", wf.fileNamePrefix, time.Now().Format("2006-01-02-15-04-05")))
-		f, err := os.OpenFile(path.Join(filePath...), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			utils.ErrorLog.Printf("打开新文件失败%s", err.Error())
-			panic(err)
-		}
-		wf.file = f
-		return
-	}
-	for {
-		fi, err := wf.file.Stat()
-		if err != nil {
-			utils.ErrorLog.Printf("获取文件信息失败%s", err.Error())
-			panic(err)
-		}
-		if fi.Size() >= maxFileSize {
-			wf.file.Close()
-			filePath := append(wf.folderPrefix, fmt.Sprintf("%s-%s.json", wf.fileNamePrefix, time.Now().Format("2006-01-02-15-04-05")))
-			f, err := os.OpenFile(path.Join(filePath...), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				utils.ErrorLog.Printf("打开新文件失败%s", err.Error())
-				panic(err)
-			}
-			wf.file = f
-			wf.writeNumber = 0
-		} else {
-			break
-		}
-	}
-}
-func (wf *writeFile) write(data []byte) (int, error) {
-	// 每写入两千行就检查下文件大小
-	if wf.writeNumber%2000 == 0 {
-		wf.checkFileSize()
-	}
-	wf.writeNumber++
-	return wf.file.Write(data)
-}
 func readConfig() error {
 	fileData, err := os.ReadFile(path.Join(baseStruct.RootPath, "config.json"))
 	if err != nil {
@@ -185,12 +146,11 @@ func getAuthorVideoList(videoUid []string, folderName, taskId string) {
 			os.WriteFile(path.Join(baseStruct.RootPath, folderName, taskId, "funcError"), []byte(err.(error).Error()), fs.ModePerm)
 		}
 	}()
-	file := writeFile{
-		folderPrefix:   []string{baseStruct.RootPath, folderName, taskId},
-		fileNamePrefix: folderName,
+	file := utils.WriteFile{
+		FolderPrefix:   []string{baseStruct.RootPath, folderName, taskId},
+		FileNamePrefix: folderName,
 	}
-	file.checkFileSize()
-	defer file.file.Close()
+	defer file.Close()
 	utils.Info.Println("开始运行")
 	// 请求出错的id写入到文件中，文件名 errRequestParams
 	errRequestParams, _ := os.Open(path.Join(baseStruct.RootPath, folderName, taskId, "errRequestParams"))
@@ -203,7 +163,7 @@ func getAuthorVideoList(videoUid []string, folderName, taskId string) {
 		for pageIndex <= maxPage {
 			response, err, requestUrl := bilibili.GetAuthorAllVideoListByByte(i, pageIndex)
 			pageIndex++
-			file.write(writeRequestUrl(requestUrl, response))
+			file.Write(writeRequestUrl(requestUrl, response))
 			if err != nil {
 				utils.ErrorLog.Println(err.Error())
 				errRequestParams.Write([]byte(i + "\n"))
@@ -230,7 +190,7 @@ func getAuthorVideoList(videoUid []string, folderName, taskId string) {
 		}
 		utils.Info.Printf("%s 爬取完成", i)
 	}
-	file.file.Close()
+	file.Close()
 	tarFolderFile(folderName, taskId)
 }
 
@@ -240,12 +200,11 @@ func getVideoDetailList(videoUid []string, folderName, taskId string) {
 			utils.ErrorLog.Printf("getVideoDetailList panic %s", err)
 		}
 	}()
-	file := writeFile{
-		folderPrefix:   []string{baseStruct.RootPath, folderName, taskId},
-		fileNamePrefix: folderName,
+	file := utils.WriteFile{
+		FolderPrefix:   []string{baseStruct.RootPath, folderName, taskId},
+		FileNamePrefix: folderName,
 	}
-	file.checkFileSize()
-	defer file.file.Close()
+	defer file.Close()
 	utils.Info.Println("开始爬取视频详情")
 	// 请求出错的id写入到文件中，文件名 errRequestParams
 	errRequestParams, _ := os.Open(path.Join(baseStruct.RootPath, folderName, taskId, "errRequestParams"))
@@ -256,7 +215,7 @@ func getVideoDetailList(videoUid []string, folderName, taskId string) {
 	os.WriteFile(fileName, []byte(strings.Join(slice2, "\n")), fs.ModePerm)
 	for _, i := range videoUid {
 		data, requestUrl := bilibili.GetVideoDetailByByte(i)
-		file.write(writeRequestUrl(requestUrl, data))
+		file.Write(writeRequestUrl(requestUrl, data))
 		if data == nil {
 			errRequestParams.Write([]byte(i))
 			errRequestParams.Write([]byte{10})
@@ -264,7 +223,7 @@ func getVideoDetailList(videoUid []string, folderName, taskId string) {
 		time.Sleep(time.Second * 4)
 		utils.Info.Printf("%s 爬取完成", i)
 	}
-	file.file.Close()
+	file.Close()
 	tarFolderFile(folderName, taskId)
 }
 

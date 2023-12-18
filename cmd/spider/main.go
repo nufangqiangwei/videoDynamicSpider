@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	oneMinute     = 60
 	defaultTicket = 60 * 5
 	oneTicket     = 60 * 60
 	sixTime       = oneTicket * 6
@@ -126,6 +127,10 @@ func main() {
 		return
 	}
 	_, err = wheel.AppendCycleFunc(downloadProxyTaskDataFile, nil, "downloadProxyTaskDataFile", timeWheel.Crontab{ExpiredTime: oneTicket})
+	if err != nil {
+		return
+	}
+	_, err = wheel.AppendOnceFunc(readPath, nil, "importProxyFileData", timeWheel.Crontab{ExpiredTime: oneMinute})
 	if err != nil {
 		return
 	}

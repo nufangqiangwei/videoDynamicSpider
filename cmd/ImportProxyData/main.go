@@ -140,17 +140,6 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 		models.GormDB.Create(&video)
 	}
 	// 更新视频信息
-	video.View = response.Data.View.Stat.View
-	video.Danmaku = response.Data.View.Stat.Danmaku
-	video.Reply = response.Data.View.Stat.Reply
-	video.Favorite = response.Data.View.Stat.Favorite
-	video.Coin = response.Data.View.Stat.Coin
-	video.Share = response.Data.View.Stat.Share
-	video.NowRank = response.Data.View.Stat.NowRank
-	video.HisRank = response.Data.View.Stat.HisRank
-	video.Like = response.Data.View.Stat.Like
-	video.Dislike = response.Data.View.Stat.Dislike
-	video.Evaluation = response.Data.View.Stat.Evaluation
 	models.GormDB.Model(&video).Updates(map[string]interface{}{
 		"View":       response.Data.View.Stat.View,
 		"Danmaku":    response.Data.View.Stat.Danmaku,

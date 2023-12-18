@@ -17,6 +17,7 @@ type Config struct {
 	DataPath                string
 	ProxyDataRootPath       string
 	ProxyWebServerLocalPort int
+	Token                   string
 }
 
 const WaitImportPrefix = "waitImportFile"
@@ -24,3 +25,5 @@ const WaitImportPrefix = "waitImportFile"
 const ImportingPrefix = "importingFile"
 
 const FinishImportPrefix = "finishImportFile"
+
+const ErrorImportPrefix = "errorImportFile"
