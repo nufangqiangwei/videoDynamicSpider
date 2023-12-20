@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"io"
 	"io/fs"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -77,6 +78,7 @@ func main() {
 		return
 	}
 	utils.InitLog(baseStruct.RootPath)
+	go deleteFile()
 	server := gin.Default()
 	server.POST(baseStruct.AuthorVideoList, getAuthorAllVideo)
 	server.POST(baseStruct.VideoDetail, getVideoDetailApi)
@@ -294,7 +296,8 @@ func tarFolderFile(folderName, taskId string) {
 	// 创建目标文件
 	file, err := os.Create(targetFile)
 	if err != nil {
-		panic(err)
+		utils.ErrorLog.Println(err.Error())
+		return
 	}
 	defer file.Close()
 
@@ -349,6 +352,52 @@ func tarFolderFile(folderName, taskId string) {
 	})
 
 	if err != nil {
-		panic(err)
+		utils.ErrorLog.Println(err.Error())
+		return
+	}
+	perm := os.FileMode(0644) // 设置文件权限为 644 其他用户只有读权限
+	os.Chmod(targetFile, perm)
+}
+
+func deleteFile() {
+	// 每天中午十二点执行
+	now := time.Now()
+	// 生成明天的中午时间点
+	tomorrow := now.AddDate(0, 0, 1)
+	noonTime := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 12, 0, 0, 0, tomorrow.Location())
+	// 计算时间差
+	diff := noonTime.Sub(now)
+	time.Sleep(diff)
+	deleteAfterDayFile(config.ProxyDataRootPath)
+	deleteAfterDayFile(path.Join(baseStruct.RootPath, baseStruct.VideoDetail))
+	deleteAfterDayFile(path.Join(baseStruct.RootPath, baseStruct.AuthorVideoList))
+	deleteFile()
+}
+
+func deleteAfterDayFile(folderPath string) {
+	// 获取文件夹中的文件列表
+	files, err := ioutil.ReadDir(folderPath)
+	if err != nil {
+		utils.ErrorLog.Println(err.Error())
+		return
+	}
+	// 遍历文件列表
+	for _, file := range files {
+		// 获取文件名
+		fileName := file.Name()
+		// 获取文件创建时间
+		fileModifyTime := file.ModTime()
+		// 获取当前时间
+		currentTime := time.Now()
+		// 计算文件创建时间和当前时间的差值
+		diff := currentTime.Sub(fileModifyTime)
+		// 如果差值大于一天，则删除文件
+		if diff.Hours() >= 24 {
+			fmt.Printf("%s文件上次修改时间是%s，准备删除\n", fileName, fileModifyTime.Format("2006-01-02-15-04-05"))
+			//err := os.Remove(path.Join(folderPath, fileName))
+			//if err != nil {
+			//	utils.ErrorLog.Println(err.Error())
+			//}
+		}
 	}
 }

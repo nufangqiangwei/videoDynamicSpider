@@ -114,11 +114,11 @@ func main() {
 	if err != nil {
 		return
 	}
-	_, err = wheel.AppendCycleFunc(runToDoTask, nil, "pushTaskToProxy", timeWheel.Crontab{ExpiredTime: defaultTicket + 30})
+	_, err = wheel.AppendCycleFunc(runToDoTask, nil, "pushTaskToProxy", timeWheel.Crontab{ExpiredTime: oneMinute})
 	if err != nil {
 		return
 	}
-	_, err = wheel.AppendCycleFunc(checkProxyTaskStatus, nil, "getTaskStatus", timeWheel.Crontab{ExpiredTime: defaultTicket * 2})
+	_, err = wheel.AppendCycleFunc(checkProxyTaskStatus, nil, "getTaskStatus", timeWheel.Crontab{ExpiredTime: oneMinute})
 	if err != nil {
 		return
 	}
@@ -130,7 +130,7 @@ func main() {
 	if err != nil {
 		return
 	}
-	_, err = wheel.AppendOnceFunc(readPath, nil, "importProxyFileData", timeWheel.Crontab{ExpiredTime: oneMinute})
+	_, err = wheel.AppendOnceFunc(readPath, nil, "importProxyFileData", timeWheel.Crontab{ExpiredTime: 60})
 	if err != nil {
 		return
 	}

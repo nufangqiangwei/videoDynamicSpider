@@ -23,7 +23,6 @@ func runToDoTask(interface{}) {
 	}
 	// 如果没有可用的代理任务，结束本次循环
 	if len(proxyTasks) == len(config.Proxy) {
-		utils.Info.Printf("没有空闲的代理")
 		return
 	}
 	// 从config.Proxy中找到空闲的代理,存入到leisureProxy中
@@ -42,7 +41,6 @@ func runToDoTask(interface{}) {
 		}
 	}
 	if len(leisureProxy) == 0 {
-		utils.Info.Printf("没有空闲的代理")
 		return
 	}
 	// 查询待执行的任务
@@ -67,7 +65,7 @@ func runToDoTask(interface{}) {
 		taskUUID, err := sendTasksToProxy(waitRunTask, proxy)
 		if err != nil {
 			fmt.Println("请求代理出错:", err.Error())
-			return
+			continue
 		}
 		// 添加数据到ProxySpiderTask表中
 		proxySpiderTask := models.ProxySpiderTask{
@@ -89,7 +87,9 @@ func runToDoTask(interface{}) {
 		for _, task := range waitRunTask {
 			taskToDoListID = append(taskToDoListID, task.ID)
 		}
-		err = models.GormDB.Model(&models.TaskToDoList{}).Where("id in ?", taskToDoListID).Update("status", 1).Error
+		err = models.GormDB.Model(&models.TaskToDoList{}).Where("id in ?", taskToDoListID).Updates(map[string]interface{}{
+			"status": 1, "run_task_id": proxySpiderTask.ID,
+		}).Error
 		if err != nil {
 			fmt.Println("TaskToDoList 更新已进行出错:", err.Error())
 			continue
@@ -212,7 +212,6 @@ func checkProxyTaskStatus(interface{}) {
 			utils.ErrorLog.Println("查询代理任务是否已经完成错误:", err)
 			continue
 		}
-		fmt.Printf("%v\n", responseData)
 		if responseData.Status == 1 {
 			// 代理任务已经完成，更新ProxySpiderTask表中的数据
 			err = models.GormDB.Model(&models.ProxySpiderTask{}).Where("id = ?", proxyTask.ID).Updates(map[string]interface{}{

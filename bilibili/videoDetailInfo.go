@@ -353,7 +353,7 @@ type VideoDetailResponse struct {
 			Pic       string `json:"pic"`
 			Title     string `json:"title"`
 			Pubdate   int    `json:"pubdate"`
-			Ctime     int    `json:"ctime"`
+			Ctime     int64  `json:"ctime"`
 			Desc      string `json:"desc"`
 			State     int    `json:"state"`
 			Duration  int    `json:"duration"`
@@ -379,19 +379,19 @@ type VideoDetailResponse struct {
 				Face string `json:"face"`
 			} `json:"owner"`
 			Stat struct {
-				Aid      int `json:"aid"`
-				View     int `json:"view"`
-				Danmaku  int `json:"danmaku"`
-				Reply    int `json:"reply"`
-				Favorite int `json:"favorite"`
-				Coin     int `json:"coin"`
-				Share    int `json:"share"`
-				NowRank  int `json:"now_rank"`
-				HisRank  int `json:"his_rank"`
-				Like     int `json:"like"`
-				Dislike  int `json:"dislike"`
-				Vt       int `json:"vt"`
-				Vv       int `json:"vv"`
+				Aid      int64 `json:"aid"`
+				View     int64 `json:"view"`
+				Danmaku  int64 `json:"danmaku"`
+				Reply    int64 `json:"reply"`
+				Favorite int64 `json:"favorite"`
+				Coin     int64 `json:"coin"`
+				Share    int64 `json:"share"`
+				NowRank  int64 `json:"now_rank"`
+				HisRank  int64 `json:"his_rank"`
+				Like     int64 `json:"like"`
+				Dislike  int64 `json:"dislike"`
+				Vt       int64 `json:"vt"`
+				Vv       int64 `json:"vv"`
 			} `json:"stat"`
 			Dynamic   string `json:"dynamic"`
 			Cid       int    `json:"cid"`

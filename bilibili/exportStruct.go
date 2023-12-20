@@ -227,11 +227,10 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64, VideoHistory
 			case "": // 稿件视频
 				pushTime = time.Unix(info.ViewAt, 0)
 				VideoHistoryChan <- models.Video{
-					WebSiteId:  webSite.Id,
-					Title:      info.Title,
-					Uuid:       info.History.Bvid,
-					UploadTime: &pushTime,
-					CoverUrl:   info.Cover,
+					WebSiteId: webSite.Id,
+					Title:     info.Title,
+					Uuid:      info.History.Bvid,
+					CoverUrl:  info.Cover,
 					Authors: []models.VideoAuthor{
 						{Contribute: "UP主", AuthorUUID: strconv.FormatInt(info.AuthorMid, 10), Uuid: info.History.Bvid},
 					},
@@ -242,6 +241,9 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64, VideoHistory
 							WebSiteId:    webSite.Id,
 							Avatar:       info.AuthorFace,
 						},
+					},
+					ViewHistory: []models.VideoHistory{
+						{ViewTime: pushTime, WebSiteId: webSite.Id, WebUUID: info.History.Bvid},
 					},
 				}
 			case "剧集":

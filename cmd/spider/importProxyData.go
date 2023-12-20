@@ -76,12 +76,13 @@ func readPath(interface{}) {
 			importFileData(waitImportFile.Name())
 		}
 	}
-	wheel.AppendOnceFunc(readPath, nil, "importProxyFileData", timeWheel.Crontab{ExpiredTime: oneMinute})
+	wheel.AppendOnceFunc(readPath, nil, "importProxyFileData", timeWheel.Crontab{ExpiredTime: oneTicket})
 }
 
 func importFileData(fileName string) {
 	// 文件是 cmd/spiderProxy/main.go这个tarFolderFile函数打包出来的文件，文件名格式{taskType}_{taskId}.tar.gz
 	// 内部包含三种文件 requestParams请求参数 errRequestParams出现错误的请求参数  {taskId}.json结果集，100M一个文件
+	utils.Info.Println("importFileData函数开始解析", fileName)
 	defer moveFile(importingPath, finishImportPath, fileName)
 	// 解析文件名，获取taskType和taskId
 	fileNameList := strings.Split(fileName, "_")
@@ -105,7 +106,7 @@ func importFileData(fileName string) {
 		moveFile(importingPath, errorImportPrefix, fileName)
 	}
 	aa.endOffWorker()
-
+	utils.Info.Println("importFileData函数 ", fileName, "解析完成")
 }
 
 // tar.gz文件解压
@@ -306,6 +307,7 @@ func (vd *biliVideoDetail) responseHandle(data []byte) {
 		utils.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
 		return
 	}
+	println(response.Url)
 	if response.Response.Code != 0 {
 		return
 	}
@@ -318,8 +320,11 @@ func (vd *biliVideoDetail) endOffWorker() {
 func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSiteId int64) {
 	video := models.Video{}
 	var tx *gorm.DB
+	t1 := time.Now()
 	tx = models.GormDB.Where("uuid = ?", response.Data.View.Bvid).Preload("Authors").Preload("Tag").
 		Limit(1).Find(&video)
+	t2 := time.Now()
+	println("查询时间差%d", t2.UnixMilli()-t1.UnixMilli())
 	if tx.Error != nil {
 		utils.ErrorLog.Printf("获取视频信息失败：%s\n", tx.Error.Error())
 		return
@@ -338,6 +343,8 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 			Duration:   response.Data.View.Duration,
 		}
 		models.GormDB.Create(&video)
+		t3 := time.Now()
+		println("插入时间差%d", t3.UnixMilli()-t2.UnixMilli())
 	}
 	// 更新视频信息
 	models.GormDB.Model(&video).Updates(map[string]interface{}{
@@ -353,6 +360,8 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 		"Dislike":    response.Data.View.Stat.Dislike,
 		"Evaluation": response.Data.View.Stat.Evaluation,
 	})
+	t4 := time.Now()
+	println("Updates时间差", t4.UnixMilli()-t2.UnixMilli())
 	// 更新作者和协作者信息
 	if len(response.Data.View.Staff) > 0 {
 		DatabaseAuthorInfo := []models.Author{}
@@ -372,6 +381,7 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 			}
 			if !authorHave {
 				// 查询这个作者在Author表中是否存在
+				t1 := time.Now()
 				author := models.Author{}
 				models.GormDB.Where("author_web_uid = ?", strconv.Itoa(b.Mid)).Find(&author)
 				if author.Id == 0 {
@@ -392,10 +402,13 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 					Contribute: b.Title,
 				}
 				models.GormDB.Create(&va)
+				t4 := time.Now()
+				println("authorHave时间差", t4.UnixMilli()-t1.UnixMilli())
 			}
 		}
 	} else {
 		// 没有协作者
+		t1 := time.Now()
 		author := response.Data.Card.Card
 		AuthorInfo := models.Author{}
 		models.GormDB.Where("author_web_uid=?", author.Mid).Find(&AuthorInfo)
@@ -424,6 +437,8 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 				Contribute: "UP主",
 			})
 		}
+		t4 := time.Now()
+		println("authorHave3时间差", t4.UnixMilli()-t1.UnixMilli())
 
 	}
 	// 更新视频标签信息
@@ -440,6 +455,7 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 		}
 
 		if !tagHave {
+			t1 := time.Now()
 			tag := models.Tag{}
 			models.GormDB.Find(&tag, "id=?", v.TagId)
 			if tag.Name == "" {
@@ -452,12 +468,54 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 				TagId:   v.TagId,
 			}
 			models.GormDB.Create(&videoTag)
+			t4 := time.Now()
+			println("authorHave4时间差", t4.UnixMilli()-t1.UnixMilli())
 		}
 
 	}
+	t1 = time.Now()
+	relatedVideo(response, WebSiteId)
+	t4 = time.Now()
+	println("authorHave5时间差", t4.UnixMilli()-t1.UnixMilli())
 
 }
-
+func relatedVideo(response bilibili.VideoDetailResponse, WebSiteId int64) {
+	for _, videoInfo := range response.Data.Related {
+		uploadTime := time.Unix(videoInfo.Ctime, 0)
+		video := models.Video{
+			WebSiteId:  WebSiteId,
+			Title:      videoInfo.Title,
+			Uuid:       videoInfo.Bvid,
+			CoverUrl:   videoInfo.Pic,
+			VideoDesc:  videoInfo.Desc,
+			CreateTime: time.Now(),
+			UploadTime: &uploadTime,
+			Duration:   videoInfo.Duration,
+			View:       videoInfo.Stat.View,
+			Danmaku:    videoInfo.Stat.Danmaku,
+			Reply:      videoInfo.Stat.Reply,
+			Favorite:   videoInfo.Stat.Favorite,
+			Coin:       videoInfo.Stat.Coin,
+			Share:      videoInfo.Stat.Share,
+			NowRank:    videoInfo.Stat.NowRank,
+			HisRank:    videoInfo.Stat.HisRank,
+			Like:       videoInfo.Stat.Like,
+			Dislike:    videoInfo.Stat.Dislike,
+			Authors: []models.VideoAuthor{
+				{AuthorUUID: strconv.Itoa(videoInfo.Owner.Mid), Contribute: "UP主"},
+			},
+			StructAuthor: []models.Author{
+				{
+					WebSiteId:    WebSiteId,
+					AuthorWebUid: strconv.Itoa(videoInfo.Owner.Mid),
+					AuthorName:   videoInfo.Owner.Name,
+					Avatar:       videoInfo.Owner.Face,
+				},
+			},
+		}
+		video.UpdateVideo()
+	}
+}
 func newReaderJSONFile(rd io.Reader) readJsonFile {
 	rf := readJsonFile{}
 	rf.readObject = rd
