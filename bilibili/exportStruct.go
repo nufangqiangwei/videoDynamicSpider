@@ -254,6 +254,7 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64, VideoHistory
 			case "番剧":
 			case "综艺":
 			case "live":
+				utils.Info.Printf("未处理的历史记录 %v\n", info)
 				continue
 			default:
 				utils.Info.Printf("未知类型的历史记录 %v\n", info)

@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	timeWheel "github.com/nufangqiangwei/timewheel"
+	"github.com/panjf2000/ants/v2"
 	"gorm.io/gorm"
 	"io"
 	"os"
@@ -28,6 +30,7 @@ var (
 	finishImportPath     string
 	errorImportPrefix    string
 	errorRequestSaveFile *utils.WriteFile
+	limitGoroutine       *ants.Pool
 )
 
 func readPath(interface{}) {
@@ -43,6 +46,9 @@ func readPath(interface{}) {
 			FileNamePrefix: "errorRequestParams",
 		}
 	}
+	if limitGoroutine == nil {
+		limitGoroutine, _ = ants.NewPool(20)
+	}
 	// 检查importingPath目录下的文件是否有上次异常退出残留下来的文件
 	importingFileList, err := os.ReadDir(importingPath)
 	if err != nil {
@@ -50,7 +56,12 @@ func readPath(interface{}) {
 	} else {
 		for _, importingFile := range importingFileList {
 			if strings.HasSuffix(importingFile.Name(), "tar.gz") {
-				importFileData(importingFile.Name())
+				err = limitGoroutine.Submit(func() {
+					importFileData(importingFile.Name())
+				})
+				if err != nil {
+					utils.ErrorLog.Printf("协程池添加失败：%s，文件名%s\n", err.Error(), importingFile.Name())
+				}
 			}
 		}
 	}
@@ -73,9 +84,15 @@ func readPath(interface{}) {
 				continue
 			}
 			// 开始导入数据
-			importFileData(waitImportFile.Name())
+			err = limitGoroutine.Submit(func() {
+				importFileData(waitImportFile.Name())
+			})
+			if err != nil {
+				utils.ErrorLog.Printf("协程池添加失败：%s，文件名%s\n", err.Error(), waitImportFile.Name())
+			}
 		}
 	}
+	limitGoroutine.Running()
 	wheel.AppendOnceFunc(readPath, nil, "importProxyFileData", timeWheel.Crontab{ExpiredTime: oneTicket})
 }
 
@@ -96,11 +113,10 @@ func importFileData(fileName string) {
 	switch taskType {
 	case baseStruct.VideoDetail:
 		aa = &biliVideoDetail{}
-		aa.initStruct(taskType)
 	case baseStruct.AuthorVideoList:
 		aa = &biliAuthorVideoList{}
-		aa.initStruct(taskType)
 	}
+	aa.initStruct(taskType)
 	err := gzFileUnzip(path.Join(importingPath, fileName), fileNameList[1], aa)
 	if err != nil {
 		moveFile(importingPath, errorImportPrefix, fileName)
@@ -125,12 +141,12 @@ func gzFileUnzip(fileNamePath, taskId string, handler taskWorker) error {
 	}
 	defer gzRead.Close()
 	tarRead := tar.NewReader(gzRead)
-
+	var jsonDataError error
 	for {
 		hdr, err := tarRead.Next()
 		switch {
 		case err == io.EOF:
-			return nil
+			return jsonDataError
 		case err != nil:
 			return nil
 		case hdr == nil:
@@ -157,7 +173,10 @@ func gzFileUnzip(fileNamePath, taskId string, handler taskWorker) error {
 						utils.ErrorLog.Printf("读取%s文件行失败：%s\n", fileNamePath, err.Error())
 						continue
 					}
-					handler.responseHandle(byteData)
+					err = handler.responseHandle(byteData)
+					if err != nil {
+						jsonDataError = err
+					}
 				}
 			}
 		}
@@ -178,7 +197,7 @@ type taskWorker interface {
 	initStruct(string)
 	requestHandle([]byte)
 	errorRequestHandle([]byte)
-	responseHandle([]byte)
+	responseHandle([]byte) error
 	endOffWorker()
 }
 
@@ -202,52 +221,60 @@ func (avl *biliAuthorVideoList) errorRequestHandle(data []byte) {
 	avl.notRequestParams = append(avl.notRequestParams, string(data))
 
 }
-func (avl *biliAuthorVideoList) responseHandle(data []byte) {
+func (avl *biliAuthorVideoList) responseHandle(data []byte) error {
 	response := bilibili.VideoListPageResponse{}
 	err := json.Unmarshal(data, &response)
 	if err != nil {
 		utils.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
 		errorRequestSaveFile.WriteLine(data)
-		return
+		return err
 	}
 	if response.Code != 0 {
 		errorRequestSaveFile.WriteLine(data)
-		return
+		return errors.New("请求出错")
 	}
 	if len(response.Data.List.Vlist) == 0 {
 		errorRequestSaveFile.WriteLine(data)
-		return
+		return nil
 	}
 	if avl.authorId == 0 {
 		models.GormDB.Model(&models.Author{}).Where("author_web_uid = ?", response.Data.List.Vlist[0].Mid).Find(&avl.authorId)
 	}
-	saveBilibiliAuthorVideoList(response, avl.webSiteId, avl.authorId, avl.authorVideoUUIDList)
-
+	return avl.saveAuthorVideoList(response)
 }
 func (avl *biliAuthorVideoList) endOffWorker() {
 
 }
-func saveBilibiliAuthorVideoList(response bilibili.VideoListPageResponse, WebSiteId, authorId int64, authorVideoUUIDMap map[string]struct{}) {
+func (avl *biliAuthorVideoList) saveAuthorVideoList(response bilibili.VideoListPageResponse) error {
 	if len(response.Data.List.Vlist) == 0 {
-		return
+		return nil
 	}
-	if authorId == 0 {
+	var err error
+	if avl.authorId == 0 {
 		authorMid := response.Data.List.Vlist[0].Mid
 		// 查询这个作者的id
-		models.GormDB.Table("author").
+		err = models.GormDB.Table("author").
 			Select("id").
 			Where("author_web_uid = ?", authorMid).
-			Find(&authorId)
+			Find(&avl.authorId).Error
+		if err != nil {
+			utils.ErrorLog.Printf("查询作者id失败：%s\n", err.Error())
+			return err
+		}
 	}
-	if len(authorVideoUUIDMap) == 0 {
+	if len(avl.authorVideoUUIDList) == 0 {
 		var authorVideoUUIDList []string
 		// 查询这个作者本地保存的视频信息
-		models.GormDB.Table("video v").
+		err = models.GormDB.Table("video v").
 			Select("v.uuid").
-			Where("a.author_id = ?", authorId).
-			Find(&authorVideoUUIDList)
+			Where("a.author_id = ?", avl.authorId).
+			Find(&authorVideoUUIDList).Error
+		if err != nil {
+			utils.ErrorLog.Printf("查询作者视频信息失败：%s\n", err.Error())
+			return err
+		}
 		for _, videoUuid := range authorVideoUUIDList {
-			authorVideoUUIDMap[videoUuid] = member
+			avl.authorVideoUUIDList[videoUuid] = member
 		}
 	}
 	var (
@@ -255,14 +282,14 @@ func saveBilibiliAuthorVideoList(response bilibili.VideoListPageResponse, WebSit
 		insertVideo []*models.Video
 	)
 	for _, videoInfo := range response.Data.List.Vlist {
-		_, ok = authorVideoUUIDMap[videoInfo.Bvid]
+		_, ok = avl.authorVideoUUIDList[videoInfo.Bvid]
 		if !ok {
 			createdTime := time.Unix(videoInfo.Created, 0)
 			// 保存视频信息
 			vv := models.Video{
-				WebSiteId: WebSiteId,
+				WebSiteId: avl.webSiteId,
 				Authors: []models.VideoAuthor{
-					{AuthorId: authorId, Uuid: videoInfo.Bvid},
+					{AuthorId: avl.authorId, Uuid: videoInfo.Bvid},
 				},
 				Title:      videoInfo.Title,
 				VideoDesc:  videoInfo.Description,
@@ -274,10 +301,14 @@ func saveBilibiliAuthorVideoList(response bilibili.VideoListPageResponse, WebSit
 				CreateTime: time.Now(),
 			}
 			insertVideo = append(insertVideo, &vv)
-			authorVideoUUIDMap[videoInfo.Bvid] = member
+			avl.authorVideoUUIDList[videoInfo.Bvid] = member
 		}
 	}
-	models.GormDB.Create(insertVideo)
+	err = models.GormDB.Create(insertVideo).Error
+	if err != nil {
+		utils.ErrorLog.Printf("保存视频信息失败：%s\n", err.Error())
+	}
+	return err
 }
 
 type biliVideoDetail struct {
@@ -297,7 +328,7 @@ func (vd *biliVideoDetail) requestHandle(data []byte) {
 func (vd *biliVideoDetail) errorRequestHandle(data []byte) {
 	vd.notRequestParams = append(vd.notRequestParams, string(data))
 }
-func (vd *biliVideoDetail) responseHandle(data []byte) {
+func (vd *biliVideoDetail) responseHandle(data []byte) error {
 	response := struct {
 		Url      string
 		Response bilibili.VideoDetailResponse
@@ -305,35 +336,34 @@ func (vd *biliVideoDetail) responseHandle(data []byte) {
 	err := json.Unmarshal(data, &response)
 	if err != nil {
 		utils.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
-		return
+		return err
 	}
 	println(response.Url)
 	if response.Response.Code != 0 {
-		return
+		return errors.New("请求出错")
 	}
-	updateBilibiliVideoDetailInfo(response.Response, vd.webSiteId)
-
+	return vd.updateVideoDetailInfo(response.Response)
 }
 func (vd *biliVideoDetail) endOffWorker() {
 
 }
-func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSiteId int64) {
+func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailResponse) error {
 	video := models.Video{}
-	var tx *gorm.DB
-	t1 := time.Now()
+	var (
+		tx  *gorm.DB
+		err error
+	)
 	tx = models.GormDB.Where("uuid = ?", response.Data.View.Bvid).Preload("Authors").Preload("Tag").
 		Limit(1).Find(&video)
-	t2 := time.Now()
-	println("查询时间差%d", t2.UnixMilli()-t1.UnixMilli())
 	if tx.Error != nil {
 		utils.ErrorLog.Printf("获取视频信息失败：%s\n", tx.Error.Error())
-		return
+		return tx.Error
 	}
 	if video.Id == 0 {
 		// 视频不存在，video表中创建这条视频数据
 		uploadTime := time.Unix(response.Data.View.Ctime, 0)
 		video = models.Video{
-			WebSiteId:  WebSiteId,
+			WebSiteId:  vd.webSiteId,
 			Title:      response.Data.View.Title,
 			Uuid:       response.Data.View.Bvid,
 			CoverUrl:   response.Data.View.Pic,
@@ -342,12 +372,14 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 			UploadTime: &uploadTime,
 			Duration:   response.Data.View.Duration,
 		}
-		models.GormDB.Create(&video)
-		t3 := time.Now()
-		println("插入时间差%d", t3.UnixMilli()-t2.UnixMilli())
+		err = models.GormDB.Create(&video).Error
+		if err != nil {
+			utils.ErrorLog.Printf("保存视频信息失败：%s\n", err.Error())
+			return err
+		}
 	}
 	// 更新视频信息
-	models.GormDB.Model(&video).Updates(map[string]interface{}{
+	err = models.GormDB.Model(&video).Updates(map[string]interface{}{
 		"View":       response.Data.View.Stat.View,
 		"Danmaku":    response.Data.View.Stat.Danmaku,
 		"Reply":      response.Data.View.Stat.Reply,
@@ -359,9 +391,11 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 		"Like":       response.Data.View.Stat.Like,
 		"Dislike":    response.Data.View.Stat.Dislike,
 		"Evaluation": response.Data.View.Stat.Evaluation,
-	})
-	t4 := time.Now()
-	println("Updates时间差", t4.UnixMilli()-t2.UnixMilli())
+	}).Error
+	if err != nil {
+		utils.ErrorLog.Printf("更新视频信息失败：%s\n", err.Error())
+		return err
+	}
 	// 更新作者和协作者信息
 	if len(response.Data.View.Staff) > 0 {
 		DatabaseAuthorInfo := []models.Author{}
@@ -369,7 +403,11 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 		for _, a := range video.Authors {
 			authorIdList = append(authorIdList, a.AuthorId)
 		}
-		models.GormDB.Where("id in ?", authorIdList).Find(&DatabaseAuthorInfo)
+		err = models.GormDB.Where("id in ?", authorIdList).Find(&DatabaseAuthorInfo).Error
+		if err != nil {
+			utils.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
+			return err
+		}
 		// models.VideoAuthor 和 response.Data.View.Staff 两边信息做对比，models.VideoAuthor缺少的就添加，models.Author缺少的就添加
 		authorHave := false
 		for _, b := range response.Data.View.Staff {
@@ -381,19 +419,26 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 			}
 			if !authorHave {
 				// 查询这个作者在Author表中是否存在
-				t1 := time.Now()
 				author := models.Author{}
-				models.GormDB.Where("author_web_uid = ?", strconv.Itoa(b.Mid)).Find(&author)
+				err = models.GormDB.Where("author_web_uid = ?", strconv.Itoa(b.Mid)).Find(&author).Error
+				if err != nil {
+					utils.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
+					return err
+				}
 				if author.Id == 0 {
 					// 作者不存在，数据库中添加作者信息
 					author = models.Author{
 						AuthorName:   b.Name,
-						WebSiteId:    WebSiteId,
+						WebSiteId:    vd.webSiteId,
 						AuthorWebUid: strconv.Itoa(b.Mid),
 						Avatar:       b.Face,
 						FollowNumber: b.Follower,
 					}
-					models.GormDB.Create(&author)
+					err = models.GormDB.Create(&author).Error
+					if err != nil {
+						utils.ErrorLog.Printf("保存作者信息失败：%s\n", err.Error())
+						return err
+					}
 				}
 				va := models.VideoAuthor{
 					Uuid:       response.Data.View.Bvid,
@@ -401,44 +446,60 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 					AuthorId:   author.Id,
 					Contribute: b.Title,
 				}
-				models.GormDB.Create(&va)
-				t4 := time.Now()
-				println("authorHave时间差", t4.UnixMilli()-t1.UnixMilli())
+				err = models.GormDB.Create(&va).Error
+				if err != nil {
+					utils.ErrorLog.Printf("保存视频作者信息失败：%s\n", err.Error())
+					return err
+
+				}
 			}
 		}
 	} else {
 		// 没有协作者
-		t1 := time.Now()
 		author := response.Data.Card.Card
 		AuthorInfo := models.Author{}
-		models.GormDB.Where("author_web_uid=?", author.Mid).Find(&AuthorInfo)
+		err = models.GormDB.Where("author_web_uid=?", author.Mid).Find(&AuthorInfo).Error
+		if err != nil {
+			utils.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
+			return err
+		}
 		if AuthorInfo.Id == 0 {
 			// 作者不存在，数据库中添加作者信息
 			AuthorInfo = models.Author{
 				AuthorName:   author.Name,
-				WebSiteId:    WebSiteId,
+				WebSiteId:    vd.webSiteId,
 				AuthorWebUid: author.Mid,
 				Avatar:       author.Face,
 				FollowNumber: author.Fans,
 				AuthorDesc:   author.Sign,
 			}
-			models.GormDB.Create(&AuthorInfo)
+			err = models.GormDB.Create(&AuthorInfo).Error
+			if err != nil {
+				utils.ErrorLog.Printf("保存作者信息失败：%s\n", err.Error())
+				return err
+			}
 		}
 		if len(video.Authors) > 0 {
 			if video.Authors[0].AuthorId != AuthorInfo.Id {
 				// 协作者发生变化
-				models.GormDB.Model(&video).Association("Authors").Replace(&AuthorInfo)
+				err = models.GormDB.Model(&video).Association("Authors").Replace(&AuthorInfo)
+				if err != nil {
+					utils.ErrorLog.Printf("更新视频作者信息失败：%s\n", err.Error())
+					return err
+				}
 			}
 		} else {
-			models.GormDB.Create(&models.VideoAuthor{
+			err = models.GormDB.Create(&models.VideoAuthor{
 				Uuid:       response.Data.View.Bvid,
 				VideoId:    video.Id,
 				AuthorId:   AuthorInfo.Id,
 				Contribute: "UP主",
-			})
+			}).Error
+			if err != nil {
+				utils.ErrorLog.Printf("保存视频作者信息失败：%s\n", err.Error())
+				return err
+			}
 		}
-		t4 := time.Now()
-		println("authorHave3时间差", t4.UnixMilli()-t1.UnixMilli())
 
 	}
 	// 更新视频标签信息
@@ -473,17 +534,13 @@ func updateBilibiliVideoDetailInfo(response bilibili.VideoDetailResponse, WebSit
 		}
 
 	}
-	t1 = time.Now()
-	relatedVideo(response, WebSiteId)
-	t4 = time.Now()
-	println("authorHave5时间差", t4.UnixMilli()-t1.UnixMilli())
-
+	return vd.relatedVideo(response)
 }
-func relatedVideo(response bilibili.VideoDetailResponse, WebSiteId int64) {
+func (vd *biliVideoDetail) relatedVideo(response bilibili.VideoDetailResponse) error {
 	for _, videoInfo := range response.Data.Related {
 		uploadTime := time.Unix(videoInfo.Ctime, 0)
 		video := models.Video{
-			WebSiteId:  WebSiteId,
+			WebSiteId:  vd.webSiteId,
 			Title:      videoInfo.Title,
 			Uuid:       videoInfo.Bvid,
 			CoverUrl:   videoInfo.Pic,
@@ -506,15 +563,19 @@ func relatedVideo(response bilibili.VideoDetailResponse, WebSiteId int64) {
 			},
 			StructAuthor: []models.Author{
 				{
-					WebSiteId:    WebSiteId,
+					WebSiteId:    vd.webSiteId,
 					AuthorWebUid: strconv.Itoa(videoInfo.Owner.Mid),
 					AuthorName:   videoInfo.Owner.Name,
 					Avatar:       videoInfo.Owner.Face,
 				},
 			},
 		}
-		video.UpdateVideo()
+		err := video.UpdateVideo()
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 func newReaderJSONFile(rd io.Reader) readJsonFile {
 	rf := readJsonFile{}

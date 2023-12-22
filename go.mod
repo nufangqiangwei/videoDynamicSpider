@@ -9,6 +9,8 @@ require (
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/nufangqiangwei/timewheel v0.0.3
+	github.com/panjf2000/ants/v2 v2.9.0
+	golang.org/x/time v0.5.0
 	gorm.io/driver/mysql v1.5.2
 	gorm.io/gorm v1.25.5
 )
