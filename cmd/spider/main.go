@@ -102,15 +102,15 @@ func main() {
 	if err != nil {
 		return
 	}
-	historyTaskId, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: 10})
+	historyTaskId, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: 10})
 	if err != nil {
 		return
 	}
-	_, err = wheel.AppendOnceFunc(spider.updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + 120})
+	_, err = wheel.AppendOnceFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + 120})
 	if err != nil {
 		return
 	}
-	_, err = wheel.AppendOnceFunc(spider.updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
+	_, err = wheel.AppendOnceFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
 	if err != nil {
 		return
 	}
@@ -130,10 +130,10 @@ func main() {
 	if err != nil {
 		return
 	}
-	_, err = wheel.AppendOnceFunc(readPath, nil, "importProxyFileData", timeWheel.Crontab{ExpiredTime: 60})
-	if err != nil {
-		return
-	}
+	//_, err = wheel.AppendOnceFunc(readPath, nil, "importProxyFileData", timeWheel.Crontab{ExpiredTime: 60})
+	//if err != nil {
+	//	return
+	//}
 	wheel.Start()
 }
 
@@ -212,7 +212,7 @@ func (s *Spider) getDynamic(interface{}) {
 }
 
 // 定时抓取历史记录 历史数据，同步到以观看表,视频信息储存到视频表，作者信息储存到作者表。新数据标记未同步历史数据，未关注
-func (s *Spider) getHistory(interface{}) {
+func getHistory(interface{}) {
 	defer func() {
 		panicErr := recover()
 		if panicErr != nil {
@@ -221,7 +221,7 @@ func (s *Spider) getHistory(interface{}) {
 			if ok {
 				utils.ErrorLog.Println("执行报错，重新添加历史数据爬取")
 				var err error
-				historyTaskId, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: oneTicket})
+				historyTaskId, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: oneTicket})
 				if err != nil {
 					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				}
@@ -259,7 +259,7 @@ func (s *Spider) getHistory(interface{}) {
 			videoInfo.UpdateVideo()
 		case newestTimestamp := <-VideoHistoryCloseChan:
 			models.SaveHistoryBaseLine(strconv.FormatInt(newestTimestamp, 10))
-			historyTaskId, err = wheel.AppendOnceFunc(spider.getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
+			historyTaskId, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
 			if err != nil {
 				utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				return
@@ -270,13 +270,13 @@ func (s *Spider) getHistory(interface{}) {
 }
 
 // 更新收藏夹列表，喝订阅的合集列表，新创建的同步视频数据
-func (s *Spider) updateCollectList(interface{}) {
+func updateCollectList(interface{}) {
 	defer func() {
 		panicErr := recover()
 		if panicErr != nil {
 			_, ok := panicErr.(utils.DBFileLock)
 			if ok {
-				_, err := wheel.AppendOnceFunc(spider.updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
+				_, err := wheel.AppendOnceFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
 				if err != nil {
 					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				}
@@ -295,10 +295,13 @@ func (s *Spider) updateCollectList(interface{}) {
 		return
 	}
 	newCollectList := bilibili.Spider.GetCollectList()
+	var (
+		videoCollectList []models.CollectVideo
+		have             bool
+	)
 	for _, collectId := range newCollectList.Collect {
-		var collectNumber int64
-		models.GormDB.Table("collect_video").Where("collect_id=?", collectId.CollectId).Count(&collectNumber)
-		if collectNumber != collectId.CollectNumber {
+		models.GormDB.Table("collect_video").Where("collect_id=?", collectId.CollectId).Find(&videoCollectList)
+		if int64(len(videoCollectList)) != collectId.CollectNumber {
 			for _, info := range bilibili.Spider.GetCollectAllVideo(collectId.BvId, 0) {
 				uploadTime := time.Unix(info.Ctime, 0)
 				vi := models.Video{
@@ -323,20 +326,26 @@ func (s *Spider) updateCollectList(interface{}) {
 				}
 				vi.UpdateVideo()
 				mtine := time.Unix(info.FavTime, 0)
-				models.CollectVideo{
-					CollectId: collectId.CollectId,
-					VideoId:   vi.Id,
-					Mtime:     &mtine,
-				}.Save()
+				for _, videoCollectInfo := range videoCollectList {
+					if videoCollectInfo.VideoId == vi.Id {
+						have = true
+						break
+					}
+				}
+				if !have {
+					models.CollectVideo{
+						CollectId: collectId.CollectId,
+						VideoId:   vi.Id,
+						Mtime:     &mtine,
+					}.Save()
+				}
 			}
-			println(collectId.BvId)
 			time.Sleep(time.Second * 5)
 		}
 	}
 	for _, collectId := range newCollectList.Season {
-		var collectNumber int64
-		models.GormDB.Table("collect_video").Where("collect_id=?", collectId.CollectId).Count(&collectNumber)
-		if collectNumber != collectId.CollectNumber {
+		models.GormDB.Table("collect_video").Where("collect_id=?", collectId.CollectId).Find(&videoCollectList)
+		if int64(len(videoCollectList)) != collectId.CollectNumber {
 			for _, info := range bilibili.Spider.GetSeasonAllVideo(collectId.BvId) {
 				author := models.Author{
 					WebSiteId:    web.Id,
@@ -368,18 +377,24 @@ func (s *Spider) updateCollectList(interface{}) {
 					},
 				}
 				vi.UpdateVideo()
-				models.CollectVideo{
-					CollectId: collectId.CollectId,
-					VideoId:   vi.Id,
-				}.Save()
-
+				for _, videoCollectInfo := range videoCollectList {
+					if videoCollectInfo.VideoId == vi.Id {
+						have = true
+						break
+					}
+				}
+				if !have {
+					models.CollectVideo{
+						CollectId: collectId.CollectId,
+						VideoId:   vi.Id,
+					}.Save()
+				}
 			}
-			println(collectId.BvId)
 			time.Sleep(time.Second * 5)
 		}
 	}
 
-	_, err = wheel.AppendOnceFunc(spider.updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + rand.Int63n(100)})
+	_, err = wheel.AppendOnceFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + rand.Int63n(100)})
 	if err != nil {
 		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 		return
@@ -387,13 +402,13 @@ func (s *Spider) updateCollectList(interface{}) {
 }
 
 // 更新收藏夹视频列表，更新合集视频列表
-func (s *Spider) updateCollectVideoList(interface{}) {
+func updateCollectVideoList(interface{}) {
 	defer func() {
 		panicErr := recover()
 		if panicErr != nil {
 			_, ok := panicErr.(utils.DBFileLock)
 			if ok {
-				_, err := wheel.AppendOnceFunc(spider.updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(twelveTicket, sixTime, twentyTime)})
+				_, err := wheel.AppendOnceFunc(updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(twelveTicket, sixTime, twentyTime)})
 				if err != nil {
 					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				}
@@ -464,7 +479,7 @@ func (s *Spider) updateCollectVideoList(interface{}) {
 		}
 	}
 
-	_, err := wheel.AppendOnceFunc(spider.updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(twelveTicket, sixTime, twentyTime)})
+	_, err := wheel.AppendOnceFunc(updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(twelveTicket, sixTime, twentyTime)})
 	if err != nil {
 		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 		return
@@ -472,13 +487,13 @@ func (s *Spider) updateCollectVideoList(interface{}) {
 }
 
 // 同步关注信息
-func (s *Spider) updateFollowInfo(interface{}) {
+func updateFollowInfo(interface{}) {
 	defer func() {
 		panicErr := recover()
 		if panicErr != nil {
 			_, ok := panicErr.(utils.DBFileLock)
 			if ok {
-				_, err := wheel.AppendOnceFunc(spider.updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
+				_, err := wheel.AppendOnceFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
 				if err != nil {
 					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				}
@@ -550,7 +565,7 @@ func (s *Spider) updateFollowInfo(interface{}) {
 			}
 		}
 	}
-	_, err = wheel.AppendOnceFunc(spider.updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + rand.Int63n(100)})
+	_, err = wheel.AppendOnceFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + rand.Int63n(100)})
 	if err != nil {
 		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 		return

@@ -1,7 +1,28 @@
-docker run --name bilbilBuildSpider -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/spider
-docker run --name bilbilBuildWeb -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/webServer
-docker run --name spiderProxy -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/spiderProxy
+docker run --name buildVideoSpider -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/spider
+docker run --name buildVideoWeb -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/webServer
+docker run --name buildSpiderProxy -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/spiderProxy
+docker run --name buildImportSpiderData -v C:\Code\GO\videoDynamicSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 go build ./cmd/ImportProxyData
 
-
+# 运行
+docker run --name spiderDataWriteDB -v G:\spiderData:/home/workspace -w /home/workspace go1.20by-ubunto20.04 ./ImportProxyData -d
 
 docker run --name bilbilSpider -v /volume4/Download/bilbilSpider:/home/workspace -w /home/workspace go1.20by-ubunto20.04 /home/workspace/spider
+
+docker run --name mysqlXtrabackup --volumes-from mysqllable percona/percona-xtrabackup:8.2.0 xtrabackup --backup --data-dir=/var/lib/mysql --target-dir=/etc/backup --user=root --password=p0o9i8u7
+
+# 脚本备份
+docker run -u 999:999 --name percona-xtrabackup --volumes-from mysqllable -v C:\mysql-xtrabackup\shellScript:/shellScript percona/percona-xtrabackup:8.2.0 sh /shellScript/mysqlBackup.sh
+# 脚本还原
+docker run -u 999:999 --name restoreMysql --volumes-from testRestore -v C:\mysql-xtrabackup\shellScript:/shellScript percona/percona-xtrabackup:8.2.0 sh /shellScript/mysqlRestore.sh
+
+docker run -u 999:999 --name shunwang --volumes-from mysqllable percona/percona-xtrabackup:8.2.0  xtrabackup xtrabackup --user=root --password=p0o9i8u7 --backup --stream=xbstream --compress | gzip -2  > /etc/backup/videoSpider.xbstream.gz
+
+
+/usr/local/xtrabackup/bin/xtrabackup --version
+
+
+tar -zxvf percona-xtrabackup-8.0.35-30-Linux-x86_64.glibc2.17.tar.gz
+mkdir /usr/local/xtrabackup
+-- mv percona-xtrabackup-8.0.35-30-Linux-x86_64.glibc2.17/* /usr/local/xtrabackup/
+ln -sf /volume4/Download/bilbilSpider/percona-xtrabackup-8.0.35-30-Linux-x86_64.glibc2.17/bin/* /usr/bin/
+

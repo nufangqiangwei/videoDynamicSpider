@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"time"
+	"videoDynamicAcquisition/models"
 )
 
 const maxFileSize = 100 * 1024 * 1024
@@ -41,6 +42,26 @@ func ArrayDifference[T string | int64](slice1, slice2 []T) []T {
 		str = append(str, s2)
 	}
 	return str
+}
+
+// ArrayDifferenceByStruct 在slice1但是不在slice2的值
+func ArrayDifferenceByStruct[T models.VideoAuthor | models.VideoTag](slice1, slice2 []T, keyFunc func(T) string) []T {
+	m := make(map[string]T)
+	for _, v := range slice1 {
+		m[keyFunc(v)] = v
+	}
+	for _, v := range slice2 {
+		if _, ok := m[keyFunc(v)]; ok {
+			delete(m, keyFunc(v))
+		}
+	}
+	var str []T
+
+	for _, s2 := range m {
+		str = append(str, s2)
+	}
+	return str
+
 }
 
 func IsUniqueErr(err error) bool {

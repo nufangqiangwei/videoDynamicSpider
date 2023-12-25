@@ -24,7 +24,7 @@ func InitDB(dsn string) {
 		},
 		Logger: logger.New(utils.DBlog, logger.Config{
 			SlowThreshold: 200 * time.Millisecond,
-			LogLevel:      logger.Info,
+			LogLevel:      logger.Warn,
 		}),
 	})
 	if err != nil {

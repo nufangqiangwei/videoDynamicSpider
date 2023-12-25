@@ -6,9 +6,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
-	timeWheel "github.com/nufangqiangwei/timewheel"
 	"github.com/panjf2000/ants/v2"
-	"gorm.io/gorm"
 	"io"
 	"os"
 	"path"
@@ -31,9 +29,10 @@ var (
 	errorImportPrefix    string
 	errorRequestSaveFile *utils.WriteFile
 	limitGoroutine       *ants.Pool
+	task                 *taskRequestWorker
 )
 
-func readPath(interface{}) {
+func readPath() {
 	// 读取 waitImportFile这个目录下的文件，有新的文件出现就将这个文件移动到importingFile目录下，然后开始导入数据
 	// 导入完成后，将这个文件移动到finishImportFile目录下
 	waitImportPath = path.Join(config.ProxyDataRootPath, utils.WaitImportPrefix)
@@ -47,7 +46,10 @@ func readPath(interface{}) {
 		}
 	}
 	if limitGoroutine == nil {
-		limitGoroutine, _ = ants.NewPool(20)
+		limitGoroutine, _ = ants.NewPool(10)
+	}
+	if task != nil {
+		task = taskRequestWorkerNew()
 	}
 	// 检查importingPath目录下的文件是否有上次异常退出残留下来的文件
 	importingFileList, err := os.ReadDir(importingPath)
@@ -56,12 +58,15 @@ func readPath(interface{}) {
 	} else {
 		for _, importingFile := range importingFileList {
 			if strings.HasSuffix(importingFile.Name(), "tar.gz") {
-				err = limitGoroutine.Submit(func() {
-					importFileData(importingFile.Name())
-				})
-				if err != nil {
-					utils.ErrorLog.Printf("协程池添加失败：%s，文件名%s\n", err.Error(), importingFile.Name())
-				}
+				time.Sleep(time.Microsecond * 500)
+				fileName := importingFile.Name()
+				importFileData(fileName)
+				//err = limitGoroutine.Submit(func() {
+				//	importFileData(fileName)
+				//})
+				//if err != nil {
+				//	utils.ErrorLog.Printf("协程池添加失败：%s，文件名%s\n", err.Error(), importingFile.Name())
+				//}
 			}
 		}
 	}
@@ -83,17 +88,20 @@ func readPath(interface{}) {
 				utils.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
 				continue
 			}
+			time.Sleep(time.Microsecond * 500)
+			fileName := waitImportFile.Name()
 			// 开始导入数据
-			err = limitGoroutine.Submit(func() {
-				importFileData(waitImportFile.Name())
-			})
+			importFileData(fileName)
+			//err = limitGoroutine.Submit(func() {
+			//	importFileData(fileName)
+			//})
 			if err != nil {
 				utils.ErrorLog.Printf("协程池添加失败：%s，文件名%s\n", err.Error(), waitImportFile.Name())
 			}
 		}
 	}
 	limitGoroutine.Running()
-	wheel.AppendOnceFunc(readPath, nil, "importProxyFileData", timeWheel.Crontab{ExpiredTime: oneTicket})
+
 }
 
 func importFileData(fileName string) {
@@ -191,6 +199,53 @@ func moveFile(sourcePath, targetPath, fileName string) {
 	if err != nil {
 		utils.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
 	}
+}
+
+type taskRequestWorker struct {
+	authorVideoListResponseChan chan []byte
+	videoDetailResponseChan     chan []byte
+}
+
+func taskRequestWorkerNew() *taskRequestWorker {
+	t := &taskRequestWorker{
+		authorVideoListResponseChan: make(chan []byte, 100),
+		videoDetailResponseChan:     make(chan []byte, 100),
+	}
+	for i := 0; i < 10; i++ {
+		go func() {
+			a := biliVideoDetail{}
+			a.initStruct("videoDetail")
+			for {
+				select {
+				case data := <-t.videoDetailResponseChan:
+					err := a.responseHandle(data)
+					if err != nil {
+						errorRequestSaveFile.Write(data)
+					}
+				}
+			}
+		}()
+		go func() {
+			a := biliAuthorVideoList{}
+			a.initStruct("authorVideoList")
+			for {
+				select {
+				case data := <-t.authorVideoListResponseChan:
+					err := a.responseHandle(data)
+					if err != nil {
+						errorRequestSaveFile.Write(data)
+					}
+				}
+			}
+		}()
+	}
+	return t
+}
+func (t *taskRequestWorker) sendVideoDetail(data []byte) {
+	t.videoDetailResponseChan <- data
+}
+func (t *taskRequestWorker) sendAuthorVideoList(data []byte) {
+	t.authorVideoListResponseChan <- data
 }
 
 type taskWorker interface {
@@ -338,7 +393,6 @@ func (vd *biliVideoDetail) responseHandle(data []byte) error {
 		utils.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
 		return err
 	}
-	println(response.Url)
 	if response.Response.Code != 0 {
 		return errors.New("请求出错")
 	}
@@ -350,16 +404,11 @@ func (vd *biliVideoDetail) endOffWorker() {
 func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailResponse) error {
 	video := models.Video{}
 	var (
-		tx  *gorm.DB
 		err error
 	)
-	tx = models.GormDB.Where("uuid = ?", response.Data.View.Bvid).Preload("Authors").Preload("Tag").
-		Limit(1).Find(&video)
-	if tx.Error != nil {
-		utils.ErrorLog.Printf("获取视频信息失败：%s\n", tx.Error.Error())
-		return tx.Error
-	}
-	if video.Id == 0 {
+
+	videoId := models.VideoRedis(response.Data.View.Bvid)
+	if videoId == 0 {
 		// 视频不存在，video表中创建这条视频数据
 		uploadTime := time.Unix(response.Data.View.Ctime, 0)
 		video = models.Video{
@@ -377,6 +426,9 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 			utils.ErrorLog.Printf("保存视频信息失败：%s\n", err.Error())
 			return err
 		}
+	} else {
+		models.GormDB.Where("id = ?", videoId).Preload("Authors").Preload("Tag").
+			Limit(1).Find(&video)
 	}
 	// 更新视频信息
 	err = models.GormDB.Model(&video).Updates(map[string]interface{}{

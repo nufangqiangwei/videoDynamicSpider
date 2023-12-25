@@ -1,8 +1,10 @@
 package models
 
 import (
+	"context"
 	"errors"
 	"gorm.io/gorm"
+	"strconv"
 	"time"
 	"videoDynamicAcquisition/utils"
 )
@@ -53,8 +55,9 @@ func (v *Video) UpdateVideo() error {
 		return errors.New("缺少必要参数")
 	}
 	DBvideo := Video{}
-	GormDB.Where("web_site_id=? and uuid=?", v.WebSiteId, v.Uuid).Find(&DBvideo)
-	if DBvideo.Id == 0 {
+	videoId := VideoRedis(v.Uuid)
+	var err error
+	if videoId == 0 {
 		var (
 			authorList  []VideoAuthor
 			tagList     []VideoTag
@@ -71,7 +74,11 @@ func (v *Video) UpdateVideo() error {
 		v.ViewHistory = nil
 		v.CollectList = nil
 
-		GormDB.Create(&v)
+		err = GormDB.Create(&v).Error
+		if err != nil {
+			return err
+		}
+		redisDB.Set(context.Background(), v.Uuid, v.Id, 0)
 		v.Authors = authorList
 		v.Tag = tagList
 		v.ViewHistory = historyList
@@ -79,113 +86,75 @@ func (v *Video) UpdateVideo() error {
 
 		for _, author := range v.Authors {
 			author.VideoId = v.Id
+			author.AuthorId = AuthorRedis(author.AuthorUUID)
 		}
 		for _, tag := range v.Tag {
 			tag.VideoId = v.Id
+
 		}
 		DBvideo.Id = v.Id
 	} else {
 		// 查出外键关联的数据
-		GormDB.Preload("Authors").Preload("Tag").First(&DBvideo, DBvideo.Id)
+		GormDB.Preload("Authors").Preload("Tag").First(&DBvideo, videoId)
+		err = GormDB.Model(&DBvideo).Updates(map[string]interface{}{
+			"View":       v.View,
+			"Danmaku":    v.Danmaku,
+			"Reply":      v.Reply,
+			"Favorite":   v.Favorite,
+			"Coin":       v.Coin,
+			"Share":      v.Share,
+			"NowRank":    v.NowRank,
+			"HisRank":    v.HisRank,
+			"Like":       v.Like,
+			"Dislike":    v.Dislike,
+			"Evaluation": v.Evaluation,
+		}).Error
 	}
 	var (
-		have        bool
 		saveAuthors []VideoAuthor
-		lateAuthor  Author
 		saveTags    []VideoTag
 		lateTag     Tag
 		saveHistory []VideoHistory
 	)
 	// 保存作者信息。video.Authors与v.Authors对比，如果v.Authors中有video.Authors中没有的，则插入。这里只做增量更新，不做删除。删除操作，有别的同步方法自行执行。
 	// 排除已存在的作者信息
-	for _, videoAuthor := range v.Authors {
-		have = false
-		for _, a := range DBvideo.Authors {
-			if a.AuthorUUID == videoAuthor.AuthorUUID {
-				have = true
-				break
+	for _, a := range v.StructAuthor {
+		if AuthorRedis(a.AuthorWebUid) == 0 {
+			a.WebSiteId = v.WebSiteId
+			a.CreateTime = time.Now()
+			err = GormDB.Create(&a).Error
+			if err != nil {
+				return err
 			}
+			redisDB.Set(context.Background(), a.AuthorWebUid, a.Id, 0)
 		}
-		if !have {
-			// 没有存在视频作者信息,新插入的数据，先查询作者是否存在。
-			lateAuthor = Author{}
-			GormDB.Where("web_site_id=? and author_web_uid=?", v.WebSiteId, videoAuthor.AuthorUUID).Find(&lateAuthor)
-			if lateAuthor.Id <= 0 {
-				// 作者不存在，先插入作者信息。作者具体信息从v.StructAuthor中查找
-				for _, a := range v.StructAuthor {
-					if a.AuthorWebUid == videoAuthor.AuthorUUID {
-						lateAuthor.WebSiteId = v.WebSiteId
-						lateAuthor.AuthorName = a.AuthorName
-						lateAuthor.AuthorWebUid = a.AuthorWebUid
-						lateAuthor.Avatar = a.Avatar
-						lateAuthor.AuthorDesc = a.AuthorDesc
-						lateAuthor.FollowNumber = a.FollowNumber
-						lateAuthor.CreateTime = time.Now()
-						GormDB.Create(&lateAuthor)
-						break
-					}
-				}
-				if lateAuthor.Id == 0 {
-					return errors.New("作者信息插入失败")
-				}
-			}
-			videoAuthor.AuthorId = lateAuthor.Id
-			videoAuthor.VideoId = DBvideo.Id
-			saveAuthors = append(saveAuthors, videoAuthor)
-		}
-
 	}
+	for _, author := range v.Authors {
+		if author.AuthorId == 0 {
+			author.AuthorId = AuthorRedis(author.AuthorUUID)
+		}
+	}
+	saveAuthors = utils.ArrayDifferenceByStruct(v.Authors, DBvideo.Authors, func(a VideoAuthor) string {
+		return a.AuthorUUID
+	})
 	if len(saveAuthors) > 0 {
 		GormDB.Save(&saveAuthors)
 	}
 	// 保存标签信息
-	for _, videoTag := range v.Tag {
-		have = false
-		for _, t := range DBvideo.Tag {
-			if t.TagId == videoTag.TagId {
-				have = true
-				break
-			}
+	for _, videoTag := range v.StructTag {
+		if TagRedis(videoTag.Name) == 0 {
+			GormDB.Exec("insert into tag (id,name) select max(id)+1,? from tag", videoTag.Name)
+			GormDB.Where("name=?", videoTag.Name).Find(&lateTag)
+			redisDB.Set(context.Background(), videoTag.Name, videoTag.Id, 0)
 		}
-		if !have {
-			// 没有存在视频标签信息
-			if videoTag.Id <= 0 {
-				// 新插入的数据，先查询标签是否存在。
-				lateTag = Tag{}
-				if videoTag.TagId == 0 {
-					// 该类型是bgm类型，查看name在tag表中是否存在，存在就取出这条数据。不存在就插入一条最新的tagId=max(id)+1的数据
-					for _, t := range v.StructTag {
-						if t.Id == 0 {
-							GormDB.Where("name=?", t.Name).Find(&lateTag)
-							if lateTag.Name == "" {
-								GormDB.Exec("insert into tag (id,name) select max(id)+1,? from tag", t.Name)
-							}
-							GormDB.Where("name=?", t.Name).Find(&lateTag)
-							break
-						}
-					}
-				} else {
-					GormDB.Where("id=?", videoTag.TagId).Find(&lateTag)
-				}
-				if lateTag.Name == "" {
-					// 标签不存在，先插入标签信息。标签具体信息从v.StructTag中查找
-					for _, t := range v.StructTag {
-						if t.Id == videoTag.TagId {
-							lateTag = t
-							GormDB.Create(&lateTag)
-							break
-						}
-					}
-					if lateTag.Name == "" {
-						return errors.New("标签信息插入失败")
-					}
-				}
-			}
-			videoTag.TagId = lateTag.Id
-			videoTag.VideoId = DBvideo.Id
-			saveTags = append(saveTags, videoTag)
-		}
+		v.Tag = append(v.Tag, VideoTag{
+			TagId:   TagRedis(videoTag.Name),
+			VideoId: v.Id,
+		})
 	}
+	saveTags = utils.ArrayDifferenceByStruct(v.Tag, DBvideo.Tag, func(a VideoTag) string {
+		return strconv.FormatInt(a.TagId, 10)
+	})
 	if len(saveTags) > 0 {
 		GormDB.Save(&saveTags)
 	}
