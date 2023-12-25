@@ -2,6 +2,9 @@ package bilibili
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -259,6 +262,73 @@ func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64, VideoHistory
 			default:
 				utils.Info.Printf("未知类型的历史记录 %v\n", info)
 				continue
+			}
+
+			if lastHistoryTimestamp == 0 {
+				maxNumber--
+			}
+
+		}
+		time.Sleep(time.Second)
+	}
+}
+
+func SaveVideoHistoryList() {
+	var (
+		maxNumber            = 100
+		newestTimestamp      int64
+		lastHistoryTimestamp int64
+		business             string
+		viewAt               int64
+		max                  int
+	)
+	history := historyRequest{}
+
+	a, err := os.ReadFile(path.Join(baseStruct.RootPath, "bilbilHistoryFile", "bilbilHistoryBaseLine"))
+	if err != nil {
+		println("读取历史记录基线错误")
+		return
+	}
+
+	lastHistoryTimestamp, _ = strconv.ParseInt(string(a), 10, 64)
+	println("lastHistoryTimestamp: ", lastHistoryTimestamp)
+	business = ""
+	fileIndex := 1
+	file := utils.WriteFile{
+		FolderPrefix: []string{baseStruct.RootPath, "bilbilHistoryFile"},
+		FileName: func(lastFileName string) string {
+			if lastFileName == "" {
+				return "bilibiliHistory"
+			}
+			fileIndex++
+			return fmt.Sprintf("bilibiliHistory-%d", fileIndex)
+		},
+	}
+	for {
+		data := history.getResponse(max, viewAt, business)
+		if data == nil {
+			file.Close()
+			println("退出: ", newestTimestamp)
+			return
+		}
+		bData, _ := json.Marshal(data)
+		file.Write(bData)
+		if viewAt == 0 {
+			newestTimestamp = data.Data.List[0].ViewAt
+		}
+		if data.Data.Cursor.Max == 0 || data.Data.Cursor.ViewAt == 0 {
+			// https://s1.hdslb.com/bfs/static/history-record/img/historyend.png
+			file.Close()
+			println("退出: ", newestTimestamp)
+			return
+		}
+		max = data.Data.Cursor.Max
+		viewAt = data.Data.Cursor.ViewAt
+		business = data.Data.Cursor.Business
+		for _, info := range data.Data.List {
+			if info.ViewAt < lastHistoryTimestamp || maxNumber == 0 {
+				file.Close()
+				return
 			}
 
 			if lastHistoryTimestamp == 0 {

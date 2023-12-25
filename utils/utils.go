@@ -131,10 +131,14 @@ type WriteFile struct {
 	file             *os.File
 	writeNumber      int
 	lastOpenFileName string
+	FileName         func(string) string
 }
 
-func (wf *WriteFile) getFileName() string {
-	if wf.lastOpenFileName == "" {
+func (wf *WriteFile) getFileName(newFile bool) string {
+	if wf.FileName != nil {
+		return wf.FileName(wf.lastOpenFileName)
+	}
+	if wf.lastOpenFileName == "" || newFile {
 		return fmt.Sprintf("%s-%s.json", wf.FileNamePrefix, time.Now().Format("2006-01-02-15-04-05"))
 	}
 	return wf.lastOpenFileName
@@ -142,15 +146,13 @@ func (wf *WriteFile) getFileName() string {
 }
 func (wf *WriteFile) checkFileSize() {
 	if wf.file == nil {
-		filePath := append(wf.FolderPrefix, wf.getFileName())
+		filePath := append(wf.FolderPrefix, wf.getFileName(true))
 		f, err := os.OpenFile(path.Join(filePath...), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			ErrorLog.Printf("打开新文件失败%s", err.Error())
 			panic(err)
 		}
 		wf.file = f
-		wf.lastOpenFileName = ""
-		return
 	}
 	for {
 		fi, err := wf.file.Stat()
@@ -160,7 +162,7 @@ func (wf *WriteFile) checkFileSize() {
 		}
 		if fi.Size() >= maxFileSize {
 			wf.file.Close()
-			filePath := append(wf.FolderPrefix, wf.getFileName())
+			filePath := append(wf.FolderPrefix, wf.getFileName(true))
 			f, err := os.OpenFile(path.Join(filePath...), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				ErrorLog.Printf("打开新文件失败%s", err.Error())
@@ -172,7 +174,6 @@ func (wf *WriteFile) checkFileSize() {
 			break
 		}
 	}
-	wf.lastOpenFileName = ""
 }
 func (wf *WriteFile) Write(data []byte) (int, error) {
 	if wf.file == nil {
