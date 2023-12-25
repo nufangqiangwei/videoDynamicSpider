@@ -289,7 +289,7 @@ func SaveVideoHistoryList() {
 		println("读取历史记录基线错误")
 		return
 	}
-
+	defer os.WriteFile(path.Join(baseStruct.RootPath, "bilbilHistoryFile", "bilbilHistoryBaseLine"), []byte(strconv.FormatInt(newestTimestamp, 10)), 0644)
 	lastHistoryTimestamp, _ = strconv.ParseInt(string(a), 10, 64)
 	println("lastHistoryTimestamp: ", lastHistoryTimestamp)
 	business = ""
@@ -304,10 +304,10 @@ func SaveVideoHistoryList() {
 			return fmt.Sprintf("bilibiliHistory-%d", fileIndex)
 		},
 	}
+	defer file.Close()
 	for {
 		data := history.getResponse(max, viewAt, business)
 		if data == nil {
-			file.Close()
 			println("退出: ", newestTimestamp)
 			return
 		}
@@ -318,7 +318,6 @@ func SaveVideoHistoryList() {
 		}
 		if data.Data.Cursor.Max == 0 || data.Data.Cursor.ViewAt == 0 {
 			// https://s1.hdslb.com/bfs/static/history-record/img/historyend.png
-			file.Close()
 			println("退出: ", newestTimestamp)
 			return
 		}
@@ -327,7 +326,6 @@ func SaveVideoHistoryList() {
 		business = data.Data.Cursor.Business
 		for _, info := range data.Data.List {
 			if info.ViewAt < lastHistoryTimestamp || maxNumber == 0 {
-				file.Close()
 				return
 			}
 
