@@ -18,6 +18,7 @@ import (
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
+	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -78,11 +79,17 @@ func main() {
 		return
 	}
 	utils.InitLog(baseStruct.RootPath)
+	if config.DB.HOST != "" {
+		models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName))
+	}
 	go deleteFile()
 	server := gin.Default()
 	server.POST(baseStruct.AuthorVideoList, getAuthorAllVideo)
 	server.POST(baseStruct.VideoDetail, getVideoDetailApi)
 	server.GET("getTaskStatus", getTaskStatus)
+
+	server.Group("video", checkDBInit)
+
 	server.Run(fmt.Sprintf(":%d", config.ProxyWebServerLocalPort))
 }
 

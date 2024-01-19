@@ -11,32 +11,23 @@ import (
 type Video struct {
 	Id                int64 `json:"id" gorm:"primary_key"`
 	WebSiteId         int64
-	Authors           []VideoAuthor  `gorm:"foreignKey:VideoId;references:Id"`
-	Tag               []VideoTag     `gorm:"foreignKey:VideoId;references:Id"`
-	CollectList       []CollectVideo `gorm:"foreignKey:VideoId;references:Id"`
-	ViewHistory       []VideoHistory `gorm:"foreignKey:VideoId;references:Id"`
-	Title             string         `gorm:"size:255"`
-	VideoDesc         string         `gorm:"size:2000"`
-	Duration          int
-	Uuid              string `gorm:"size:255"`
-	Url               string `gorm:"size:255"`
-	CoverUrl          string `gorm:"size:255"`
-	UploadTime        *time.Time
-	CreateTime        time.Time `gorm:"default:CURRENT_TIMESTAMP(3)"`
-	View              int64     `gorm:"default:0"`          // 播放数
-	Danmaku           int64     `gorm:"default:0"`          // 弹幕数
-	Reply             int64     `gorm:"default:0"`          // 评论数
-	Favorite          int64     `gorm:"default:0"`          // 收藏数
-	Coin              int64     `gorm:"default:0"`          // 硬币数
-	Share             int64     `gorm:"default:0"`          // 分享数
-	NowRank           int64     `gorm:"default:0"`          // 当前排名
-	HisRank           int64     `gorm:"default:0"`          // 历史最高排名
-	Like              int64     `gorm:"default:0"`          // 点赞数
-	Dislike           int64     `gorm:"default:0"`          // 点踩数
-	Evaluation        string    `gorm:"default:0;size:255"` // 综合评分
-	StructAuthor      []Author  `gorm:"-"`
-	StructTag         []Tag     `gorm:"-"`
-	StructCollectList []Collect `gorm:"-"`
+	Authors           []VideoAuthor   `gorm:"foreignKey:VideoId;references:Id"`
+	Tag               []VideoTag      `gorm:"foreignKey:VideoId;references:Id"`
+	CollectList       []CollectVideo  `gorm:"foreignKey:VideoId;references:Id"`
+	ViewHistory       []VideoHistory  `gorm:"foreignKey:VideoId;references:Id"`
+	VideoPlayData     []VideoPlayData `gorm:"foreignKey:VideoId;references:Id"`
+	Title             string          `gorm:"size:255"`
+	VideoDesc         string          `gorm:"size:2000"`
+	Duration          int             `gorm:"default:0;index:duration"`
+	Uuid              string          `gorm:"size:255;uniqueIndex:uuid"`
+	Url               string          `gorm:"size:255"`
+	CoverUrl          string          `gorm:"size:255"`
+	UploadTime        *time.Time      `gorm:"default:null;index:upload_time"`
+	CreateTime        time.Time       `gorm:"default:CURRENT_TIMESTAMP(3)"`
+	StructAuthor      []Author        `gorm:"-"`
+	StructTag         []Tag           `gorm:"-"`
+	StructCollectList []Collect       `gorm:"-"`
+	StructViewHistory []VideoHistory  `gorm:"-"`
 }
 
 func (v *Video) GetByUid(uid string) {
@@ -253,4 +244,21 @@ type VideoTag struct {
 	Id      int64 `gorm:"primary_key"`
 	VideoId int64 `gorm:"index:video_id"`
 	TagId   int64 `gorm:"index:tag_id"`
+}
+
+type VideoPlayData struct {
+	Id         int64     `json:"id" gorm:"primary_key"`
+	VideoId    int64     `json:"video_id" gorm:"index:video_id"`
+	View       int64     `gorm:"default:0"`          // 播放数
+	Danmaku    int64     `gorm:"default:0"`          // 弹幕数
+	Reply      int64     `gorm:"default:0"`          // 评论数
+	Favorite   int64     `gorm:"default:0"`          // 收藏数
+	Coin       int64     `gorm:"default:0"`          // 硬币数
+	Share      int64     `gorm:"default:0"`          // 分享数
+	NowRank    int64     `gorm:"default:0"`          // 当前排名
+	HisRank    int64     `gorm:"default:0"`          // 历史最高排名
+	Like       int64     `gorm:"default:0"`          // 点赞数
+	Dislike    int64     `gorm:"default:0"`          // 点踩数
+	Evaluation string    `gorm:"default:0;size:255"` // 综合评分
+	CreateTime time.Time `gorm:"default:CURRENT_TIMESTAMP(3)"`
 }

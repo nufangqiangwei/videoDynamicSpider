@@ -597,16 +597,6 @@ func (vd *biliVideoDetail) relatedVideo(response bilibili.VideoDetailResponse) e
 			CreateTime: time.Now(),
 			UploadTime: &uploadTime,
 			Duration:   videoInfo.Duration,
-			View:       videoInfo.Stat.View,
-			Danmaku:    videoInfo.Stat.Danmaku,
-			Reply:      videoInfo.Stat.Reply,
-			Favorite:   videoInfo.Stat.Favorite,
-			Coin:       videoInfo.Stat.Coin,
-			Share:      videoInfo.Stat.Share,
-			NowRank:    videoInfo.Stat.NowRank,
-			HisRank:    videoInfo.Stat.HisRank,
-			Like:       videoInfo.Stat.Like,
-			Dislike:    videoInfo.Stat.Dislike,
 			Authors: []models.VideoAuthor{
 				{AuthorUUID: strconv.Itoa(videoInfo.Owner.Mid), Contribute: "UP主"},
 			},
@@ -623,6 +613,21 @@ func (vd *biliVideoDetail) relatedVideo(response bilibili.VideoDetailResponse) e
 		if err != nil {
 			return err
 		}
+		VideoPlayData := models.VideoPlayData{
+			VideoId:    video.Id,
+			View:       videoInfo.Stat.View,
+			Danmaku:    videoInfo.Stat.Danmaku,
+			Reply:      videoInfo.Stat.Reply,
+			Favorite:   videoInfo.Stat.Favorite,
+			Coin:       videoInfo.Stat.Coin,
+			Share:      videoInfo.Stat.Share,
+			NowRank:    videoInfo.Stat.NowRank,
+			HisRank:    videoInfo.Stat.HisRank,
+			Like:       videoInfo.Stat.Like,
+			Dislike:    videoInfo.Stat.Dislike,
+			CreateTime: time.Now(),
+		}
+		models.GormDB.Create(&VideoPlayData)
 	}
 	return nil
 }

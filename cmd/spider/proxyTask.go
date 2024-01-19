@@ -283,3 +283,8 @@ func downloadTaskDataFile(taskId, taskType, ip string) error {
 	}
 	return nil
 }
+
+// https://bilproxy.lushen.click/downloadTaskDataFile/videoDetail/231videoDetail.tar.gz
+// http://142.171.136.50/downloadTaskDataFile/videoDetail/videoDetail.tar.gz
+// http://112.124.30.12/downloadTaskDataFile/videoDetail/112-124-30-12videoDetail.tar.gz
+// http://43.133.8.76/downloadTaskDataFile/videoDetail/43-133-8-76videoDetail.tar.gz

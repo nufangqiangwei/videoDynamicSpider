@@ -31,7 +31,7 @@ func InitDB(dsn string) {
 		panic(err.Error())
 	}
 	err = GormDB.AutoMigrate(&BiliSpiderHistory{}, &Author{}, &Video{}, &VideoAuthor{}, &VideoTag{}, &WebSite{},
-		&Collect{}, &CollectVideo{}, &ProxySpiderTask{}, &Tag{}, &VideoHistory{}, &TaskToDoList{})
+		&Collect{}, &CollectVideo{}, &ProxySpiderTask{}, &Tag{}, &VideoHistory{}, &TaskToDoList{}, &VideoPlayData{})
 	if err != nil {
 		println(err.Error())
 		return
