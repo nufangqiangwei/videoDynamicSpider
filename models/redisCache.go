@@ -11,7 +11,7 @@ var (
 	redisDB *redis.Client
 )
 
-func openRedis() {
+func OpenRedis() {
 	redisDB = redis.NewClient(&redis.Options{
 		Addr:     "192.168.1.5:6379",
 		Password: "", // no password set
@@ -173,4 +173,18 @@ func initBaseRedis() {
 		println("redis缓存完成")
 		return
 	}
+}
+
+func CreateVideoToRedis(videoUUID string, videoId int64) {
+	if redisDB == nil {
+		return
+	}
+	redisDB.Set(context.Background(), videoUUID, videoId, 0)
+}
+
+func CreateVideoAuthorToRedis(AuthorWebUid string, authorId int64) {
+	if redisDB == nil {
+		return
+	}
+	redisDB.Set(context.Background(), AuthorWebUid, authorId, 0)
 }

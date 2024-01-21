@@ -289,9 +289,9 @@ func SaveVideoHistoryList() {
 		println("读取历史记录基线错误")
 		return
 	}
-	defer os.WriteFile(path.Join(baseStruct.RootPath, "bilbilHistoryFile", "bilbilHistoryBaseLine"), []byte(strconv.FormatInt(newestTimestamp, 10)), 0644)
+	//defer os.WriteFile(path.Join(baseStruct.RootPath, "bilbilHistoryFile", "bilbilHistoryBaseLine"), []byte(strconv.FormatInt(newestTimestamp, 10)), 0644)
 	lastHistoryTimestamp, _ = strconv.ParseInt(string(a), 10, 64)
-	println("lastHistoryTimestamp: ", lastHistoryTimestamp)
+	utils.Info.Println("lastHistoryTimestamp: ", lastHistoryTimestamp)
 	business = ""
 	fileIndex := 1
 	file := utils.WriteFile{
@@ -308,17 +308,19 @@ func SaveVideoHistoryList() {
 	for {
 		data := history.getResponse(max, viewAt, business)
 		if data == nil {
-			println("退出: ", newestTimestamp)
+			utils.Info.Println("退出: ", newestTimestamp)
+			os.WriteFile(path.Join(baseStruct.RootPath, "bilbilHistoryFile", "bilbilHistoryBaseLine"), []byte(strconv.FormatInt(newestTimestamp, 10)), 0644)
 			return
 		}
 		bData, _ := json.Marshal(data)
-		file.Write(bData)
-		if viewAt == 0 {
+		file.WriteLine(bData)
+		if newestTimestamp == 0 {
 			newestTimestamp = data.Data.List[0].ViewAt
 		}
 		if data.Data.Cursor.Max == 0 || data.Data.Cursor.ViewAt == 0 {
 			// https://s1.hdslb.com/bfs/static/history-record/img/historyend.png
-			println("退出: ", newestTimestamp)
+			os.WriteFile(path.Join(baseStruct.RootPath, "bilbilHistoryFile", "bilbilHistoryBaseLine"), []byte(strconv.FormatInt(newestTimestamp, 10)), 0644)
+			utils.Info.Println("退出: ", newestTimestamp)
 			return
 		}
 		max = data.Data.Cursor.Max
@@ -326,6 +328,8 @@ func SaveVideoHistoryList() {
 		business = data.Data.Cursor.Business
 		for _, info := range data.Data.List {
 			if info.ViewAt < lastHistoryTimestamp || maxNumber == 0 {
+				os.WriteFile(path.Join(baseStruct.RootPath, "bilbilHistoryFile", "bilbilHistoryBaseLine"), []byte(strconv.FormatInt(newestTimestamp, 10)), 0644)
+				utils.Info.Println("退出: ", newestTimestamp)
 				return
 			}
 

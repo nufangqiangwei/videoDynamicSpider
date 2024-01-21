@@ -81,7 +81,7 @@ func init() {
 	}
 	utils.InitLog(dataPath)
 
-	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName))
+	//models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName))
 	wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
 		IsRun: false,
 		Log:   utils.TimeWheelLog,
@@ -98,38 +98,38 @@ func main() {
 		interval: defaultTicket,
 	}
 	var err error
-	_, err = wheel.AppendOnceFunc(spider.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
-	if err != nil {
-		return
-	}
+	//_, err = wheel.AppendOnceFunc(spider.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
+	//if err != nil {
+	//	return
+	//}
 	historyTaskId, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: 10})
 	if err != nil {
 		return
 	}
-	_, err = wheel.AppendOnceFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + 120})
-	if err != nil {
-		return
-	}
-	_, err = wheel.AppendOnceFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
-	if err != nil {
-		return
-	}
-	_, err = wheel.AppendCycleFunc(runToDoTask, nil, "pushTaskToProxy", timeWheel.Crontab{ExpiredTime: oneMinute})
-	if err != nil {
-		return
-	}
-	_, err = wheel.AppendCycleFunc(checkProxyTaskStatus, nil, "getTaskStatus", timeWheel.Crontab{ExpiredTime: oneMinute})
-	if err != nil {
-		return
-	}
-	_, err = wheel.AppendCycleFunc(loadProxyInfo, nil, "loadConfigProxyInfo", timeWheel.Crontab{ExpiredTime: defaultTicket})
-	if err != nil {
-		return
-	}
-	_, err = wheel.AppendCycleFunc(downloadProxyTaskDataFile, nil, "downloadProxyTaskDataFile", timeWheel.Crontab{ExpiredTime: oneTicket})
-	if err != nil {
-		return
-	}
+	//_, err = wheel.AppendOnceFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + 120})
+	//if err != nil {
+	//	return
+	//}
+	//_, err = wheel.AppendOnceFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
+	//if err != nil {
+	//	return
+	//}
+	//_, err = wheel.AppendCycleFunc(runToDoTask, nil, "pushTaskToProxy", timeWheel.Crontab{ExpiredTime: oneMinute})
+	//if err != nil {
+	//	return
+	//}
+	//_, err = wheel.AppendCycleFunc(checkProxyTaskStatus, nil, "getTaskStatus", timeWheel.Crontab{ExpiredTime: oneMinute})
+	//if err != nil {
+	//	return
+	//}
+	//_, err = wheel.AppendCycleFunc(loadProxyInfo, nil, "loadConfigProxyInfo", timeWheel.Crontab{ExpiredTime: defaultTicket})
+	//if err != nil {
+	//	return
+	//}
+	//_, err = wheel.AppendCycleFunc(downloadProxyTaskDataFile, nil, "downloadProxyTaskDataFile", timeWheel.Crontab{ExpiredTime: oneTicket})
+	//if err != nil {
+	//	return
+	//}
 	//_, err = wheel.AppendOnceFunc(readPath, nil, "importProxyFileData", timeWheel.Crontab{ExpiredTime: 60})
 	//if err != nil {
 	//	return
@@ -232,6 +232,12 @@ func getHistory(interface{}) {
 	}()
 	utils.Info.Printf("历史任务执行id：%d\n", historyTaskId)
 	bilibili.SaveVideoHistoryList()
+	var err error
+	historyTaskId, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
+	if err != nil {
+		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+		return
+	}
 	/*
 		baseLine := models.GetHistoryBaseLine()
 		var (

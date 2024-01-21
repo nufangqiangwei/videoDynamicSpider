@@ -90,6 +90,7 @@ func main() {
 
 	server.Group("video", checkDBInit)
 
+	server.POST("recommendVideo", bilibiliRecommendVideoSave)
 	server.Run(fmt.Sprintf(":%d", config.ProxyWebServerLocalPort))
 }
 
@@ -407,4 +408,34 @@ func deleteAfterDayFile(folderPath string) {
 			//}
 		}
 	}
+}
+
+var fileIndex int = 1
+
+func bilibiliRecommendVideoSave(ctx *gin.Context) {
+	// {"ip":requestIp,"time":timeNow,"data":requestBody}
+	// 获取推荐视频
+	requestBody, err := io.ReadAll(ctx.Request.Body)
+	if err != nil {
+		ctx.JSONP(501, map[string]interface{}{"code": -1})
+		return
+	}
+	requestIp := ctx.ClientIP()
+	timeNow := time.Now()
+	file := utils.WriteFile{
+		FolderPrefix:   []string{baseStruct.RootPath, baseStruct.RecommendVideo},
+		FileNamePrefix: "RecommendVideo",
+		FileName: func(lastFileName string) string {
+			if lastFileName == "" {
+				return "RecommendVideo"
+			}
+			fileIndex++
+			return fmt.Sprintf("RecommendVideo%d", fileIndex)
+		},
+	}
+	writeData := []byte(fmt.Sprintf(`{"ip":"%s","time":%d,"data":"%s"}`, requestIp, timeNow.Unix(), string(requestBody)))
+	file.WriteLine(writeData)
+	file.Close()
+	ctx.JSONP(200, map[string]interface{}{"code": 0})
+	return
 }

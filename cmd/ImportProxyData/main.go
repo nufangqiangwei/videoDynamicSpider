@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/models"
@@ -15,7 +16,7 @@ var (
 )
 
 func readConfig() error {
-	fileData, err := os.ReadFile("./config.json")
+	fileData, err := os.ReadFile("C:\\Code\\GO\\videoDynamicSpider\\cmd\\ImportProxyData\\config.json")
 	if err != nil {
 		println(err.Error())
 		return err
@@ -46,13 +47,52 @@ func init() {
 	utils.InitLog(baseStruct.RootPath)
 
 	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName))
-
+	models.OpenRedis()
 }
 
 func main() {
-	for {
-		readPath()
-		time.Sleep(time.Minute * 30)
+	//for {
+	//	readPath()
+	//	time.Sleep(time.Minute * 30)
+	//}
+	waitImportPath = path.Join(config.ProxyDataRootPath, utils.WaitImportPrefix)
+	importingPath = path.Join(config.ProxyDataRootPath, utils.ImportingPrefix)
+	finishImportPath = path.Join(config.ProxyDataRootPath, utils.FinishImportPrefix)
+	errorImportPrefix = path.Join(config.ProxyDataRootPath, utils.ErrorImportPrefix)
+	waitImportFileList, err := os.ReadDir(importingPath)
+	if err != nil {
+		println(err.Error())
+		return
 	}
+	println(time.Now().Format("2006.01.02 15:04:05"))
+	errorRequestSaveFile = &utils.WriteFile{
+		FolderPrefix:   []string{config.ProxyDataRootPath},
+		FileNamePrefix: "errorRequestParams",
+	}
+	for _, waitImportFile := range waitImportFileList {
+		// 开始导入数据
+		importFileData(waitImportFile.Name())
+	}
+	println(time.Now().Format("2006.01.02 15:04:05"))
+	//for w := 1; w <= 10; w++ {
+	//	go tenWorker()
+	//}
+	//for {
+	//	if len(fileNameChan) == 0 {
+	//		break
+	//	}
+	//	fmt.Printf("当前剩余%d个任务", len(fileNameChan))
+	//	time.Sleep(time.Minute * 30)
+	//}
+}
 
+var fileNameChan chan string
+
+func tenWorker() {
+	for {
+		select {
+		case fileName := <-fileNameChan:
+			importFileData(fileName)
+		}
+	}
 }

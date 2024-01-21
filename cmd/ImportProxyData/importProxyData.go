@@ -108,7 +108,6 @@ func importFileData(fileName string) {
 	// 文件是 cmd/spiderProxy/main.go这个tarFolderFile函数打包出来的文件，文件名格式{taskType}_{taskId}.tar.gz
 	// 内部包含三种文件 requestParams请求参数 errRequestParams出现错误的请求参数  {taskId}.json结果集，100M一个文件
 	utils.Info.Println("importFileData函数开始解析", fileName)
-	defer moveFile(importingPath, finishImportPath, fileName)
 	// 解析文件名，获取taskType和taskId
 	fileNameList := strings.Split(fileName, "_")
 	if len(fileNameList) != 2 {
@@ -128,6 +127,8 @@ func importFileData(fileName string) {
 	err := gzFileUnzip(path.Join(importingPath, fileName), fileNameList[1], aa)
 	if err != nil {
 		moveFile(importingPath, errorImportPrefix, fileName)
+	} else {
+		moveFile(importingPath, finishImportPath, fileName)
 	}
 	aa.endOffWorker()
 	utils.Info.Println("importFileData函数 ", fileName, "解析完成")
@@ -181,9 +182,13 @@ func gzFileUnzip(fileNamePath, taskId string, handler taskWorker) error {
 						utils.ErrorLog.Printf("读取%s文件行失败：%s\n", fileNamePath, err.Error())
 						continue
 					}
+
 					err = handler.responseHandle(byteData)
 					if err != nil {
 						jsonDataError = err
+						if err.Error() == "json错误" {
+							break
+						}
 					}
 				}
 			}
@@ -391,12 +396,18 @@ func (vd *biliVideoDetail) responseHandle(data []byte) error {
 	err := json.Unmarshal(data, &response)
 	if err != nil {
 		utils.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
-		return err
+		errorRequestSaveFile.WriteLine(data)
+		return errors.New("json错误")
 	}
 	if response.Response.Code != 0 {
-		return errors.New("请求出错")
+		if response.Response.Code == 62002 || response.Response.Code == -404 {
+			return nil
+		}
+		errorRequestSaveFile.WriteLine(data)
+		return nil
 	}
-	return vd.updateVideoDetailInfo(response.Response)
+	_ = vd.updateVideoDetailInfo(response.Response)
+	return nil
 }
 func (vd *biliVideoDetail) endOffWorker() {
 
@@ -426,24 +437,28 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 			utils.ErrorLog.Printf("保存视频信息失败：%s\n", err.Error())
 			return err
 		}
+		models.CreateVideoToRedis(video.Uuid, video.Id)
 	} else {
 		models.GormDB.Where("id = ?", videoId).Preload("Authors").Preload("Tag").
 			Limit(1).Find(&video)
 	}
 	// 更新视频信息
-	err = models.GormDB.Model(&video).Updates(map[string]interface{}{
-		"View":       response.Data.View.Stat.View,
-		"Danmaku":    response.Data.View.Stat.Danmaku,
-		"Reply":      response.Data.View.Stat.Reply,
-		"Favorite":   response.Data.View.Stat.Favorite,
-		"Coin":       response.Data.View.Stat.Coin,
-		"Share":      response.Data.View.Stat.Share,
-		"NowRank":    response.Data.View.Stat.NowRank,
-		"HisRank":    response.Data.View.Stat.HisRank,
-		"Like":       response.Data.View.Stat.Like,
-		"Dislike":    response.Data.View.Stat.Dislike,
-		"Evaluation": response.Data.View.Stat.Evaluation,
+	err = models.GormDB.Create(&models.VideoPlayData{
+		VideoId:    video.Id,
+		View:       response.Data.View.Stat.View,
+		Danmaku:    response.Data.View.Stat.Danmaku,
+		Reply:      response.Data.View.Stat.Reply,
+		Favorite:   response.Data.View.Stat.Favorite,
+		Coin:       response.Data.View.Stat.Coin,
+		Share:      response.Data.View.Stat.Share,
+		NowRank:    response.Data.View.Stat.NowRank,
+		HisRank:    response.Data.View.Stat.HisRank,
+		Like:       response.Data.View.Stat.Like,
+		Dislike:    response.Data.View.Stat.Dislike,
+		Evaluation: response.Data.View.Stat.Evaluation,
+		CreateTime: time.Now(),
 	}).Error
+
 	if err != nil {
 		utils.ErrorLog.Printf("更新视频信息失败：%s\n", err.Error())
 		return err
@@ -472,11 +487,12 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 			if !authorHave {
 				// 查询这个作者在Author表中是否存在
 				author := models.Author{}
-				err = models.GormDB.Where("author_web_uid = ?", strconv.Itoa(b.Mid)).Find(&author).Error
-				if err != nil {
-					utils.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
-					return err
-				}
+				author.Id = models.AuthorRedis(strconv.Itoa(b.Mid))
+				//err = models.GormDB.Where("author_web_uid = ?", strconv.Itoa(b.Mid)).Find(&author).Error
+				//if err != nil {
+				//	utils.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
+				//	return err
+				//}
 				if author.Id == 0 {
 					// 作者不存在，数据库中添加作者信息
 					author = models.Author{
@@ -491,6 +507,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 						utils.ErrorLog.Printf("保存作者信息失败：%s\n", err.Error())
 						return err
 					}
+					models.CreateVideoAuthorToRedis(author.AuthorWebUid, author.Id)
 				}
 				va := models.VideoAuthor{
 					Uuid:       response.Data.View.Bvid,
@@ -510,11 +527,12 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 		// 没有协作者
 		author := response.Data.Card.Card
 		AuthorInfo := models.Author{}
-		err = models.GormDB.Where("author_web_uid=?", author.Mid).Find(&AuthorInfo).Error
-		if err != nil {
-			utils.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
-			return err
-		}
+		//err = models.GormDB.Where("author_web_uid=?", author.Mid).Find(&AuthorInfo).Error
+		//if err != nil {
+		//	utils.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
+		//	return err
+		//}
+		AuthorInfo.Id = models.AuthorRedis(author.Mid)
 		if AuthorInfo.Id == 0 {
 			// 作者不存在，数据库中添加作者信息
 			AuthorInfo = models.Author{
@@ -530,6 +548,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 				utils.ErrorLog.Printf("保存作者信息失败：%s\n", err.Error())
 				return err
 			}
+			models.CreateVideoAuthorToRedis(AuthorInfo.AuthorWebUid, AuthorInfo.Id)
 		}
 		if len(video.Authors) > 0 {
 			if video.Authors[0].AuthorId != AuthorInfo.Id {
@@ -587,6 +606,10 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 }
 func (vd *biliVideoDetail) relatedVideo(response bilibili.VideoDetailResponse) error {
 	for _, videoInfo := range response.Data.Related {
+		videoId := models.VideoRedis(videoInfo.Bvid)
+		if videoId > 0 {
+			continue
+		}
 		uploadTime := time.Unix(videoInfo.Ctime, 0)
 		video := models.Video{
 			WebSiteId:  vd.webSiteId,
@@ -628,12 +651,14 @@ func (vd *biliVideoDetail) relatedVideo(response bilibili.VideoDetailResponse) e
 			CreateTime: time.Now(),
 		}
 		models.GormDB.Create(&VideoPlayData)
+		models.CreateVideoToRedis(video.Uuid, video.Id)
 	}
 	return nil
 }
 func newReaderJSONFile(rd io.Reader) readJsonFile {
 	rf := readJsonFile{}
 	rf.readObject = rd
+	rf.cache = []byte{}
 	return rf
 }
 
@@ -642,12 +667,27 @@ type readJsonFile struct {
 	cache      []byte
 }
 
+const (
+	leftCurlyBrace       = '{'
+	rightCurlyBrace      = '}'
+	doubleQuotes    byte = 34 // "
+	escapes         byte = 92 // \
+)
+
 // 读取一个完整的json对象，从123->{字符读到125->}字符。两边的字符必须是对称出现，返回这样的一个json字符串
-func (ro readJsonFile) line() ([]byte, int, error) {
-	var buf bytes.Buffer
+func (ro *readJsonFile) line() ([]byte, int, error) {
+	var (
+		buf      bytes.Buffer
+		lastByte byte
+	)
 	started := false
 	count := 0
-
+	if len(ro.cache) > 0 {
+		buf.Write(ro.cache)
+		ro.cache = []byte{}
+	}
+	inStr := false
+	lastByte = 0
 	for {
 		b := make([]byte, 1)
 		_, err := ro.readObject.Read(b)
@@ -657,8 +697,20 @@ func (ro readJsonFile) line() ([]byte, int, error) {
 			}
 			return nil, 0, err
 		}
+		// 判断当前是否在一个字符串当中，如何当前在字符串当中，对括号的计算需要排除。 92->\ 转义符 34->"双引号
+		if b[0] == doubleQuotes {
+			// 查看前一个是否是转义符
+			if lastByte != escapes {
+				if inStr {
+					inStr = false
+				} else {
+					inStr = true
+				}
+			}
 
-		if b[0] == '{' {
+		}
+
+		if b[0] == leftCurlyBrace && !inStr {
 			started = true
 			count++
 		}
@@ -667,12 +719,14 @@ func (ro readJsonFile) line() ([]byte, int, error) {
 			buf.Write(b)
 		}
 
-		if b[0] == '}' {
+		if b[0] == rightCurlyBrace && !inStr {
 			count--
 			if count == 0 {
 				break
 			}
 		}
+
+		lastByte = b[0]
 	}
 
 	return buf.Bytes(), buf.Len(), nil

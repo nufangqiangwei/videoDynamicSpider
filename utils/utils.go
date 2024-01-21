@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"time"
-	"videoDynamicAcquisition/models"
 )
 
 const maxFileSize = 100 * 1024 * 1024
@@ -45,24 +44,24 @@ func ArrayDifference[T string | int64](slice1, slice2 []T) []T {
 }
 
 // ArrayDifferenceByStruct 在slice1但是不在slice2的值
-func ArrayDifferenceByStruct[T models.VideoAuthor | models.VideoTag](slice1, slice2 []T, keyFunc func(T) string) []T {
-	m := make(map[string]T)
-	for _, v := range slice1 {
-		m[keyFunc(v)] = v
-	}
-	for _, v := range slice2 {
-		if _, ok := m[keyFunc(v)]; ok {
-			delete(m, keyFunc(v))
-		}
-	}
-	var str []T
-
-	for _, s2 := range m {
-		str = append(str, s2)
-	}
-	return str
-
-}
+//func ArrayDifferenceByStruct[T models.VideoAuthor | models.VideoTag](slice1, slice2 []T, keyFunc func(T) string) []T {
+//	m := make(map[string]T)
+//	for _, v := range slice1 {
+//		m[keyFunc(v)] = v
+//	}
+//	for _, v := range slice2 {
+//		if _, ok := m[keyFunc(v)]; ok {
+//			delete(m, keyFunc(v))
+//		}
+//	}
+//	var str []T
+//
+//	for _, s2 := range m {
+//		str = append(str, s2)
+//	}
+//	return str
+//
+//}
 
 func IsUniqueErr(err error) bool {
 	var sqliteErr sqlite3.Error
@@ -128,10 +127,10 @@ func CheckFileWriteStatus(filePath string) bool {
 type WriteFile struct {
 	FolderPrefix     []string
 	FileNamePrefix   string
+	FileName         func(string) string
 	file             *os.File
 	writeNumber      int
 	lastOpenFileName string
-	FileName         func(string) string
 }
 
 func (wf *WriteFile) getFileName(newFile bool) string {
@@ -152,6 +151,7 @@ func (wf *WriteFile) checkFileSize() {
 			ErrorLog.Printf("打开新文件失败%s", err.Error())
 			panic(err)
 		}
+		Info.Println(path.Join(filePath...))
 		wf.file = f
 	}
 	for {
