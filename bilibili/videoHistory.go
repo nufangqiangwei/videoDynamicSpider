@@ -75,13 +75,13 @@ func (h *historyRequest) getRequest(max int, viewAt int64, business string) *htt
 		q.Add("view_at", strconv.FormatInt(viewAt, 10))
 	}
 	request.URL.RawQuery = q.Encode()
-	request.Header.Add("Cookie", bilibiliCookies.cookies)
+	request.Header.Add("Cookie", biliCookiesManager.getUser(DefaultCookies).cookies)
 	return request
 }
 
 func (h *historyRequest) getResponse(max int, viewAt int64, business string) *historyResponse {
-	bilibiliCookies.flushCookies()
-	if !bilibiliCookies.cookiesFail {
+	biliCookiesManager.getUser(DefaultCookies).flushCookies()
+	if !biliCookiesManager.getUser(DefaultCookies).cookiesFail {
 		return nil
 	}
 	request := h.getRequest(max, viewAt, business)

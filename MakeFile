@@ -30,3 +30,4 @@ mkdir /usr/local/xtrabackup
 -- mv percona-xtrabackup-8.0.35-30-Linux-x86_64.glibc2.17/* /usr/local/xtrabackup/
 ln -sf /volume4/Download/bilbilSpider/percona-xtrabackup-8.0.35-30-Linux-x86_64.glibc2.17/bin/* /usr/bin/
 
+docker run -p 3307:3306 --name mysqlTest --restart=always --privileged=true -v /myapp/mysql/log:/var/log/mysql -v /myapp/mysql/data:/var/lib/mysql -v /myapp/mysql/conf:/etc/mysql -v /etc/localtime:/etc/localtime:ro -e MYSQL_ROOT_PASSWORD=gaolegao -d mysql:8.0.19 --lower-case-table-names=1

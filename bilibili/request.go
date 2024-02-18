@@ -9,21 +9,27 @@ import (
 	"videoDynamicAcquisition/utils"
 )
 
+const (
+	dynamicBaseUrl   = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed"
+	followingsBseUrl = "https://api.bilibili.com/x/relation/followings"
+)
+
 var (
 	Spider             BiliSpider
-	bilibiliCookies    cookies
+	biliCookiesManager cookiesManager
 	dynamicVideoObject dynamicVideo
-	dynamicBaseUrl     = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed"
-	followingsBseUrl   = "https://api.bilibili.com/x/relation/followings"
+
 	//latestBaseline     = "" // 836201790065082504
 	wbiSignObj = wbiSign{}
 )
 
 func init() {
-	bilibiliCookies = cookies{}
 	Spider = BiliSpider{}
 	dynamicVideoObject = dynamicVideo{}
-	bilibiliCookies.readFile()
+	biliCookiesManager = cookiesManager{
+		cookiesMap: make(map[string]*cookies),
+	}
+	biliCookiesManager.flushCookies()
 	wbiSignObj.lastUpdateTime = time.Now()
 }
 
@@ -55,9 +61,9 @@ func responseCodeCheck(response *http.Response, apiResponseStruct responseCheck)
 	if code == -101 {
 		// cookies失效
 		utils.ErrorLog.Println("cookies失效")
-		bilibiliCookies.cookiesFail = false
-		bilibiliCookies.flushCookies()
-		if bilibiliCookies.cookiesFail {
+		biliCookiesManager.getUser(DefaultCookies).cookiesFail = false
+		biliCookiesManager.flushCookies()
+		if biliCookiesManager.getUser(DefaultCookies).cookiesFail {
 			time.Sleep(time.Second * 10)
 			return errors.New("cookies失效")
 		} else {

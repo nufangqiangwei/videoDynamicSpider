@@ -471,8 +471,8 @@ func (receiver videoDetail) getRequest(byid string) *http.Request {
 }
 
 func (receiver videoDetail) getResponse(bvid string) *VideoDetailResponse {
-	bilibiliCookies.flushCookies()
-	if !bilibiliCookies.cookiesFail {
+	biliCookiesManager.getUser(DefaultCookies).flushCookies()
+	if !biliCookiesManager.getUser(DefaultCookies).cookiesFail {
 		return nil
 	}
 	response, err := http.DefaultClient.Do(receiver.getRequest(bvid))

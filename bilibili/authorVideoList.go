@@ -154,15 +154,15 @@ func (v *videoListPage) getRequest(mid string, pageIndex int) *http.Request {
 	q.Add("pn", strconv.Itoa(pageIndex))
 
 	request.URL.RawQuery = wbiSignObj.getSing(q).Encode()
-	request.Header.Add("Cookie", bilibiliCookies.cookies)
+	request.Header.Add("Cookie", biliCookiesManager.getUser(DefaultCookies).cookies)
 	request.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69")
 	//utils.Info.Println(request.URL.String())
 	return request
 }
 
 func (v *videoListPage) getResponse(mid string, pageIndex int) *VideoListPageResponse {
-	bilibiliCookies.flushCookies()
-	if !bilibiliCookies.cookiesFail {
+	biliCookiesManager.getUser(DefaultCookies).flushCookies()
+	if !biliCookiesManager.getUser(DefaultCookies).cookiesFail {
 		return nil
 	}
 	response, err := http.DefaultClient.Do(v.getRequest(mid, pageIndex))

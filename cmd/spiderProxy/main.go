@@ -57,6 +57,7 @@ func writeRequestUrl(url string, responseBody []byte) []byte {
 }
 
 func readConfig() error {
+	baseStruct.RootPath = "E:\\GoCode\\videoDynamicAcquisition\\cmd\\spiderProxy"
 	fileData, err := os.ReadFile(path.Join(baseStruct.RootPath, "config.json"))
 	if err != nil {
 		println(err.Error())
@@ -89,8 +90,11 @@ func main() {
 	server.GET("getTaskStatus", getTaskStatus)
 
 	server.Group("video", checkDBInit)
-
 	server.POST("recommendVideo", bilibiliRecommendVideoSave)
+
+	server.GET("getFollowList", getAuthorFollowList)
+	server.GET("migrateFollowAuthor", migrateFollowAuthor)
+
 	server.Run(fmt.Sprintf(":%d", config.ProxyWebServerLocalPort))
 }
 

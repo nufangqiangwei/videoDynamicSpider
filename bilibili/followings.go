@@ -69,7 +69,7 @@ type followings struct {
 func (f *followings) getRequest() *http.Request {
 	// https://api.bilibili.com/x/relation/followings?vmid=10932398&pn=1&ps=20&order=desc&order_type=&gaia_source=main_web
 	request, _ := http.NewRequest("GET", followingsBseUrl, nil)
-	request.Header.Add("Cookie", bilibiliCookies.cookies)
+	request.Header.Add("Cookie", biliCookiesManager.getUser(DefaultCookies).cookies)
 	//request.Header.Add("User-Agent", "Mozilla/5.0")
 	q := request.URL.Query()
 	q.Add("vmid", "10932398")
@@ -87,7 +87,7 @@ func (f *followings) getResponse(retriesNumber int) *followingsResponse {
 		utils.ErrorLog.Println("重试次数过多")
 		return nil
 	}
-	bilibiliCookies.flushCookies()
+	biliCookiesManager.getUser(DefaultCookies).flushCookies()
 	request := f.getRequest()
 	//utils.Info.Println("请求地址", request.URL.String())
 	client := &http.Client{}

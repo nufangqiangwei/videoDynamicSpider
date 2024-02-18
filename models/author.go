@@ -77,3 +77,11 @@ func GetFollowList(webSiteId int64) (result []Author) {
 	}
 	return
 }
+
+func GetCrawlAuthorList(webSiteId int64) (result []Author) {
+	tx := GormDB.Where("crawl=? and web_site_id=?", true, webSiteId).Find(&result)
+	if tx.Error != nil {
+		return
+	}
+	return
+}

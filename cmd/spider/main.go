@@ -37,7 +37,7 @@ var (
 
 type VideoCollection interface {
 	GetWebSiteName() models.WebSite
-	GetVideoList(string, chan<- models.Video, chan<- baseStruct.TaskClose)
+	GetVideoList(chan<- models.Video, chan<- baseStruct.TaskClose)
 }
 
 type Spider struct {
@@ -166,13 +166,12 @@ func (s *Spider) getDynamic(interface{}) {
 		}
 	}()
 
-	dynamicBaseLine := models.GetDynamicBaseline()
 	videoResultChan := make(chan models.Video)
 	closeChan := make(chan baseStruct.TaskClose)
 	runWebSite := make([]string, 0)
 
 	for _, v := range videoCollection {
-		go v.GetVideoList(dynamicBaseLine, videoResultChan, closeChan)
+		go v.GetVideoList(videoResultChan, closeChan)
 		runWebSite = append(runWebSite, v.GetWebSiteName().WebName)
 	}
 
@@ -194,7 +193,7 @@ func (s *Spider) getDynamic(interface{}) {
 				}
 			}
 			if closeInfo.WebSite == "bilibili" && closeInfo.Code > 0 {
-				models.SaveDynamicBaseline(strconv.Itoa(closeInfo.Code))
+
 			}
 		}
 		if len(runWebSite) == 0 {
@@ -619,3 +618,71 @@ func loadProxyInfo(interface{}) {
 	}
 	config.Proxy = configFile.Proxy
 }
+
+// 对没有关注的作者爬取最新的视频信息
+//func updateAuthorVideoList(interface{}) {
+//	defer func() {
+//		panicErr := recover()
+//		if panicErr != nil {
+//			_, ok := panicErr.(utils.DBFileLock)
+//			if ok {
+//				_, err := wheel.AppendOnceFunc(updateAuthorVideoList, nil, "updateAuthorVideoSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(twelveTicket, sixTime, twentyTime)})
+//				if err != nil {
+//					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+//				}
+//				return
+//			}
+//			panic(panicErr)
+//		}
+//	}()
+//
+//	web := models.WebSite{
+//		WebName: "bilibili",
+//	}
+//	err := web.GetOrCreate()
+//	if err != nil {
+//		utils.ErrorLog.Printf("获取网站信息失败：%s\n", err.Error())
+//		return
+//	}
+//	authorList := models.GetCrawlAuthorList(web.Id)
+//	for _, author := range authorList {
+//		if author.Follow {
+//			continue
+//		}
+//		authorInfo := bilibili.Spider.GetAuthorInfo(author.AuthorWebUid)
+//		if authorInfo.Mid == 0 {
+//			continue
+//		}
+//		author.AuthorName = authorInfo.Name
+//		author.Avatar = authorInfo.Face
+//		author.AuthorDesc = authorInfo.Sign
+//		author.Follow = true
+//		author.FollowTime = time.Now()
+//		err = author.UpdateOrCreate()
+//		if err != nil {
+//			utils.ErrorLog.Printf("更新作者信息失败：%s\n", err.Error())
+//			continue
+//		}
+//		for _, videoInfo := range bilibili.Spider.GetAuthorVideoList(author.AuthorWebUid) {
+//			uploadTime := time.Unix(videoInfo.Pubdate, 0)
+//			vi := models.Video{
+//				WebSiteId:  web.Id,
+//				Title:      videoInfo.Title,
+//				VideoDesc:  videoInfo.Desc,
+//				Duration:   videoInfo.Duration,
+//				Uuid:       videoInfo.Bvid,
+//				CoverUrl:   videoInfo.Pic,
+//				UploadTime: &uploadTime,
+//				Authors: []models.VideoAuthor{
+//					{Uuid: videoInfo.Bvid, AuthorUUID: author.AuthorWebUid},
+//				},
+//				StructAuthor: []models.Author{
+//					{
+//						WebSiteId:  web.Id,
+//						AuthorName: authorInfo.Name,
+//					},
+//				},
+//			}
+//		}
+//	}
+//}

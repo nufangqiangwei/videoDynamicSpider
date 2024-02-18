@@ -41,16 +41,7 @@ func TestCreateFolder(t *testing.T) {
 	}
 }
 func TestWriteFile(t *testing.T) {
-	taskId := "f4c37262-c9e3-4e38-8717-7962ca7dfc79"
-	file := utils.WriteFile{
-		folderPrefix:   []string{baseStruct.RootPath, "allVideo", taskId},
-		fileNamePrefix: "allVideo",
-	}
-	file.checkFileSize()
-	file.file.Write([]byte{1, 3, 4, 67})
-	file.checkFileSize()
-	file.file.Write([]byte{1, 3, 4, 67})
-	file.checkFileSize()
+
 }
 func TestWriteRequestParams(t *testing.T) {
 	IdList := []string{
@@ -175,7 +166,7 @@ func TestIntoFileData(t *testing.T) {
 						UploadTime: &createdTime,
 						CreateTime: time.Now(),
 					}
-					vv.Save()
+					vv.UpdateVideo()
 				}
 
 			}

@@ -25,7 +25,7 @@ func (s BiliSpider) GetWebSiteName() models.WebSite {
 	}
 }
 
-func (s BiliSpider) GetVideoList(latestBaseline string, result chan<- models.Video, closeChan chan<- baseStruct.TaskClose) {
+func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- baseStruct.TaskClose) {
 	var (
 		intLatestBaseline int
 		videoBaseLine     int
@@ -37,98 +37,99 @@ func (s BiliSpider) GetVideoList(latestBaseline string, result chan<- models.Vid
 		ok                bool
 		requestNumber     int
 	)
-	if latestBaseline == "" {
-		updateNumber = 20
-	} else {
-		intLatestBaseline, err = strconv.Atoi(latestBaseline)
-		if err != nil {
-			utils.ErrorLog.Printf("intLatestBaseline 转换出错：%d\n", intLatestBaseline)
-			updateNumber = 20
-		}
-	}
 	webSite := models.WebSite{}
 	models.GormDB.Where("web_name=?", "bilibili").First(&webSite)
-	var pushTime time.Time
-	for {
-		response := dynamicVideoObject.getResponse(0, 0, baseLine)
-
-		if response == nil {
-			closeChan <- baseStruct.TaskClose{
-				WebSite: "bilibili",
-				Code:    0,
+	for fileName, userCookies := range biliCookiesManager.cookiesMap {
+		dynamicBaseLine := models.GetDynamicBaseline(fileName)
+		if dynamicBaseLine == "" {
+			updateNumber = 20
+		} else {
+			intLatestBaseline, err = strconv.Atoi(dynamicBaseLine)
+			if err != nil {
+				utils.ErrorLog.Printf("intLatestBaseline 转换出错：%d\n", intLatestBaseline)
+				updateNumber = 20
 			}
-			return
 		}
 
-		for infoIndex, info := range response.Data.Items {
-			Baseline, ok = info.IdStr.(string)
-			if !ok {
-				a, ok := info.IdStr.(int)
-				if ok {
-					Baseline = strconv.Itoa(a)
-					videoBaseLine = a
-				} else {
-					utils.ErrorLog.Print("未知的Baseline: ", info.IdStr)
-					utils.ErrorLog.Println("更新基线：", baseLine)
-					continue
-				}
-			} else {
-				videoBaseLine, err = strconv.Atoi(Baseline)
-				if err != nil {
-					utils.ErrorLog.Println("视频的IDStr错误")
-					continue
-				}
+		var pushTime time.Time
+		breakFlag := true
+		for breakFlag {
+			response := dynamicVideoObject.getResponse(0, 0, baseLine, userCookies)
+			if response == nil {
+				breakFlag = false
+				continue
 			}
-
-			if videoBaseLine <= intLatestBaseline {
-				closeChan <- baseStruct.TaskClose{
-					WebSite: "bilibili",
-					Code:    startBaseLine,
-				}
-				return
-			}
-
-			if requestNumber == 0 && infoIndex == 0 {
-				startBaseLine = videoBaseLine
-			}
-			pushTime = time.Unix(info.Modules.ModuleAuthor.PubTs, 0)
-			result <- models.Video{
-				WebSiteId:  webSite.Id,
-				Title:      info.Modules.ModuleDynamic.Major.Archive.Title,
-				VideoDesc:  info.Modules.ModuleDynamic.Major.Archive.Desc,
-				Duration:   HourAndMinutesAndSecondsToSeconds(info.Modules.ModuleDynamic.Major.Archive.DurationText),
-				Uuid:       info.Modules.ModuleDynamic.Major.Archive.Bvid,
-				Url:        info.Modules.ModuleDynamic.Major.Archive.JumpUrl,
-				CoverUrl:   info.Modules.ModuleDynamic.Major.Archive.Cover,
-				UploadTime: &pushTime,
-				Authors: []models.VideoAuthor{
-					{Contribute: "UP主", AuthorUUID: strconv.Itoa(info.Modules.ModuleAuthor.Mid)},
-				},
-				StructAuthor: []models.Author{
-					{
-						WebSiteId:    webSite.Id,
-						AuthorName:   info.Modules.ModuleAuthor.Name,
-						AuthorWebUid: strconv.Itoa(info.Modules.ModuleAuthor.Mid),
-						Avatar:       info.Modules.ModuleAuthor.Face,
-					},
-				},
-			}
-
-			if latestBaseline == "" {
-				updateNumber--
-				if updateNumber == 0 {
-					closeChan <- baseStruct.TaskClose{
-						WebSite: "bilibili",
-						Code:    startBaseLine,
+			for infoIndex, info := range response.Data.Items {
+				Baseline, ok = info.IdStr.(string)
+				if !ok {
+					a, ok := info.IdStr.(int)
+					if ok {
+						Baseline = strconv.Itoa(a)
+						videoBaseLine = a
+					} else {
+						utils.ErrorLog.Print("未知的Baseline: ", info.IdStr)
+						utils.ErrorLog.Println("更新基线：", baseLine)
+						continue
 					}
-					return
+				} else {
+					videoBaseLine, err = strconv.Atoi(Baseline)
+					if err != nil {
+						utils.ErrorLog.Println("视频的IDStr错误")
+						continue
+					}
 				}
-			}
 
+				if videoBaseLine <= intLatestBaseline {
+					breakFlag = false
+					break
+				}
+
+				if requestNumber == 0 && infoIndex == 0 {
+					startBaseLine = videoBaseLine
+				}
+				pushTime = time.Unix(info.Modules.ModuleAuthor.PubTs, 0)
+				result <- models.Video{
+					WebSiteId:  webSite.Id,
+					Title:      info.Modules.ModuleDynamic.Major.Archive.Title,
+					VideoDesc:  info.Modules.ModuleDynamic.Major.Archive.Desc,
+					Duration:   HourAndMinutesAndSecondsToSeconds(info.Modules.ModuleDynamic.Major.Archive.DurationText),
+					Uuid:       info.Modules.ModuleDynamic.Major.Archive.Bvid,
+					Url:        info.Modules.ModuleDynamic.Major.Archive.JumpUrl,
+					CoverUrl:   info.Modules.ModuleDynamic.Major.Archive.Cover,
+					UploadTime: &pushTime,
+					Authors: []models.VideoAuthor{
+						{Contribute: "UP主", AuthorUUID: strconv.Itoa(info.Modules.ModuleAuthor.Mid)},
+					},
+					StructAuthor: []models.Author{
+						{
+							WebSiteId:    webSite.Id,
+							AuthorName:   info.Modules.ModuleAuthor.Name,
+							AuthorWebUid: strconv.Itoa(info.Modules.ModuleAuthor.Mid),
+							Avatar:       info.Modules.ModuleAuthor.Face,
+						},
+					},
+				}
+
+				if dynamicBaseLine == "" {
+					updateNumber--
+					if updateNumber == 0 {
+						breakFlag = false
+						break
+					}
+				}
+
+			}
+			baseLine = response.Data.Offset
+			requestNumber++
+			time.Sleep(time.Second * 5)
 		}
-		baseLine = response.Data.Offset
-		requestNumber++
-		time.Sleep(time.Second * 10)
+		if startBaseLine > 0 {
+			models.SaveDynamicBaseline(strconv.Itoa(startBaseLine), fileName)
+		}
+	}
+	closeChan <- baseStruct.TaskClose{
+		WebSite: "bilibili",
+		Code:    startBaseLine,
 	}
 }
 
@@ -140,7 +141,7 @@ func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]s
 		_offset string
 	)
 	for {
-		response := dynamicVideoObject.getResponse(0, author, offset)
+		response := dynamicVideoObject.getResponse(0, author, offset, biliCookiesManager.getUser(DefaultCookies))
 		if response == nil {
 			break
 		}
