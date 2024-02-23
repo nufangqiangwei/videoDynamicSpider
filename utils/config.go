@@ -15,9 +15,9 @@ type Config struct {
 	} `json:"DB"`
 	Proxy                   []ProxyInfo `json:"Proxy"`
 	DataPath                string
-	ProxyDataRootPath       string
-	ProxyWebServerLocalPort int
-	Token                   string
+	ProxyDataRootPath       string `json:"ProxyDataRootPath"`
+	ProxyWebServerLocalPort int    `json:"ProxyWebServerLocalPort"`
+	Token                   string `json:"Token"`
 }
 
 const WaitImportPrefix = "waitImportFile"

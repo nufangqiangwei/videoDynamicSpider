@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const maxFileSize = 100 * 1024 * 1024
+const maxFileSize = 100 * 1024 * 1024 // 100M
 
 func InArray[T string | int64](val T, array []T) bool {
 	for _, v := range array {

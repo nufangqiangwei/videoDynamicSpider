@@ -389,24 +389,25 @@ func (vd *biliVideoDetail) errorRequestHandle(data []byte) {
 	vd.notRequestParams = append(vd.notRequestParams, string(data))
 }
 func (vd *biliVideoDetail) responseHandle(data []byte) error {
-	response := struct {
-		Url      string
-		Response bilibili.VideoDetailResponse
-	}{}
+	//response := struct {
+	//	Url      string
+	//	Response bilibili.VideoDetailResponse
+	//}{}
+	response := bilibili.VideoDetailResponse{}
 	err := json.Unmarshal(data, &response)
 	if err != nil {
 		utils.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
 		errorRequestSaveFile.WriteLine(data)
 		return errors.New("json错误")
 	}
-	if response.Response.Code != 0 {
-		if response.Response.Code == 62002 || response.Response.Code == -404 {
+	if response.Code != 0 {
+		if response.Code == 62002 || response.Code == -404 {
 			return nil
 		}
 		errorRequestSaveFile.WriteLine(data)
 		return nil
 	}
-	_ = vd.updateVideoDetailInfo(response.Response)
+	_ = vd.updateVideoDetailInfo(response)
 	return nil
 }
 func (vd *biliVideoDetail) endOffWorker() {

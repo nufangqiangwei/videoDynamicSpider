@@ -89,11 +89,12 @@ func main() {
 	server.POST(baseStruct.VideoDetail, getVideoDetailApi)
 	server.GET("getTaskStatus", getTaskStatus)
 
-	server.Group("video", checkDBInit)
-	server.POST("recommendVideo", bilibiliRecommendVideoSave)
+	video := server.Group("video", checkDBInit)
+	video.POST("recommendVideo", bilibiliRecommendVideoSave)
 
-	server.GET("getFollowList", getAuthorFollowList)
-	server.GET("migrateFollowAuthor", migrateFollowAuthor)
+	video.GET("getFollowList", getAuthorFollowList)
+	video.GET("migrateFollowAuthor", migrateFollowAuthor)
+	video.GET("list", videoUpdateList)
 
 	server.Run(fmt.Sprintf(":%d", config.ProxyWebServerLocalPort))
 }

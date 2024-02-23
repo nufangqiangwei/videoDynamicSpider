@@ -16,7 +16,7 @@ var (
 )
 
 func readConfig() error {
-	fileData, err := os.ReadFile("C:\\Code\\GO\\videoDynamicSpider\\cmd\\ImportProxyData\\config.json")
+	fileData, err := os.ReadFile("E:\\GoCode\\videoDynamicAcquisition\\cmd\\ImportProxyData\\config.json")
 	if err != nil {
 		println(err.Error())
 		return err

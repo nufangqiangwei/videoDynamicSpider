@@ -15,7 +15,7 @@ func getAuthorFollowList(gtx *gin.Context) {
 		return
 	}
 	var result []models.Author
-	models.GormDB.Model(&models.Author{}).Joins("inner join web_site on author.web_site_id = web_site.id").Where("web_site.web_name = ? and (author.follow = 1 or author.crawl = 1)", webName).Find(&result)
+	models.GormDB.Model(&models.Author{}).Joins("inner join web_site on author.web_site_id = web_site.id").Where("web_site.web_name = ? and author.crawl = 1", webName).Find(&result)
 	if result == nil {
 		result = make([]models.Author, 0)
 	}

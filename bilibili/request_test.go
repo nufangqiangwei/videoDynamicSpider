@@ -102,3 +102,9 @@ func TestRelationAuthor(t *testing.T) {
 		return
 	}
 }
+func TestBVAV(t *testing.T) {
+	av := Bv2Av("BV1bV411S7Le")
+	println(av)
+	bv := Av2Bv(411857180)
+	println(bv)
+}
