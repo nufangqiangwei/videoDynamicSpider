@@ -2,7 +2,6 @@ package main
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"errors"
@@ -172,9 +171,9 @@ func gzFileUnzip(fileNamePath, taskId string, handler taskWorker) error {
 			case hdr.Name == "errRequestParams":
 				handler.errorRequestHandle([]byte{})
 			case strings.HasSuffix(hdr.Name, "json"):
-				bufioRead := newReaderJSONFile(tarRead)
+				bufioRead := utils.NewReaderJSONFile(tarRead)
 				for {
-					byteData, _, err := bufioRead.line()
+					byteData, _, err := bufioRead.Line()
 					if err == io.EOF {
 						break
 					}
@@ -655,80 +654,4 @@ func (vd *biliVideoDetail) relatedVideo(response bilibili.VideoDetailResponse) e
 		models.CreateVideoToRedis(video.Uuid, video.Id)
 	}
 	return nil
-}
-func newReaderJSONFile(rd io.Reader) readJsonFile {
-	rf := readJsonFile{}
-	rf.readObject = rd
-	rf.cache = []byte{}
-	return rf
-}
-
-type readJsonFile struct {
-	readObject io.Reader
-	cache      []byte
-}
-
-const (
-	leftCurlyBrace       = '{'
-	rightCurlyBrace      = '}'
-	doubleQuotes    byte = 34 // "
-	escapes         byte = 92 // \
-)
-
-// 读取一个完整的json对象，从123->{字符读到125->}字符。两边的字符必须是对称出现，返回这样的一个json字符串
-func (ro *readJsonFile) line() ([]byte, int, error) {
-	var (
-		buf      bytes.Buffer
-		lastByte byte
-	)
-	started := false
-	count := 0
-	if len(ro.cache) > 0 {
-		buf.Write(ro.cache)
-		ro.cache = []byte{}
-	}
-	inStr := false
-	lastByte = 0
-	for {
-		b := make([]byte, 1)
-		_, err := ro.readObject.Read(b)
-		if err != nil {
-			if err == io.EOF {
-				return buf.Bytes(), buf.Len(), io.EOF
-			}
-			return nil, 0, err
-		}
-		// 判断当前是否在一个字符串当中，如何当前在字符串当中，对括号的计算需要排除。 92->\ 转义符 34->"双引号
-		if b[0] == doubleQuotes {
-			// 查看前一个是否是转义符
-			if lastByte != escapes {
-				if inStr {
-					inStr = false
-				} else {
-					inStr = true
-				}
-			}
-
-		}
-
-		if b[0] == leftCurlyBrace && !inStr {
-			started = true
-			count++
-		}
-
-		if started {
-			buf.Write(b)
-		}
-
-		if b[0] == rightCurlyBrace && !inStr {
-			count--
-			if count == 0 {
-				break
-			}
-		}
-
-		lastByte = b[0]
-	}
-
-	return buf.Bytes(), buf.Len(), nil
 }

@@ -37,7 +37,7 @@ var (
 
 type VideoCollection interface {
 	GetWebSiteName() models.WebSite
-	GetVideoList(chan<- models.Video, chan<- baseStruct.TaskClose)
+	GetVideoList(chan<- models.Video, chan<- baseStruct.TaskClose, int64)
 }
 
 type Spider struct {
@@ -45,7 +45,7 @@ type Spider struct {
 }
 
 func readConfig() error {
-	fileData, err := os.ReadFile(configPath)
+	fileData, err := os.ReadFile("C:\\Code\\GO\\videoDynamicSpider\\cmd\\spider\\config.json")
 	if err != nil {
 		println(err.Error())
 		return err
@@ -81,7 +81,8 @@ func init() {
 	}
 	utils.InitLog(dataPath)
 
-	//models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName))
+	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), true)
 	wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
 		IsRun: false,
 		Log:   utils.TimeWheelLog,
@@ -98,10 +99,10 @@ func main() {
 		interval: defaultTicket,
 	}
 	var err error
-	//_, err = wheel.AppendOnceFunc(spider.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
-	//if err != nil {
-	//	return
-	//}
+	_, err = wheel.AppendOnceFunc(spider.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
+	if err != nil {
+		return
+	}
 	historyTaskId, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: 10})
 	if err != nil {
 		return
@@ -171,7 +172,13 @@ func (s *Spider) getDynamic(interface{}) {
 	runWebSite := make([]string, 0)
 
 	for _, v := range videoCollection {
-		go v.GetVideoList(videoResultChan, closeChan)
+		webSite := models.WebSite{}
+		models.GormDB.Where("web_name=?", v.GetWebSiteName().WebName).First(&webSite)
+		if webSite.Id == 0 {
+			utils.ErrorLog.Printf("%s站点在数据库中找不到对应的数据。", v.GetWebSiteName().WebName)
+			continue
+		}
+		go v.GetVideoList(videoResultChan, closeChan, webSite.Id)
 		runWebSite = append(runWebSite, v.GetWebSiteName().WebName)
 	}
 

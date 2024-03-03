@@ -11,7 +11,7 @@ docker run --name bilbilSpider -v /volume4/Download/bilbilSpider:/home/workspace
 docker run --name mysqlXtrabackup --volumes-from mysqllable percona/percona-xtrabackup:8.2.0 xtrabackup --backup --data-dir=/var/lib/mysql --target-dir=/etc/backup --user=root --password=p0o9i8u7
 
 # windows备份
-docker run -u 999:999 --name mysqlBackup --volumes-from mysql -v C:\mysql-docker_restore_test\shellScript:/shellScript percona/percona-xtrabackup:8.2.0 sh /shellScript/mysqlBackup.sh
+docker run -u 999:999 --name mysqlBackup --volumes-from mysqllable -v C:\mysql-docker\shellScript:/shellScript percona/percona-xtrabackup:8.2.0 sh /shellScript/mysqlBackup.sh
 # windows还原
 docker run -u 999:999 --name mysqlRestore --volumes-from mysql -v C:\mysql-docker_restore_test\shellScript:/shellScript percona/percona-xtrabackup:8.2.0 sh /shellScript/mysqlRestore.sh
 # nas还原
@@ -31,3 +31,10 @@ mkdir /usr/local/xtrabackup
 ln -sf /volume4/Download/bilbilSpider/percona-xtrabackup-8.0.35-30-Linux-x86_64.glibc2.17/bin/* /usr/bin/
 
 docker run -p 3307:3306 --name mysqlTest --restart=always --privileged=true -v /myapp/mysql/log:/var/log/mysql -v /myapp/mysql/data:/var/lib/mysql -v /myapp/mysql/conf:/etc/mysql -v /etc/localtime:/etc/localtime:ro -e MYSQL_ROOT_PASSWORD=gaolegao -d mysql:8.0.19 --lower-case-table-names=1
+
+
+scp admin@192.168.1.25:/volume4/Download/bilbilSpider/xtrabackupImage/percona-xtrabackup-8.0.35-30-Linux-x86_64.glibc2.17.tar.gz /home
+
+scp admin@192.168.1.25:/volume4/Download/video_spider.sql /home/video_spider.sql
+
+scp qiangwei@192.168.1.6:/home/qiangwei/go.tar.gz /home/qiangwei/

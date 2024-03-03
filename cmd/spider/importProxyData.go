@@ -2,7 +2,6 @@ package main
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"errors"
@@ -163,9 +162,9 @@ func gzFileUnzip(fileNamePath, taskId string, handler taskWorker) error {
 			case hdr.Name == "errRequestParams":
 				handler.errorRequestHandle([]byte{})
 			case strings.HasSuffix(hdr.Name, "json"):
-				bufioRead := newReaderJSONFile(tarRead)
+				bufioRead := utils.NewReaderJSONFile(tarRead)
 				for {
-					byteData, _, err := bufioRead.line()
+					byteData, _, err := bufioRead.Line()
 					if err == io.EOF {
 						break
 					}
@@ -579,49 +578,77 @@ func (vd *biliVideoDetail) relatedVideo(response bilibili.VideoDetailResponse) e
 	}
 	return nil
 }
-func newReaderJSONFile(rd io.Reader) readJsonFile {
-	rf := readJsonFile{}
-	rf.readObject = rd
-	return rf
-}
 
-type readJsonFile struct {
-	readObject io.Reader
-	cache      []byte
-}
-
-// 读取一个完整的json对象，从123->{字符读到125->}字符。两边的字符必须是对称出现，返回这样的一个json字符串
-func (ro readJsonFile) line() ([]byte, int, error) {
-	var buf bytes.Buffer
-	started := false
-	count := 0
-
-	for {
-		b := make([]byte, 1)
-		_, err := ro.readObject.Read(b)
+func importHistoryResponse() {
+	folderPath := "\\\\mijicn\\Download\\bilbilSpider\\bilbilHistoryFile"
+	importingFileList, err := os.ReadDir(folderPath)
+	if err != nil {
+		utils.ErrorLog.Printf("读取文件夹失败：%s\n", err.Error())
+		return
+	}
+	for _, file := range importingFileList {
+		f, err := os.Open(path.Join(folderPath, file.Name()))
 		if err != nil {
+			utils.ErrorLog.Printf("打开文件失败：%s\n", err.Error())
+			continue
+		}
+		jsonFile := utils.NewReaderJSONFile(f)
+		for {
+			byteData, _, err := jsonFile.Line()
 			if err == io.EOF {
-				return buf.Bytes(), buf.Len(), io.EOF
-			}
-			return nil, 0, err
-		}
-
-		if b[0] == '{' {
-			started = true
-			count++
-		}
-
-		if started {
-			buf.Write(b)
-		}
-
-		if b[0] == '}' {
-			count--
-			if count == 0 {
 				break
+			}
+			if err != nil {
+				utils.ErrorLog.Printf("读取%s文件行失败：%s\n", file.Name(), err.Error())
+				continue
+			}
+			response := bilibili.HistoryResponse{}
+			err = response.BingJSON(byteData)
+			if err != nil {
+				utils.ErrorLog.Printf("解析%s文件json行失败：%s\n", file.Name(), err.Error())
+				continue
+			}
+			for _, info := range response.Data.List {
+				switch info.Badge {
+				// 稿件视频 / 剧集 / 笔记 / 纪录片 / 专栏 / 国创 / 番剧
+				case "": // 稿件视频
+					pushTime := time.Unix(info.ViewAt, 0)
+					video := models.Video{
+						WebSiteId: 1,
+						Title:     info.Title,
+						Uuid:      info.History.Bvid,
+						CoverUrl:  info.Cover,
+						Authors: []models.VideoAuthor{
+							{Contribute: "UP主", AuthorUUID: strconv.FormatInt(info.AuthorMid, 10), Uuid: info.History.Bvid},
+						},
+						StructAuthor: []models.Author{
+							{
+								AuthorWebUid: strconv.FormatInt(info.AuthorMid, 10),
+								AuthorName:   info.AuthorName,
+								WebSiteId:    1,
+								Avatar:       info.AuthorFace,
+							},
+						},
+						ViewHistory: []models.VideoHistory{
+							{ViewTime: pushTime, WebSiteId: 1, WebUUID: info.History.Bvid},
+						},
+					}
+					video.UpdateVideo()
+				case "剧集":
+				case "笔记":
+				case "纪录片":
+				case "专栏":
+				case "国创":
+				case "番剧":
+				case "综艺":
+				case "live":
+					utils.Info.Printf("未处理的历史记录 %v\n", info)
+					continue
+				default:
+					utils.Info.Printf("未知类型的历史记录 %v\n", info)
+					continue
+				}
 			}
 		}
 	}
-
-	return buf.Bytes(), buf.Len(), nil
 }

@@ -288,3 +288,16 @@ func downloadTaskDataFile(taskId, taskType, ip string) error {
 // http://142.171.136.50/downloadTaskDataFile/videoDetail/videoDetail.tar.gz
 // http://112.124.30.12/downloadTaskDataFile/videoDetail/112-124-30-12videoDetail.tar.gz
 // http://43.133.8.76/downloadTaskDataFile/videoDetail/43-133-8-76videoDetail.tar.gz
+/*
+serverAddr = "127.0.0.1"
+serverPort = 7000
+
+[[proxies]]
+name = "test-tcp"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 22
+remotePort = 6000
+
+112.124.30.12:8211
+*/

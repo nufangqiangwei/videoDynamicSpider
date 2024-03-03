@@ -25,7 +25,7 @@ func (s BiliSpider) GetWebSiteName() models.WebSite {
 	}
 }
 
-func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- baseStruct.TaskClose) {
+func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- baseStruct.TaskClose, webSiteId int64) {
 	var (
 		intLatestBaseline int
 		videoBaseLine     int
@@ -37,8 +37,6 @@ func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- ba
 		ok                bool
 		requestNumber     int
 	)
-	webSite := models.WebSite{}
-	models.GormDB.Where("web_name=?", "bilibili").First(&webSite)
 	for fileName, userCookies := range biliCookiesManager.cookiesMap {
 		dynamicBaseLine := models.GetDynamicBaseline(fileName)
 		if dynamicBaseLine == "" {
@@ -89,7 +87,7 @@ func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- ba
 				}
 				pushTime = time.Unix(info.Modules.ModuleAuthor.PubTs, 0)
 				result <- models.Video{
-					WebSiteId:  webSite.Id,
+					WebSiteId:  webSiteId,
 					Title:      info.Modules.ModuleDynamic.Major.Archive.Title,
 					VideoDesc:  info.Modules.ModuleDynamic.Major.Archive.Desc,
 					Duration:   HourAndMinutesAndSecondsToSeconds(info.Modules.ModuleDynamic.Major.Archive.DurationText),
@@ -102,7 +100,7 @@ func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- ba
 					},
 					StructAuthor: []models.Author{
 						{
-							WebSiteId:    webSite.Id,
+							WebSiteId:    webSiteId,
 							AuthorName:   info.Modules.ModuleAuthor.Name,
 							AuthorWebUid: strconv.Itoa(info.Modules.ModuleAuthor.Mid),
 							Avatar:       info.Modules.ModuleAuthor.Face,

@@ -66,6 +66,9 @@ func videoUpdateList(gtx *gin.Context) {
 	if requestBody.Size == 0 {
 		requestBody.Size = 10
 	}
+	if requestBody.Size > 30 {
+		requestBody.Size = 30
+	}
 	if requestBody.MinDuration < 30 {
 		requestBody.MinDuration = 30
 	}
@@ -79,22 +82,27 @@ func videoUpdateList(gtx *gin.Context) {
 		requestBody.MaxDuration = requestBody.MaxDuration + 10
 	}
 	result := make([]map[string]interface{}, 0)
-	models.GormDB.Raw(`select w.web_name as web_site, 
+	models.GormDB.Raw(`select w.web_name as webSite, 
        v.title,
        v.uuid,
-       v.upload_time,
-       v.video_desc,
-       v.cover_url,
+       v.upload_time as uploadTime,
+       v.video_desc as videoDesc,
+       v.cover_url as coverUrl,
        v.duration,
-       a.author_name,
-       a.author_web_uid,
+       a.author_name as authorName,
+       a.author_web_uid as authorWebUid,
        a.avatar
-from video v
-         inner join video_author va on va.video_id = v.id
-         inner join author a on va.author_id = a.id 
+		from video v
+		 inner join video_author va on va.video_id = v.id
+		 inner join author a on va.author_id = a.id 
 		 inner join web_site w on v.web_site_id = w.id
-where duration > ? and duration < ?
-order by v.upload_time desc limit ? offset ?`, requestBody.MinDuration, requestBody.MaxDuration,
+		where duration > ? and duration < ? 
+		limit ? offset ?`, requestBody.MinDuration, requestBody.MaxDuration,
 		requestBody.Size, (requestBody.Page-1)*requestBody.Size).Scan(&result)
-	gtx.JSONP(200, result)
+	// and v.upload_time >= CURDATE() - INTERVAL 30 DAY
+	response := BaseResponse{
+		Code: 0,
+		Data: result,
+	}
+	gtx.JSONP(200, response)
 }

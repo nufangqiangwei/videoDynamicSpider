@@ -46,7 +46,7 @@ func init() {
 	baseStruct.RootPath = config.ProxyDataRootPath
 	utils.InitLog(baseStruct.RootPath)
 
-	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName))
+	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), true)
 	models.OpenRedis()
 }
 
@@ -69,21 +69,24 @@ func main() {
 		FolderPrefix:   []string{config.ProxyDataRootPath},
 		FileNamePrefix: "errorRequestParams",
 	}
+	// fileNameChan := make(chan string, 1210)
 	for _, waitImportFile := range waitImportFileList {
 		// 开始导入数据
 		importFileData(waitImportFile.Name())
+		//fileNameChan <- waitImportFile.Name()
 	}
-	println(time.Now().Format("2006.01.02 15:04:05"))
-	//for w := 1; w <= 10; w++ {
+
+	//for w := 1; w <= 3; w++ {
 	//	go tenWorker()
 	//}
 	//for {
 	//	if len(fileNameChan) == 0 {
 	//		break
 	//	}
-	//	fmt.Printf("当前剩余%d个任务", len(fileNameChan))
-	//	time.Sleep(time.Minute * 30)
+	//	fmt.Printf("当前剩余%d个任务\n", len(fileNameChan))
+	//	time.Sleep(time.Minute * 10)
 	//}
+	println(time.Now().Format("2006.01.02 15:04:05"))
 }
 
 var fileNameChan chan string

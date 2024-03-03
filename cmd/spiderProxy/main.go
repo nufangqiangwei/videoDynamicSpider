@@ -57,7 +57,7 @@ func writeRequestUrl(url string, responseBody []byte) []byte {
 }
 
 func readConfig() error {
-	baseStruct.RootPath = "E:\\GoCode\\videoDynamicAcquisition\\cmd\\spiderProxy"
+	//baseStruct.RootPath = "E:\\GoCode\\videoDynamicAcquisition\\cmd\\spiderProxy"
 	fileData, err := os.ReadFile(path.Join(baseStruct.RootPath, "config.json"))
 	if err != nil {
 		println(err.Error())
@@ -81,7 +81,7 @@ func main() {
 	}
 	utils.InitLog(baseStruct.RootPath)
 	if config.DB.HOST != "" {
-		models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName))
+		models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), false)
 	}
 	go deleteFile()
 	server := gin.Default()
@@ -443,4 +443,10 @@ func bilibiliRecommendVideoSave(ctx *gin.Context) {
 	file.Close()
 	ctx.JSONP(200, map[string]interface{}{"code": 0})
 	return
+}
+
+type BaseResponse struct {
+	Msg  string      `json:"msg"`
+	Code int64       `json:"code"`
+	Data interface{} `json:"data"`
 }

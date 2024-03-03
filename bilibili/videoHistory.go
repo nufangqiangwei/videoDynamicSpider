@@ -7,8 +7,8 @@ import (
 	"videoDynamicAcquisition/utils"
 )
 
-// https://github.com/SocialSisterYi/bilibili-API-collect/blob/ffa25ba78dc8f4ed8624f11e3b6f404cb799674f/docs/history%26toview/history.md
-type historyResponse struct {
+// HistoryResponse https://github.com/SocialSisterYi/bilibili-API-collect/blob/ffa25ba78dc8f4ed8624f11e3b6f404cb799674f/docs/history%26toview/history.md
+type HistoryResponse struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Ttl     int    `json:"ttl"`
@@ -79,7 +79,7 @@ func (h *historyRequest) getRequest(max int, viewAt int64, business string) *htt
 	return request
 }
 
-func (h *historyRequest) getResponse(max int, viewAt int64, business string) *historyResponse {
+func (h *historyRequest) getResponse(max int, viewAt int64, business string) *HistoryResponse {
 	biliCookiesManager.getUser(DefaultCookies).flushCookies()
 	if !biliCookiesManager.getUser(DefaultCookies).cookiesFail {
 		return nil
@@ -90,7 +90,7 @@ func (h *historyRequest) getResponse(max int, viewAt int64, business string) *hi
 		utils.ErrorLog.Printf("获取历史记录错误:%s", err.Error())
 		return nil
 	}
-	result := new(historyResponse)
+	result := new(HistoryResponse)
 	err = responseCodeCheck(response, result)
 	if err != nil {
 		return nil
@@ -99,9 +99,12 @@ func (h *historyRequest) getResponse(max int, viewAt int64, business string) *hi
 }
 
 // historyResponse实现responseCheck接口
-func (h *historyResponse) getCode() int {
+func (h *HistoryResponse) getCode() int {
 	return h.Code
 }
-func (h *historyResponse) bindJSON(body []byte) error {
+func (h *HistoryResponse) bindJSON(body []byte) error {
+	return json.Unmarshal(body, h)
+}
+func (h *HistoryResponse) BingJSON(body []byte) error {
 	return json.Unmarshal(body, h)
 }

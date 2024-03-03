@@ -1,7 +1,6 @@
 package models
 
 import (
-	_ "github.com/mattn/go-sqlite3"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -15,7 +14,7 @@ var (
 	GormDB *gorm.DB
 )
 
-func InitDB(dsn string) {
+func InitDB(dsn string, createModel bool) {
 	cacheWebSite = make(map[string]WebSite)
 	var err error
 	GormDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
@@ -30,12 +29,15 @@ func InitDB(dsn string) {
 	if err != nil {
 		panic(err.Error())
 	}
-	err = GormDB.AutoMigrate(&BiliSpiderHistory{}, &Author{}, &Video{}, &VideoAuthor{}, &VideoTag{}, &WebSite{},
-		&Collect{}, &CollectVideo{}, &ProxySpiderTask{}, &Tag{}, &VideoHistory{}, &TaskToDoList{}, &VideoPlayData{})
-	if err != nil {
-		println(err.Error())
-		return
+	if createModel {
+		err = GormDB.AutoMigrate(&BiliSpiderHistory{}, &Author{}, &Video{}, &VideoAuthor{}, &VideoTag{}, &WebSite{},
+			&Collect{}, &CollectVideo{}, &ProxySpiderTask{}, &Tag{}, &VideoHistory{}, &TaskToDoList{}, &VideoPlayData{})
+		if err != nil {
+			println(err.Error())
+			return
+		}
 	}
+
 	GormDB.Callback().Query().Before("gorm:query").Register("disable_raise_record_not_found", func(d *gorm.DB) {
 		d.Statement.RaiseErrorOnNotFound = false
 	})

@@ -4,13 +4,9 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"github.com/go-sql-driver/mysql"
-	"github.com/mattn/go-sqlite3"
 	"io"
 	"os"
-	"path"
-	"time"
 )
 
 const maxFileSize = 100 * 1024 * 1024 // 100M
@@ -63,16 +59,16 @@ func ArrayDifference[T string | int64](slice1, slice2 []T) []T {
 //
 //}
 
-func IsUniqueErr(err error) bool {
-	var sqliteErr sqlite3.Error
-	if errors.As(err, &sqliteErr) {
-		if sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique ||
-			sqliteErr.ExtendedCode == sqlite3.ErrConstraintPrimaryKey {
-			return true
-		}
-	}
-	return false
-}
+//func IsUniqueErr(err error) bool {
+//	var sqliteErr sqlite3.Error
+//	if errors.As(err, &sqliteErr) {
+//		if sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique ||
+//			sqliteErr.ExtendedCode == sqlite3.ErrConstraintPrimaryKey {
+//			return true
+//		}
+//	}
+//	return false
+//}
 
 func IsMysqlUniqueErr(err error) bool {
 	var mysqlErr *mysql.MySQLError
@@ -122,78 +118,4 @@ func CheckFileWriteStatus(filePath string) bool {
 		return false
 	}
 	return true
-}
-
-type WriteFile struct {
-	FolderPrefix     []string
-	FileNamePrefix   string
-	FileName         func(string) string
-	file             *os.File
-	writeNumber      int
-	lastOpenFileName string
-}
-
-func (wf *WriteFile) getFileName(newFile bool) string {
-	if wf.FileName != nil {
-		return wf.FileName(wf.lastOpenFileName)
-	}
-	if wf.lastOpenFileName == "" || newFile {
-		return fmt.Sprintf("%s-%s.json", wf.FileNamePrefix, time.Now().Format("2006-01-02-15-04-05"))
-	}
-	return wf.lastOpenFileName
-
-}
-func (wf *WriteFile) checkFileSize() {
-	if wf.file == nil {
-		filePath := append(wf.FolderPrefix, wf.getFileName(true))
-		f, err := os.OpenFile(path.Join(filePath...), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			ErrorLog.Printf("打开新文件失败%s", err.Error())
-			panic(err)
-		}
-		Info.Println(path.Join(filePath...))
-		wf.file = f
-	}
-	for {
-		fi, err := wf.file.Stat()
-		if err != nil {
-			ErrorLog.Printf("获取文件信息失败%s", err.Error())
-			panic(err)
-		}
-		if fi.Size() >= maxFileSize {
-			wf.file.Close()
-			filePath := append(wf.FolderPrefix, wf.getFileName(true))
-			f, err := os.OpenFile(path.Join(filePath...), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				ErrorLog.Printf("打开新文件失败%s", err.Error())
-				panic(err)
-			}
-			wf.file = f
-			wf.writeNumber = 0
-		} else {
-			break
-		}
-	}
-}
-func (wf *WriteFile) Write(data []byte) (int, error) {
-	if wf.file == nil {
-		wf.checkFileSize()
-	}
-	// 每写入两千行就检查下文件大小
-	if wf.writeNumber%2000 == 0 {
-		wf.checkFileSize()
-	}
-	wf.writeNumber++
-	return wf.file.Write(data)
-}
-func (wf *WriteFile) WriteLine(data []byte) (int, error) {
-	a, b := wf.Write(data)
-	if b != nil {
-		return a, b
-	}
-	return wf.Write([]byte{10})
-}
-func (wf *WriteFile) Close() {
-	wf.lastOpenFileName = wf.file.Name()
-	wf.file.Close()
 }

@@ -80,7 +80,7 @@ func TestIntoFileData(t *testing.T) {
 	})
 	responseStruct := new(bilibili.VideoListPageResponse)
 	utils.InitLog(baseStruct.RootPath)
-	models.InitDB("spider:spider@tcp(192.168.1.25:3306)/videoSpider?charset=utf8mb4&parseTime=True&loc=Local")
+	models.InitDB("spider:spider@tcp(192.168.1.25:3306)/videoSpider?charset=utf8mb4&parseTime=True&loc=Local", false)
 	testIndex := 0
 	nowTime := time.Now()
 	for _, fileName := range fileNameList {

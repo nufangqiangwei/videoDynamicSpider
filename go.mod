@@ -7,7 +7,6 @@ require (
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/uuid v1.4.0
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
-	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/nufangqiangwei/timewheel v0.0.3
 	github.com/panjf2000/ants/v2 v2.9.0
 	github.com/redis/go-redis/v9 v9.3.1
