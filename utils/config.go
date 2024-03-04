@@ -18,6 +18,7 @@ type Config struct {
 	ProxyDataRootPath       string `json:"ProxyDataRootPath"`
 	ProxyWebServerLocalPort int    `json:"ProxyWebServerLocalPort"`
 	Token                   string `json:"Token"`
+	AesKey                  string `json:"AesKey"`
 }
 
 const WaitImportPrefix = "waitImportFile"

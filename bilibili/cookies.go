@@ -29,11 +29,10 @@ func (c *cookies) flushCookies() {
 		if !c.cookiesFail {
 			// cookies刷新失败
 			if utils.ErrorLog != nil {
-				utils.ErrorLog.Println("cookies失效，请更新cookies文件1")
+				utils.ErrorLog.Println("cookies失效，请更新cookies文件")
 			} else {
-				println("cookies失效，请更新cookies文件1")
+				println("cookies失效，请更新cookies文件")
 			}
-
 		}
 	}
 }
@@ -79,6 +78,7 @@ func (cm *cookiesManager) flushCookies() {
 	// 遍历文件夹下的所有cookies文件，刷新cookies
 	files, err := os.ReadDir(path.Join(baseStruct.RootPath, cookiesFileFolder))
 	if err != nil {
+		println("读取cookies文件夹失败")
 		println(err.Error())
 		if utils.ErrorLog != nil {
 			utils.ErrorLog.Println("读取cookies文件夹失败")
