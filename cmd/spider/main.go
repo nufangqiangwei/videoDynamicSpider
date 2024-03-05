@@ -237,51 +237,50 @@ func getHistory(interface{}) {
 		}
 	}()
 	utils.Info.Printf("历史任务执行id：%d\n", historyTaskId)
-	bilibili.SaveVideoHistoryList()
-	var err error
-	historyTaskId, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
-	if err != nil {
-		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-		return
-	}
-	/*
-		baseLine := models.GetHistoryBaseLine()
-		var (
-			lastHistoryTimestamp int64 = 0
-			err                  error
-		)
-		if baseLine != "" {
-			lastHistoryTimestamp, err = strconv.ParseInt(baseLine, 10, 64)
-			if err != nil {
-				utils.ErrorLog.Println("获取历史基线失败")
-				return
-			}
-		}
-		VideoHistoryChan := make(chan models.Video)
-		VideoHistoryCloseChan := make(chan int64)
-		go bilibili.Spider.GetVideoHistoryList(lastHistoryTimestamp, VideoHistoryChan, VideoHistoryCloseChan)
-		website := models.WebSite{WebName: "bilibili"}
-		err = website.GetOrCreate()
+	//bilibili.SaveVideoHistoryList()
+	//var err error
+	//historyTaskId, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
+	//if err != nil {
+	//	utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+	//	return
+	//}
+
+	baseLine := models.GetHistoryBaseLine()
+	var (
+		lastHistoryTimestamp int64 = 0
+		err                  error
+	)
+	if baseLine != "" {
+		lastHistoryTimestamp, err = strconv.ParseInt(baseLine, 10, 64)
 		if err != nil {
-			utils.ErrorLog.Printf("获取网站信息失败：%s\n", err.Error())
+			utils.ErrorLog.Println("获取历史基线失败")
 			return
 		}
-		for {
-			select {
-			case videoInfo := <-VideoHistoryChan:
-				videoInfo.UpdateVideo()
-			case newestTimestamp := <-VideoHistoryCloseChan:
-				models.SaveHistoryBaseLine(strconv.FormatInt(newestTimestamp, 10))
-				historyTaskId, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
-				if err != nil {
-					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-					return
-				}
+	}
+	VideoHistoryChan := make(chan models.Video)
+	VideoHistoryCloseChan := make(chan int64)
+	go bilibili.Spider.GetVideoHistoryList(lastHistoryTimestamp, VideoHistoryChan, VideoHistoryCloseChan)
+	website := models.WebSite{WebName: "bilibili"}
+	err = website.GetOrCreate()
+	if err != nil {
+		utils.ErrorLog.Printf("获取网站信息失败：%s\n", err.Error())
+		return
+	}
+	for {
+		select {
+		case videoInfo := <-VideoHistoryChan:
+			videoInfo.UpdateVideo()
+		case newestTimestamp := <-VideoHistoryCloseChan:
+			models.SaveHistoryBaseLine(strconv.FormatInt(newestTimestamp, 10))
+			historyTaskId, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
+			if err != nil {
+				utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				return
 			}
+			return
 		}
+	}
 
-	*/
 }
 
 // 更新收藏夹列表，喝订阅的合集列表，新创建的同步视频数据

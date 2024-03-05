@@ -29,9 +29,9 @@ func (c *cookies) flushCookies() {
 		if !c.cookiesFail {
 			// cookies刷新失败
 			if utils.ErrorLog != nil {
-				utils.ErrorLog.Println("cookies失效，请更新cookies文件")
+				utils.ErrorLog.Printf("cookies失效，请更新%scookies文件", c.fileName)
 			} else {
-				println("cookies失效，请更新cookies文件")
+				println("cookies失效，请更新", c.fileName, "cookies文件")
 			}
 		}
 	}
@@ -40,10 +40,11 @@ func (c *cookies) flushCookies() {
 func (c *cookies) readFile() {
 	// 读取文件中的cookies
 	filePath := path.Join(baseStruct.RootPath, cookiesFileFolder, c.fileName)
-	println("bilibili Cookies地址：", filePath)
+	println("bilibili Cookies文件地址：", filePath)
 	f, err := os.ReadFile(filePath)
 
 	if err != nil {
+		println(err.Error())
 		c.cookies = ""
 		c.cookiesFail = false
 		return
@@ -93,11 +94,8 @@ func (cm *cookiesManager) flushCookies() {
 			c = &cookies{fileName: file.Name()}
 			biliCookiesManager.cookiesMap[file.Name()] = c
 		}
+		println("读取", file.Name(), "cookies文件")
 		c.flushCookies()
-	}
-	_, ok := biliCookiesManager.cookiesMap["default"]
-	if !ok {
-		biliCookiesManager.cookiesMap["default"] = &cookies{}
 	}
 }
 func (cm *cookiesManager) getUser(key string) *cookies {

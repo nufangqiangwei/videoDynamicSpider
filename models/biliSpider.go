@@ -60,7 +60,7 @@ func SaveDynamicBaseline(baseline string, userName string) {
 
 func GetHistoryBaseLine() string {
 	bsh := &BiliSpiderHistory{}
-	tx := GormDB.First(bsh, "key_name = ?", "history_baseline")
+	tx := GormDB.First(bsh, "key_name = ? and user_id=764886", "history_baseline")
 	if tx.Error != nil {
 		return ""
 	}
@@ -70,5 +70,5 @@ func GetHistoryBaseLine() string {
 	return bsh.Values
 }
 func SaveHistoryBaseLine(baseline string) {
-	GormDB.Model(&BiliSpiderHistory{}).Where("key_name = ?", "history_baseline").Update("values", baseline)
+	GormDB.Model(&BiliSpiderHistory{}).Where("key_name = ? and user_id=764886", "history_baseline").Update("values", baseline)
 }
