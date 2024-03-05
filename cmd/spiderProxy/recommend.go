@@ -75,7 +75,7 @@ func videoUpdateList(gtx *gin.Context) {
 	models.GormDB.Raw(`select w.web_name as webSite, 
        v.title,
        v.uuid,
-       v.upload_time as uploadTime,
+       CAST(UNIX_TIMESTAMP(v.upload_time) AS UNSIGNED) as uploadTime,
        v.video_desc as videoDesc,
        v.cover_url as coverUrl,
        v.duration,
@@ -86,7 +86,9 @@ func videoUpdateList(gtx *gin.Context) {
 		 inner join video_author va on va.video_id = v.id
 		 inner join author a on va.author_id = a.id 
 		 inner join web_site w on v.web_site_id = w.id
-		where duration > ? and duration < ? 
+		inner join follow f on f.author_id=a.id
+		where duration > ? and duration < ?
+		order by v.upload_time
 		limit ? offset ?`, requestBody.MinDuration, requestBody.MaxDuration,
 		requestBody.Size, (requestBody.Page-1)*requestBody.Size).Scan(&result)
 	// and v.upload_time >= CURDATE() - INTERVAL 30 DAY
