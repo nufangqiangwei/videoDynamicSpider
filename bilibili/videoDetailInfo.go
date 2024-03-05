@@ -458,6 +458,7 @@ func (vd *VideoDetailResponse) BindJSON(data []byte) error {
 }
 
 type videoDetail struct {
+	userCookie cookies
 }
 
 func (receiver videoDetail) getRequest(byid string) *http.Request {
@@ -471,8 +472,8 @@ func (receiver videoDetail) getRequest(byid string) *http.Request {
 }
 
 func (receiver videoDetail) getResponse(bvid string) *VideoDetailResponse {
-	biliCookiesManager.getUser(DefaultCookies).flushCookies()
-	if !biliCookiesManager.getUser(DefaultCookies).cookiesFail {
+	receiver.userCookie.flushCookies()
+	if !receiver.userCookie.cookiesFail {
 		return nil
 	}
 	response, err := http.DefaultClient.Do(receiver.getRequest(bvid))
@@ -489,7 +490,12 @@ func (receiver videoDetail) getResponse(bvid string) *VideoDetailResponse {
 }
 
 func GetVideoDetailByByte(bvid string) ([]byte, string) {
-	response, err := http.DefaultClient.Do(videoDetail{}.getRequest(bvid))
+	var userCookie cookies
+	for _, c := range biliCookiesManager.cookiesMap {
+		userCookie = *c
+		break
+	}
+	response, err := http.DefaultClient.Do(videoDetail{userCookie: userCookie}.getRequest(bvid))
 	if err != nil {
 		utils.ErrorLog.Println(err.Error())
 		return nil, response.Request.URL.String()

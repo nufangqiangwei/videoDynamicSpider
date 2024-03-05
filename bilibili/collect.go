@@ -193,15 +193,15 @@ type CollectVideoDetailInfo struct {
 }
 
 // https://api.bilibili.com/x/v3/fav/folder/created/list-all?up_mid=10932398 获取收藏夹列表
-func getCollectList(mid string, pageIndex int) *collectListResponse {
-	biliCookiesManager.getUser(DefaultCookies).flushCookies()
+func getCollectList(mid string, pageIndex int, userCookie cookies) *collectListResponse {
+	userCookie.flushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/v3/fav/folder/created/list-all", nil)
 	q := request.URL.Query()
 	q.Add("up_mid", mid)
 	q.Add("pn", strconv.Itoa(pageIndex))
 	q.Add("ps", "50")
 	request.URL.RawQuery = q.Encode()
-	request.Header.Add("Cookie", biliCookiesManager.getUser(DefaultCookies).cookies)
+	request.Header.Add("Cookie", userCookie.cookies)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		utils.ErrorLog.Println("请求错误", err.Error())
@@ -216,8 +216,8 @@ func getCollectList(mid string, pageIndex int) *collectListResponse {
 }
 
 // https://api.bilibili.com/x/v3/fav/folder/collected/list?pn=1&ps=20&up_mid=10932398&platform=web 获取收藏和订阅列表
-func subscriptionList(mid string, pageIndex int) *subscriptionListResponse {
-	biliCookiesManager.getUser(DefaultCookies).flushCookies()
+func subscriptionList(mid string, pageIndex int, userCookie cookies) *subscriptionListResponse {
+	userCookie.flushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/v3/fav/folder/collected/list", nil)
 	q := request.URL.Query()
 	q.Add("up_mid", mid)
@@ -225,7 +225,7 @@ func subscriptionList(mid string, pageIndex int) *subscriptionListResponse {
 	q.Add("ps", "50")
 	q.Add("platform", "web")
 	request.URL.RawQuery = q.Encode()
-	request.Header.Add("Cookie", biliCookiesManager.getUser(DefaultCookies).cookies)
+	request.Header.Add("Cookie", userCookie.cookies)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		utils.ErrorLog.Println("请求错误", err.Error())
@@ -241,14 +241,14 @@ func subscriptionList(mid string, pageIndex int) *subscriptionListResponse {
 
 // GetCollectVideoList 只能获取个人收藏夹的视频列表
 // https://api.bilibili.com/x/v3/fav/resource/ids?media_id=55899098&platform=web
-func GetCollectVideoList(id int64) *CollectAllVideoListResponse {
-	biliCookiesManager.getUser(DefaultCookies).flushCookies()
+func GetCollectVideoList(id int64, userName string) *CollectAllVideoListResponse {
+	biliCookiesManager.getUser(userName).flushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/v3/fav/resource/ids", nil)
 	q := request.URL.Query()
 	q.Add("media_id", strconv.FormatInt(id, 10))
 	q.Add("platform", "web")
 	request.URL.RawQuery = q.Encode()
-	request.Header.Add("Cookie", biliCookiesManager.getUser(DefaultCookies).cookies)
+	request.Header.Add("Cookie", biliCookiesManager.getUser(userName).cookies)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		utils.ErrorLog.Println("请求错误", err.Error())
@@ -264,8 +264,8 @@ func GetCollectVideoList(id int64) *CollectAllVideoListResponse {
 
 // 只能获取个人收藏夹的视频列表
 // https://api.bilibili.com/x/v3/fav/resource/list?media_id=55899098&pn=1&ps=20&keyword=&order=mtime&type=0&tid=0&platform=web
-func getCollectVideoInfo(collectId int64, page int) *collectVideoDetailResponse {
-	biliCookiesManager.getUser(DefaultCookies).flushCookies()
+func getCollectVideoInfo(collectId int64, page int, userCookie cookies) *collectVideoDetailResponse {
+	userCookie.flushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/v3/fav/resource/list", nil)
 	q := request.URL.Query()
 	q.Add("media_id", strconv.FormatInt(collectId, 10))
@@ -277,7 +277,7 @@ func getCollectVideoInfo(collectId int64, page int) *collectVideoDetailResponse 
 	q.Add("tid", "0")
 	q.Add("platform", "web")
 	request.URL.RawQuery = q.Encode()
-	request.Header.Add("Cookie", biliCookiesManager.getUser(DefaultCookies).cookies)
+	request.Header.Add("Cookie", userCookie.cookies)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		utils.ErrorLog.Println("请求错误", err.Error())
@@ -294,14 +294,14 @@ func getCollectVideoInfo(collectId int64, page int) *collectVideoDetailResponse 
 
 // https://api.bilibili.com/x/space/fav/season/list?season_id=1057928&pn=1&ps=20
 func getSeasonVideoInfo(collectId int64, page int) *seasonAllVideoDetailResponse {
-	biliCookiesManager.getUser(DefaultCookies).flushCookies()
+	//biliCookiesManager.getUser(DefaultCookies).flushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/space/fav/season/list", nil)
 	q := request.URL.Query()
 	q.Add("season_id", strconv.FormatInt(collectId, 10))
 	q.Add("pn", strconv.Itoa(page))
 	q.Add("ps", "20")
 	request.URL.RawQuery = q.Encode()
-	request.Header.Add("Cookie", biliCookiesManager.getUser(DefaultCookies).cookies)
+	//request.Header.Add("Cookie", biliCookiesManager.getUser(DefaultCookies).cookies)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		utils.ErrorLog.Println("请求错误", err.Error())

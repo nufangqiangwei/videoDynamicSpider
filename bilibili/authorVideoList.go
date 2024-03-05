@@ -6,10 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strconv"
-	"time"
-	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -143,7 +140,9 @@ type VideoList struct {
 	EnableVt      int    `json:"enable_vt"`
 	VtDisplay     string `json:"vt_display"`
 }
-type videoListPage struct{}
+type videoListPage struct {
+	userCookie cookies
+}
 
 func (v *videoListPage) getRequest(mid string, pageIndex int) *http.Request {
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/space/wbi/arc/search", nil)
@@ -154,15 +153,15 @@ func (v *videoListPage) getRequest(mid string, pageIndex int) *http.Request {
 	q.Add("pn", strconv.Itoa(pageIndex))
 
 	request.URL.RawQuery = wbiSignObj.getSing(q).Encode()
-	request.Header.Add("Cookie", biliCookiesManager.getUser(DefaultCookies).cookies)
+	request.Header.Add("Cookie", v.userCookie.cookies)
 	request.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69")
 	//utils.Info.Println(request.URL.String())
 	return request
 }
 
 func (v *videoListPage) getResponse(mid string, pageIndex int) *VideoListPageResponse {
-	biliCookiesManager.getUser(DefaultCookies).flushCookies()
-	if !biliCookiesManager.getUser(DefaultCookies).cookiesFail {
+	v.userCookie.flushCookies()
+	if !v.userCookie.cookiesFail {
 		return nil
 	}
 	response, err := http.DefaultClient.Do(v.getRequest(mid, pageIndex))
@@ -179,67 +178,10 @@ func (v *videoListPage) getResponse(mid string, pageIndex int) *VideoListPageRes
 	return responseBody
 }
 
-func saveVideoListResponse(data []byte, authorId string, pageIndex int) {
-	err := os.Mkdir(fmt.Sprintf("%s\\video\\%s", baseStruct.RootPath, authorId), os.ModePerm)
-	if err != nil {
-		utils.ErrorLog.Println(err.Error())
-	}
-	fileName := fmt.Sprintf("%s\\video\\%s\\%d.json", baseStruct.RootPath, authorId, pageIndex)
-	err = os.WriteFile(fileName, data, 0666)
-	if err != nil {
-		utils.ErrorLog.Println("写文件失败")
-		utils.ErrorLog.Println(err.Error())
-	}
-}
-
-func GetAuthorAllVideoListTOJSON(UId string, result chan<- []byte) error {
-	v := videoListPage{}
-	pageIndex := 1
-	for {
-		response, err := http.DefaultClient.Do(v.getRequest(UId, pageIndex))
-		if err != nil {
-			return err
-		}
-		defer response.Body.Close()
-		body, err := ioutil.ReadAll(response.Body)
-		if response.StatusCode != 200 {
-			utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
-			utils.ErrorLog.Println(string(body))
-			return errors.New("api错误")
-		}
-		if err != nil {
-			return errors.New("读取响应失败")
-		}
-		result <- body
-		responseBody := new(VideoListPageResponse)
-		err = json.Unmarshal(body, responseBody)
-		if err != nil {
-			utils.ErrorLog.Println("解析响应失败")
-			utils.ErrorLog.Println(err.Error())
-			return errors.New("解析响应失败")
-		}
-		if responseBody.Code == -101 {
-			return errors.New("api错误-101")
-		}
-		if responseBody.Code == -352 {
-			return errors.New("api错误-352")
-		}
-		if responseBody.Code != 0 {
-			return errors.New("api错误0")
-		}
-
-		if responseBody.Data.Page.Count <= (responseBody.Data.Page.Pn * responseBody.Data.Page.Ps) {
-			break
-		}
-		pageIndex++
-		time.Sleep(time.Second * 3)
-	}
-	result <- nil
-	return nil
-}
-
 func GetAuthorAllVideoListByByte(uid string, pageIndex int) ([]byte, error, string) {
-	v := videoListPage{}
+	v := videoListPage{
+		userCookie: cookies{},
+	}
 	response, err := http.DefaultClient.Do(v.getRequest(uid, pageIndex))
 
 	if err != nil {

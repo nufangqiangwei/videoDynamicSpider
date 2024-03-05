@@ -42,7 +42,7 @@ func InitDB(dsn string, createModel bool) {
 		d.Statement.RaiseErrorOnNotFound = false
 	})
 	if err != nil {
-		return
+		panic(err.Error())
 	}
 }
 

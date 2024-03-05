@@ -45,7 +45,7 @@ type Spider struct {
 }
 
 func readConfig() error {
-	fileData, err := os.ReadFile("C:\\Code\\GO\\videoDynamicSpider\\cmd\\spider\\config.json")
+	fileData, err := os.ReadFile("E:\\GoCode\\videoDynamicAcquisition\\cmd\\spider\\config.json")
 	if err != nil {
 		println(err.Error())
 		return err
@@ -82,7 +82,7 @@ func init() {
 	utils.InitLog(dataPath)
 
 	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), true)
+		config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), false)
 	wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
 		IsRun: false,
 		Log:   utils.TimeWheelLog,
@@ -446,7 +446,7 @@ func updateCollectVideoList(interface{}) {
 
 	waitUpdateList := make([]int64, 0)
 	for collectId, videoList = range collectVideoGroup {
-		r := bilibili.GetCollectVideoList(collectId)
+		r := bilibili.GetCollectVideoList(collectId, "干煸花椰菜")
 		// countList 和r.Data中的BvId对比，找不同的值
 		for _, info := range r.Data {
 			if !utils.InArray(info.BvId, videoList) {
@@ -526,42 +526,58 @@ func updateFollowInfo(interface{}) {
 		utils.ErrorLog.Printf("获取网站信息失败：%s\n", err.Error())
 		return
 	}
-	resultChan := make(chan bilibili.FollowingUP)
+	resultChan := make(chan baseStruct.FollowInfo)
 	closeChan := make(chan int64)
-	go bilibili.Spider.GetFollowingList(resultChan, closeChan)
+	go bilibili.Spider.GetFollowingList(resultChan, closeChan, web.Id)
 
 	var (
-		followList []models.Author
-		upInfo     bilibili.FollowingUP
-		closeSign  bool
+		followList           map[int64]map[string]int64
+		followInfo           baseStruct.FollowInfo
+		closeSign            bool
+		insertFollowRelation bool
+		receiveUserId        map[int64]bool
 	)
 	followList = models.GetFollowList(web.Id)
+	receiveUserId = make(map[int64]bool)
 
 	for {
 		select {
-		case upInfo = <-resultChan:
-			followTime := time.Unix(upInfo.Mtime, 0)
-			author := models.Author{
-				WebSiteId:    web.Id,
-				AuthorWebUid: strconv.FormatInt(upInfo.Mid, 10),
-				AuthorName:   upInfo.Uname,
-				Avatar:       upInfo.Face,
-				AuthorDesc:   upInfo.Sign,
-				Follow:       true,
-				FollowTime:   &followTime,
+		case followInfo = <-resultChan:
+			receiveUserId[followInfo.UserId] = true
+			insertFollowRelation = false
+			userFollowMap, ok := followList[followInfo.UserId]
+			if !ok {
+				insertFollowRelation = true
 			}
-			err = author.UpdateOrCreate()
-			if err != nil {
-				utils.ErrorLog.Printf("更新作者信息失败：%s\n", err.Error())
-				continue
+			_, ok = userFollowMap[followInfo.AuthorUUID]
+			if !ok {
+				insertFollowRelation = true
 			}
-			// 从followList列表中删除这个作者
-			for index, v := range followList {
-				if v.AuthorWebUid == author.AuthorWebUid {
-					followList = append(followList[:index], followList[index+1:]...)
-					break
+			if insertFollowRelation {
+				author := models.Author{
+					WebSiteId:    web.Id,
+					AuthorWebUid: followInfo.AuthorUUID,
+					AuthorName:   followInfo.AuthorName,
+					Avatar:       followInfo.Avatar,
+					AuthorDesc:   followInfo.AuthorDesc,
+					Follow:       true,
+					FollowTime:   followInfo.FollowTime,
 				}
+				err = author.UpdateOrCreate()
+				if err != nil {
+					utils.ErrorLog.Printf("更新作者信息失败：%s\n", err.Error())
+					continue
+				}
+				f := models.Follow{
+					WebSiteId:  followInfo.WebSiteId,
+					AuthorId:   author.Id,
+					UserId:     followInfo.UserId,
+					FollowTime: followInfo.FollowTime,
+				}
+				models.GormDB.Create(&f)
 			}
+			// 从userFollowMap列表中删除这个作者
+			delete(userFollowMap, followInfo.AuthorUUID)
 		case <-closeChan:
 			closeSign = true
 		}
@@ -571,15 +587,21 @@ func updateFollowInfo(interface{}) {
 	}
 	// followList中剩下的作者，标记为未关注
 	if closeSign {
-		for _, v := range followList {
-			v.Follow = false
-			err = v.UpdateOrCreate()
-			if err != nil {
-				utils.ErrorLog.Printf("取消关注作者信息失败：%s\n", err.Error())
+		var deleteFollowId []int64
+		for userId, authorMap := range followList {
+			_, ok := receiveUserId[userId]
+			if !ok {
 				continue
 			}
+			for _, followId := range authorMap {
+				deleteFollowId = append(deleteFollowId, followId)
+			}
+		}
+		if len(deleteFollowId) > 0 {
+			models.GormDB.Delete(&models.Follow{}, deleteFollowId)
 		}
 	}
+
 	_, err = wheel.AppendOnceFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + rand.Int63n(100)})
 	if err != nil {
 		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())

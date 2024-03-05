@@ -5,11 +5,15 @@ import (
 	"time"
 )
 
+const (
+	defaultUserId int64 = 764886
+)
+
 // BiliSpiderHistory b站抓取记录
 type BiliSpiderHistory struct {
 	Id             int64  `gorm:"primaryKey"`
-	userId         int64  `gorm:"index"`
-	KeyName        string `gorm:"size:255;uniqueIndex"`
+	AuthorId       int64  `gorm:"index"`
+	KeyName        string `gorm:"size:255;"`
 	Values         string `gorm:"size:255"`
 	LastUpdateTime time.Time
 }
@@ -27,18 +31,24 @@ func GetDynamicBaseline(userName string) string {
 		tx     *gorm.DB
 	)
 	if userName == "default" {
-		userId = 1
-	}
-	if userId > 0 {
-		tx = GormDB.Model(&BiliSpiderHistory{}).First(bsh, "user_id = ? and key_name = ?", userId, "dynamic_baseline")
+		userId = defaultUserId
 	} else {
-		tx = GormDB.Model(&BiliSpiderHistory{}).Joins("inner join user on bili_spider_history.user_id = user.id").Where("user.user_name = ? and key_name = ?", userName, "dynamic_baseline").First(bsh)
+		a := Author{}
+		GormDB.Model(&a).First(&a, "author_name = ?", userName)
+		if a.Id == 0 {
+			return "查不到用户"
+		}
+		userId = a.Id
 	}
+	tx = GormDB.Model(&BiliSpiderHistory{}).First(bsh, "author_id = ? and key_name = ?", userId, "dynamic_baseline")
 	if tx.Error != nil {
-		return ""
+		return tx.Error.Error()
 	}
 	if tx.RowsAffected == 0 {
-		GormDB.Create(&BiliSpiderHistory{KeyName: "dynamic_baseline", Values: ""})
+		createErr := GormDB.Create(&BiliSpiderHistory{KeyName: "dynamic_baseline", Values: "", AuthorId: userId, LastUpdateTime: time.Now()}).Error
+		if createErr != nil {
+			return createErr.Error()
+		}
 	}
 	return bsh.Values
 
@@ -48,14 +58,16 @@ func SaveDynamicBaseline(baseline string, userName string) {
 		userId int64
 	)
 	if userName == "default" {
-		userId = 1
-	}
-	if userId > 0 {
-		GormDB.Model(&BiliSpiderHistory{}).Where("user_id = ? and key_name = ?", userId, "dynamic_baseline").Update("values", baseline)
+		userId = defaultUserId
 	} else {
-		GormDB.Model(&BiliSpiderHistory{}).Joins("inner join user on bili_spider_history.user_id = user.id").Where("user.user_name = ? and key_name = ?", userName, "dynamic_baseline").Update("values", baseline)
+		a := Author{}
+		GormDB.Model(&a).First(&a, "author_name = ?", userName)
+		if a.Id == 0 {
+			return
+		}
+		userId = a.Id
 	}
-
+	GormDB.Model(&BiliSpiderHistory{}).Where("author_id = ? and key_name = ?", userId, "dynamic_baseline").Update("values", baseline)
 }
 
 func GetHistoryBaseLine() string {

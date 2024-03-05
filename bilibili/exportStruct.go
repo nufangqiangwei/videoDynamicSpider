@@ -16,6 +16,10 @@ import (
 type BiliSpider struct {
 }
 
+const (
+	defaultUpdateNumber = 100
+)
+
 func (s BiliSpider) GetWebSiteName() models.WebSite {
 	return models.WebSite{
 		WebName:          "bilibili",
@@ -38,21 +42,25 @@ func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- ba
 		requestNumber     int
 	)
 	for fileName, userCookies := range biliCookiesManager.cookiesMap {
+		dynamicVideoObject.userCookie = *userCookies
 		dynamicBaseLine := models.GetDynamicBaseline(fileName)
 		if dynamicBaseLine == "" {
-			updateNumber = 20
+			updateNumber = defaultUpdateNumber
 		} else {
 			intLatestBaseline, err = strconv.Atoi(dynamicBaseLine)
 			if err != nil {
 				utils.ErrorLog.Printf("intLatestBaseline 转换出错：%d\n", intLatestBaseline)
-				updateNumber = 20
+				updateNumber = defaultUpdateNumber
 			}
 		}
 
 		var pushTime time.Time
 		breakFlag := true
+		baseLine = ""
+		startBaseLine = 0
+		requestNumber = 0
 		for breakFlag {
-			response := dynamicVideoObject.getResponse(0, 0, baseLine, userCookies)
+			response := dynamicVideoObject.getResponse(0, 0, baseLine)
 			if response == nil {
 				breakFlag = false
 				continue
@@ -131,43 +139,45 @@ func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- ba
 	}
 }
 
-func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]string {
-	result := make(map[string]string)
-	offset := baseOffset
-	var (
-		ok      bool
-		_offset string
-	)
-	for {
-		response := dynamicVideoObject.getResponse(0, author, offset, biliCookiesManager.getUser(DefaultCookies))
-		if response == nil {
-			break
-		}
-		da, _ := json.Marshal(response)
-		result[response.Data.Offset] = string(da)
-
-		for _, info := range response.Data.Items {
-			_offset, ok = info.IdStr.(string)
-			if !ok {
-				a, ok := info.IdStr.(int)
-				if ok {
-					_offset = strconv.Itoa(a)
-				} else {
-					break
-				}
-			}
-			if baseOffset == _offset {
-				break
-			}
-		}
-	}
-
-	return result
-}
+//func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]string {
+//	result := make(map[string]string)
+//	offset := baseOffset
+//	var (
+//		ok      bool
+//		_offset string
+//	)
+//	for {
+//		response := dynamicVideoObject.getResponse(0, author, offset, biliCookiesManager.getUser(DefaultCookies))
+//		if response == nil {
+//			break
+//		}
+//		da, _ := json.Marshal(response)
+//		result[response.Data.Offset] = string(da)
+//
+//		for _, info := range response.Data.Items {
+//			_offset, ok = info.IdStr.(string)
+//			if !ok {
+//				a, ok := info.IdStr.(int)
+//				if ok {
+//					_offset = strconv.Itoa(a)
+//				} else {
+//					break
+//				}
+//			}
+//			if baseOffset == _offset {
+//				break
+//			}
+//		}
+//	}
+//
+//	return result
+//}
 
 func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageIndex int) map[string]string {
 	result := make(map[string]string)
-	video := videoListPage{}
+	video := videoListPage{
+		userCookie: cookies{},
+	}
 	for {
 		response := video.getResponse(author, startPageIndex)
 		if response == nil {
@@ -361,71 +371,74 @@ func (s BiliSpider) GetCollectList() NewCollect {
 		PageIndex   int
 	)
 	PageIndex = 1
-	for {
-		a := getCollectList("10932398", PageIndex)
-		if a != nil {
-			for _, info := range a.Data.List {
-				collectInfo = models.Collect{}
-				err = models.GormDB.Where("`type`=? and bv_id=?", 1, info.Id).Find(&collectInfo).Error
-				if err != nil {
-					utils.ErrorLog.Printf("GetCollectList查询Collect表出错")
-					continue
-				}
-				if collectInfo.Id == 0 {
-					collectInfo.Type = 1
-					collectInfo.BvId = info.Id
-					collectInfo.Name = info.Title
-					err = models.GormDB.Create(&collectInfo).Error
-				}
-				if err == nil {
-					result.Collect = append(result.Collect, WaitUpdateCollect{BvId: info.Id, CollectId: collectInfo.Id, CollectNumber: info.MediaCount})
-				}
-			}
-		} else {
-			break
-		}
-		if a.Data.Count <= (PageIndex * 50) {
-			break
-		}
-		PageIndex++
-	}
-	time.Sleep(time.Second)
-	PageIndex = 1
-	for {
-		b := subscriptionList("10932398", PageIndex)
-		if b != nil {
-			for _, info := range b.Data.List {
-				collectInfo = models.Collect{}
-				err = models.GormDB.Where("`type`=? and bv_id=?", 2, info.Id).Find(&collectInfo).Error
-				if err != nil {
-					utils.ErrorLog.Printf("GetCollectList查询Collect表出错")
-					continue
-				}
-				if info.Mid == 0 {
-					if collectInfo.Id > 0 && !strings.Contains(collectInfo.Name, "合集已失效") {
-						// 该合集以失效，更新数据
-						collectInfo.Name += "(合集已失效)"
-						models.GormDB.Model(&collectInfo).Update("name", collectInfo.Name)
+	for _, userCookies := range biliCookiesManager.cookiesMap {
+		mid := userCookies.getCookiesKeyValue("DedeUserID")
+		for {
+			a := getCollectList(mid, PageIndex, *userCookies)
+			if a != nil {
+				for _, info := range a.Data.List {
+					collectInfo = models.Collect{}
+					err = models.GormDB.Where("`type`=? and bv_id=?", 1, info.Id).Find(&collectInfo).Error
+					if err != nil {
+						utils.ErrorLog.Printf("GetCollectList查询Collect表出错")
+						continue
 					}
-					continue
+					if collectInfo.Id == 0 {
+						collectInfo.Type = 1
+						collectInfo.BvId = info.Id
+						collectInfo.Name = info.Title
+						err = models.GormDB.Create(&collectInfo).Error
+					}
+					if err == nil {
+						result.Collect = append(result.Collect, WaitUpdateCollect{BvId: info.Id, CollectId: collectInfo.Id, CollectNumber: info.MediaCount})
+					}
 				}
-				if collectInfo.Id == 0 {
-					collectInfo.Type = 2
-					collectInfo.BvId = info.Id
-					collectInfo.Name = info.Title
-					err = models.GormDB.Create(&collectInfo).Error
-				}
-				if err == nil {
-					result.Season = append(result.Season, WaitUpdateCollect{BvId: info.Id, CollectId: collectInfo.Id, CollectNumber: info.MediaCount})
-				}
+			} else {
+				break
 			}
-		} else {
-			break
+			if a.Data.Count <= (PageIndex * 50) {
+				break
+			}
+			PageIndex++
 		}
-		if b.Data.Count <= (PageIndex * 50) {
-			break
+		time.Sleep(time.Second)
+		PageIndex = 1
+		for {
+			b := subscriptionList(mid, PageIndex, *userCookies)
+			if b != nil {
+				for _, info := range b.Data.List {
+					collectInfo = models.Collect{}
+					err = models.GormDB.Where("`type`=? and bv_id=?", 2, info.Id).Find(&collectInfo).Error
+					if err != nil {
+						utils.ErrorLog.Printf("GetCollectList查询Collect表出错")
+						continue
+					}
+					if info.Mid == 0 {
+						if collectInfo.Id > 0 && !strings.Contains(collectInfo.Name, "合集已失效") {
+							// 该合集以失效，更新数据
+							collectInfo.Name += "(合集已失效)"
+							models.GormDB.Model(&collectInfo).Update("name", collectInfo.Name)
+						}
+						continue
+					}
+					if collectInfo.Id == 0 {
+						collectInfo.Type = 2
+						collectInfo.BvId = info.Id
+						collectInfo.Name = info.Title
+						err = models.GormDB.Create(&collectInfo).Error
+					}
+					if err == nil {
+						result.Season = append(result.Season, WaitUpdateCollect{BvId: info.Id, CollectId: collectInfo.Id, CollectNumber: info.MediaCount})
+					}
+				}
+			} else {
+				break
+			}
+			if b.Data.Count <= (PageIndex * 50) {
+				break
+			}
+			PageIndex++
 		}
-		PageIndex++
 	}
 
 	return *result
@@ -439,28 +452,28 @@ func (s BiliSpider) GetCollectAllVideo(collectId int64, maxPage int) []CollectVi
 		page        = 1
 		result      []CollectVideoDetailInfo
 	)
-	for {
-		response = getCollectVideoInfo(collectId, page)
-		if videoNumber == 0 {
-			videoNumber = response.Data.Info.MediaCount
-			if maxPage == 0 {
-				if videoNumber%20 == 0 {
-					maxPage = videoNumber / 20
-				} else {
-					maxPage = (videoNumber / 20) + 1
+	for _, userCookies := range biliCookiesManager.cookiesMap {
+		for {
+			response = getCollectVideoInfo(collectId, page, *userCookies)
+			if videoNumber == 0 {
+				videoNumber = response.Data.Info.MediaCount
+				if maxPage == 0 {
+					if videoNumber%20 == 0 {
+						maxPage = videoNumber / 20
+					} else {
+						maxPage = (videoNumber / 20) + 1
+					}
 				}
 			}
+			for _, info := range response.Data.Medias {
+				result = append(result, info)
+			}
+			if page >= maxPage {
+				break
+			}
+			page++
+			time.Sleep(time.Second)
 		}
-		for _, info := range response.Data.Medias {
-			result = append(result, info)
-		}
-
-		if page >= maxPage {
-			break
-		}
-		page++
-		time.Sleep(time.Second)
-
 	}
 	return result
 }
@@ -484,37 +497,59 @@ func (s BiliSpider) GetSeasonAllVideo(seasonId int64) []SeasonAllVideoDetailInfo
 
 }
 
-func (s BiliSpider) GetFollowingList(resultChan chan<- FollowingUP, closeChan chan<- int64) {
+func (s BiliSpider) GetFollowingList(resultChan chan<- baseStruct.FollowInfo, closeChan chan<- int64, webSiteId int64) {
 	var (
 		total   = 0
 		maxPage = 1
 		f       followings
+		userId  int64
+		err     error
 	)
 	f = followings{
 		pageNumber: 1,
 	}
-	for {
-		response := f.getResponse(0)
-		if response == nil {
-			response = &followingsResponse{}
+	for fileName, userCookies := range biliCookiesManager.cookiesMap {
+		userId, err = models.GetAuthorId(fileName)
+		if err != nil {
+			utils.ErrorLog.Printf("%s用户不存在,请手动添加", fileName)
+			continue
 		}
-		if total == 0 {
-			total = response.Data.Total
-			if total%20 == 0 {
-				maxPage = total / 20
-			} else {
-				maxPage = (total / 20) + 1
+		f.pageNumber = 1
+		f.userCookies = *userCookies
+		utils.Info.Printf("%s用户的id是:%d", fileName, userId)
+		for {
+			response := f.getResponse(0)
+			if response == nil {
+				response = &followingsResponse{}
 			}
+			if total == 0 {
+				total = response.Data.Total
+				if total%20 == 0 {
+					maxPage = total / 20
+				} else {
+					maxPage = (total / 20) + 1
+				}
+			}
+			for _, info := range response.Data.List {
+				followTime := time.Unix(info.Mtime, 0)
+				resultChan <- baseStruct.FollowInfo{
+					WebSiteId:  webSiteId,
+					UserId:     userId,
+					AuthorName: info.Uname,
+					AuthorUUID: strconv.FormatInt(info.Mid, 10),
+					Avatar:     info.Face,
+					AuthorDesc: info.Sign,
+					FollowTime: &followTime,
+				}
+			}
+			if f.pageNumber >= maxPage {
+				break
+			}
+			f.pageNumber++
+			time.Sleep(time.Second * 3)
 		}
-		for _, info := range response.Data.List {
-			resultChan <- info
-		}
-		if f.pageNumber >= maxPage {
-			break
-		}
-		f.pageNumber++
-		time.Sleep(time.Second * 3)
 	}
+
 	closeChan <- 0
 	return
 }
