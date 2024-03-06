@@ -72,22 +72,24 @@ func videoUpdateList(gtx *gin.Context) {
 		requestBody.MaxDuration = requestBody.MaxDuration + 10
 	}
 	result := make([]map[string]interface{}, 0)
-	models.GormDB.Raw(`select a.author_name,
-       a.author_desc,
-       a.avatar,
+	models.GormDB.Raw(`select w.web_name as webSite, 
        v.title,
-       v.video_desc,
-       v.upload_time,
+       v.uuid,
+       CAST(UNIX_TIMESTAMP(v.upload_time) AS UNSIGNED) as uploadTime,
+       v.video_desc as videoDesc,
+       v.cover_url as coverUrl,
        v.duration,
-       v.uuid
-from video v
-         inner join video_author va on va.video_id = v.id
-         inner join author a on a.id = va.author_id
-         inner join follow f on f.author_id = a.id
-where duration > ?
-  and duration < ?
-and v.upload_time >= CURDATE() - INTERVAL 30 DAY
-		order by v.upload_time desc limit ? offset ?`, requestBody.MinDuration, requestBody.MaxDuration,
+       a.author_name as authorName,
+       a.author_web_uid as authorWebUid,
+       a.avatar
+		from video v
+		 inner join video_author va on va.video_id = v.id
+		 inner join author a on va.author_id = a.id 
+		 inner join web_site w on v.web_site_id = w.id
+		inner join follow f on f.author_id=a.id
+		where duration > ? and duration < ?
+		order by v.upload_time
+		limit ? offset ?`, requestBody.MinDuration, requestBody.MaxDuration,
 		requestBody.Size, (requestBody.Page-1)*requestBody.Size).Scan(&result)
 	// and v.upload_time >= CURDATE() - INTERVAL 30 DAY
 	response := BaseResponse{
