@@ -19,6 +19,7 @@ type Config struct {
 	ProxyWebServerLocalPort int    `json:"ProxyWebServerLocalPort"`
 	Token                   string `json:"Token"`
 	AesKey                  string `json:"AesKey"`
+	WebSiteStaticFolderPath string `json:"webSiteStaticFolderPath"`
 }
 
 const WaitImportPrefix = "waitImportFile"

@@ -194,92 +194,110 @@ func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageInd
 
 }
 
-func (s BiliSpider) GetVideoHistoryList(lastHistoryTimestamp int64, VideoHistoryChan chan<- models.Video, VideoHistoryCloseChan chan<- int64) {
+func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, VideoHistoryCloseChan chan<- int64, webSiteId int64) {
 	history := historyRequest{}
 	var (
-		maxNumber       = 100
-		newestTimestamp int64
-		business        string
-		viewAt          int64
-		max             int
+		maxNumber            = 100
+		newestTimestamp      int64
+		business             string
+		viewAt               int64
+		max                  int
+		lastHistoryTimestamp int64
+		err                  error
+		spiderAccount        bool
 	)
-
-	println("lastHistoryTimestamp: ", lastHistoryTimestamp)
-
-	business = ""
-	webSite := models.WebSite{}
-	models.GormDB.Where("web_name=?", "bilibili").First(&webSite)
-	var pushTime time.Time
-	for {
-		data := history.getResponse(max, viewAt, business)
-		if data == nil {
-			println("退出: ", 0)
-			VideoHistoryCloseChan <- 0
-			return
-		}
-		if viewAt == 0 {
-			newestTimestamp = data.Data.List[0].ViewAt
-		}
-		if data.Data.Cursor.Max == 0 || data.Data.Cursor.ViewAt == 0 {
-			// https://s1.hdslb.com/bfs/static/history-record/img/historyend.png
-			println("退出: ", newestTimestamp)
-			VideoHistoryCloseChan <- newestTimestamp
-			return
-		}
-		max = data.Data.Cursor.Max
-		viewAt = data.Data.Cursor.ViewAt
-		business = data.Data.Cursor.Business
-		for _, info := range data.Data.List {
-			if info.ViewAt < lastHistoryTimestamp || maxNumber == 0 {
-				VideoHistoryCloseChan <- newestTimestamp
-				return
+	for fileName, userCookies := range biliCookiesManager.cookiesMap {
+		baseLine := models.GetHistoryBaseLine(fileName)
+		if baseLine != "" {
+			lastHistoryTimestamp, err = strconv.ParseInt(baseLine, 10, 64)
+			if err != nil {
+				utils.ErrorLog.Println("获取历史基线失败")
+				continue
 			}
-			switch info.Badge {
-			// 稿件视频 / 剧集 / 笔记 / 纪录片 / 专栏 / 国创 / 番剧
-			case "": // 稿件视频
-				pushTime = time.Unix(info.ViewAt, 0)
-				VideoHistoryChan <- models.Video{
-					WebSiteId: webSite.Id,
-					Title:     info.Title,
-					Uuid:      info.History.Bvid,
-					CoverUrl:  info.Cover,
-					Authors: []models.VideoAuthor{
-						{Contribute: "UP主", AuthorUUID: strconv.FormatInt(info.AuthorMid, 10), Uuid: info.History.Bvid},
-					},
-					StructAuthor: []models.Author{
-						{
-							AuthorWebUid: strconv.FormatInt(info.AuthorMid, 10),
-							AuthorName:   info.AuthorName,
-							WebSiteId:    webSite.Id,
-							Avatar:       info.AuthorFace,
-						},
-					},
-					ViewHistory: []models.VideoHistory{
-						{ViewTime: pushTime, WebSiteId: webSite.Id, WebUUID: info.History.Bvid},
-					},
+		}
+		println("lastHistoryTimestamp: ", lastHistoryTimestamp)
+
+		business = ""
+		var pushTime time.Time
+		history.userCookie = *userCookies
+		spiderAccount = true
+		for spiderAccount {
+			data := history.getResponse(max, viewAt, business)
+			if data == nil {
+				utils.Info.Printf("b站%s账号爬取历史记录请求异常退出: ", fileName)
+				spiderAccount = false
+				continue
+			}
+			if viewAt == 0 {
+				newestTimestamp = data.Data.List[0].ViewAt
+			}
+			if data.Data.Cursor.Max == 0 || data.Data.Cursor.ViewAt == 0 {
+				// https://s1.hdslb.com/bfs/static/history-record/img/historyend.png
+				utils.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", fileName, newestTimestamp)
+				spiderAccount = false
+				continue
+			}
+			max = data.Data.Cursor.Max
+			viewAt = data.Data.Cursor.ViewAt
+			business = data.Data.Cursor.Business
+			for _, info := range data.Data.List {
+				if info.ViewAt < lastHistoryTimestamp || maxNumber == 0 {
+					utils.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", fileName, newestTimestamp)
+					spiderAccount = false
+					break
 				}
-			case "剧集":
-			case "笔记":
-			case "纪录片":
-			case "专栏":
-			case "国创":
-			case "番剧":
-			case "综艺":
-			case "live":
-				utils.Info.Printf("未处理的历史记录 %v\n", info)
-				continue
-			default:
-				utils.Info.Printf("未知类型的历史记录 %v\n", info)
-				continue
-			}
+				switch info.Badge {
+				// 稿件视频 / 剧集 / 笔记 / 纪录片 / 专栏 / 国创 / 番剧
+				case "": // 稿件视频
+					pushTime = time.Unix(info.ViewAt, 0)
+					VideoHistoryChan <- models.Video{
+						WebSiteId: webSiteId,
+						Title:     info.Title,
+						Uuid:      info.History.Bvid,
+						CoverUrl:  info.Cover,
+						Authors: []models.VideoAuthor{
+							{Contribute: "UP主", AuthorUUID: strconv.FormatInt(info.AuthorMid, 10), Uuid: info.History.Bvid},
+						},
+						StructAuthor: []models.Author{
+							{
+								AuthorWebUid: strconv.FormatInt(info.AuthorMid, 10),
+								AuthorName:   info.AuthorName,
+								WebSiteId:    webSiteId,
+								Avatar:       info.AuthorFace,
+							},
+						},
+						ViewHistory: []models.VideoHistory{
+							{ViewTime: pushTime, WebSiteId: webSiteId, WebUUID: info.History.Bvid},
+						},
+					}
+				case "剧集":
+				case "笔记":
+				case "纪录片":
+				case "专栏":
+				case "国创":
+				case "番剧":
+				case "综艺":
+				case "live":
+					utils.Info.Printf("未处理的历史记录 %v\n", info)
+					continue
+				default:
+					utils.Info.Printf("未知类型的历史记录 %v\n", info)
+					continue
+				}
 
-			if lastHistoryTimestamp == 0 {
-				maxNumber--
-			}
+				if lastHistoryTimestamp == 0 {
+					maxNumber--
+				}
 
+			}
+			if spiderAccount {
+				time.Sleep(time.Second)
+			} else {
+				models.SaveHistoryBaseLine(strconv.FormatInt(newestTimestamp, 10), fileName)
+			}
 		}
-		time.Sleep(time.Second)
 	}
+	VideoHistoryCloseChan <- 0
 }
 
 func SaveVideoHistoryList() {
