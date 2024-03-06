@@ -88,7 +88,7 @@ func videoUpdateList(gtx *gin.Context) {
 		 inner join web_site w on v.web_site_id = w.id
 		inner join follow f on f.author_id=a.id
 		where duration > ? and duration < ?
-		order by  v.upload_time desc 
+		order by v.upload_time desc
 		limit ? offset ?`, requestBody.MinDuration, requestBody.MaxDuration,
 		requestBody.Size, (requestBody.Page-1)*requestBody.Size).Scan(&result)
 	// and v.upload_time >= CURDATE() - INTERVAL 30 DAY

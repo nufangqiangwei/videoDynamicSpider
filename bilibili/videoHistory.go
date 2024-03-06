@@ -60,7 +60,9 @@ type HistoryResponse struct {
 	} `json:"data"`
 }
 
-type historyRequest struct{}
+type historyRequest struct {
+	userCookie cookies
+}
 
 //
 func (h *historyRequest) getRequest(max int, viewAt int64, business string) *http.Request {
@@ -75,13 +77,13 @@ func (h *historyRequest) getRequest(max int, viewAt int64, business string) *htt
 		q.Add("view_at", strconv.FormatInt(viewAt, 10))
 	}
 	request.URL.RawQuery = q.Encode()
-	request.Header.Add("Cookie", biliCookiesManager.getUser(DefaultCookies).cookies)
+	request.Header.Add("Cookie", h.userCookie.cookies)
 	return request
 }
 
 func (h *historyRequest) getResponse(max int, viewAt int64, business string) *HistoryResponse {
-	biliCookiesManager.getUser(DefaultCookies).flushCookies()
-	if !biliCookiesManager.getUser(DefaultCookies).cookiesFail {
+	h.userCookie.flushCookies()
+	if !h.userCookie.cookiesFail {
 		return nil
 	}
 	request := h.getRequest(max, viewAt, business)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/utils"
 )
@@ -22,15 +21,9 @@ func TestHistory(t *testing.T) {
 	vd.getResponse("BV117411r7R1")
 }
 
-func TestFollowings(t *testing.T) {
-	f := followings{
-		pageNumber: 1,
-	}
-	fmt.Printf("%v\n", f.getResponse(0))
-}
 func TestDynamic(t *testing.T) {
 	dynamicVideoObject = dynamicVideo{}
-	response := dynamicVideoObject.getResponse(0, 0, "", biliCookiesManager.getUser(DefaultCookies))
+	response := dynamicVideoObject.getResponse(0, 0, "")
 	if response == nil {
 		println("获取失败")
 	} else {
@@ -57,46 +50,8 @@ func TestJSONDynamic(t *testing.T) {
 	fmt.Printf("%v\n", a)
 }
 
-func TestGetFollowList(t *testing.T) {
-	var (
-		total     = 0
-		maxPage   = 1
-		f         followings
-		localFile utils.WriteFile
-	)
-	localFile = utils.WriteFile{
-		FolderPrefix: []string{baseStruct.RootPath},
-		FileName: func(s string) string {
-			return "followList.json"
-		},
-	}
-	f = followings{}
-	f.getFollowings(1)
-	for {
-		response := f.getResponse(0)
-		if response == nil {
-			response = &followingsResponse{}
-		}
-		if total == 0 {
-			total = response.Data.Total
-			if total%20 == 0 {
-				maxPage = total / 20
-			} else {
-				maxPage = (total / 20) + 1
-			}
-		}
-		x, _ := json.Marshal(response)
-		localFile.WriteLine(x)
-		if f.pageNumber >= maxPage {
-			break
-		}
-		f.pageNumber++
-		time.Sleep(time.Second * 3)
-	}
-}
-
 func TestRelationAuthor(t *testing.T) {
-	err := RelationAuthor(FollowAuthor, "3493118584293963", DefaultCookies)
+	err := RelationAuthor(FollowAuthor, "3493118584293963", "DefaultCookies")
 	if err != nil {
 		println(err.Error())
 		return

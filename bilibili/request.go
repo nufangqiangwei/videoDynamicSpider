@@ -25,12 +25,21 @@ var (
 
 func init() {
 	Spider = BiliSpider{}
-	dynamicVideoObject = dynamicVideo{}
 	biliCookiesManager = cookiesManager{
 		cookiesMap: make(map[string]*cookies),
 	}
 	biliCookiesManager.flushCookies()
 	wbiSignObj.lastUpdateTime = time.Now()
+	for _, c := range biliCookiesManager.cookiesMap {
+		dynamicVideoObject = dynamicVideo{
+			userCookie: *c,
+		}
+		break
+	}
+	if dynamicVideoObject.userCookie.cookies == "" {
+		panic("缺少cookies文件")
+	}
+
 }
 
 type responseCheck interface {
@@ -60,15 +69,24 @@ func responseCodeCheck(response *http.Response, apiResponseStruct responseCheck)
 	code := apiResponseStruct.getCode()
 	if code == -101 {
 		// cookies失效
-		utils.ErrorLog.Println("cookies失效")
-		biliCookiesManager.getUser(DefaultCookies).cookiesFail = false
+
+		requestCookies := response.Request.Cookies()
+		buvid4 := ""
+		for _, c := range requestCookies {
+			if c.Name == "buvid4" {
+				buvid4 = c.Value
+			}
+		}
+		user := biliCookiesManager.cookiesGetUserName("buvid4", buvid4)
+		utils.ErrorLog.Printf("%s:cookies失效", user)
+		biliCookiesManager.getUser(user).cookiesFail = false
 		biliCookiesManager.flushCookies()
-		if biliCookiesManager.getUser(DefaultCookies).cookiesFail {
+		if biliCookiesManager.getUser(user).cookiesFail {
 			time.Sleep(time.Second * 10)
-			return errors.New("cookies失效")
+			return errors.New(fmt.Sprintf("%s:cookies失效", user))
 		} else {
-			utils.ErrorLog.Println("cookies失效，请更新cookies文件2")
-			return errors.New("cookies失效，请更新cookies文件")
+			utils.ErrorLog.Printf("%s:cookies失效，请更新cookies文件2", user)
+			return errors.New(fmt.Sprintf("%s:cookies失效，请更新cookies文件", user))
 		}
 	}
 	if code == -352 {

@@ -3,13 +3,18 @@ package models
 import (
 	"gorm.io/gorm"
 	"time"
+	"videoDynamicAcquisition/utils"
+)
+
+const (
+	defaultUserId int64 = 764886
 )
 
 // BiliSpiderHistory b站抓取记录
 type BiliSpiderHistory struct {
 	Id             int64  `gorm:"primaryKey"`
-	userId         int64  `gorm:"index"`
-	KeyName        string `gorm:"size:255;uniqueIndex"`
+	AuthorId       int64  `gorm:"index"`
+	KeyName        string `gorm:"size:255;"`
 	Values         string `gorm:"size:255"`
 	LastUpdateTime time.Time
 }
@@ -19,56 +24,73 @@ func (m *BiliSpiderHistory) BeforeUpdate(tx *gorm.DB) (err error) {
 	return nil
 }
 
+func getSpiderParam(userName, keyName string) (string, error) {
+	var userId int64
+	if userName == "default" {
+		userId = defaultUserId
+	} else {
+		a := Author{}
+		GormDB.Model(&a).First(&a, "author_name = ?", userName)
+		if a.Id == 0 {
+			return "", nil
+		}
+		userId = a.Id
+	}
+	bsh := &BiliSpiderHistory{}
+	tx := GormDB.First(bsh, "author_id = ? and key_name = ?", userId, keyName)
+	if tx.Error != nil {
+		return "", tx.Error
+	}
+	if tx.RowsAffected == 0 {
+		createErr := GormDB.Create(&BiliSpiderHistory{KeyName: keyName, Values: "", AuthorId: userId, LastUpdateTime: time.Now()}).Error
+		if createErr != nil {
+			return "", createErr
+		}
+	}
+	return bsh.Values, nil
+}
+
+func saveSpiderParam(userName, keyName, values string) error {
+	var userId int64
+	if userName == "default" {
+		userId = defaultUserId
+	} else {
+		a := Author{}
+		GormDB.Model(&a).First(&a, "author_name = ?", userName)
+		if a.Id == 0 {
+			return nil
+		}
+		userId = a.Id
+	}
+	return GormDB.Model(&BiliSpiderHistory{}).Where("author_id = ? and key_name = ?", userId, keyName).Update("values", values).Error
+}
+
 // GetDynamicBaseline 获取上次获取动态的最后baseline
 func GetDynamicBaseline(userName string) string {
-	bsh := &BiliSpiderHistory{}
-	var (
-		userId int64
-		tx     *gorm.DB
-	)
-	if userName == "default" {
-		userId = 1
-	}
-	if userId > 0 {
-		tx = GormDB.Model(&BiliSpiderHistory{}).First(bsh, "user_id = ? and key_name = ?", userId, "dynamic_baseline")
-	} else {
-		tx = GormDB.Model(&BiliSpiderHistory{}).Joins("inner join user on bili_spider_history.user_id = user.id").Where("user.user_name = ? and key_name = ?", userName, "dynamic_baseline").First(bsh)
-	}
-	if tx.Error != nil {
+	configValue, err := getSpiderParam(userName, "dynamic_baseline")
+	if err != nil {
 		return ""
 	}
-	if tx.RowsAffected == 0 {
-		GormDB.Create(&BiliSpiderHistory{KeyName: "dynamic_baseline", Values: ""})
-	}
-	return bsh.Values
+	return configValue
 
 }
-func SaveDynamicBaseline(baseline string, userName string) {
-	var (
-		userId int64
-	)
-	if userName == "default" {
-		userId = 1
+func SaveDynamicBaseline(baseline, userName string) {
+	err := saveSpiderParam(userName, "dynamic_baseline", baseline)
+	if err != nil {
+		utils.ErrorLog.Printf("保存dynamic_baseline失败:%s", err.Error())
 	}
-	if userId > 0 {
-		GormDB.Model(&BiliSpiderHistory{}).Where("user_id = ? and key_name = ?", userId, "dynamic_baseline").Update("values", baseline)
-	} else {
-		GormDB.Model(&BiliSpiderHistory{}).Joins("inner join user on bili_spider_history.user_id = user.id").Where("user.user_name = ? and key_name = ?", userName, "dynamic_baseline").Update("values", baseline)
-	}
-
 }
 
-func GetHistoryBaseLine() string {
-	bsh := &BiliSpiderHistory{}
-	tx := GormDB.First(bsh, "key_name = ? and user_id=764886", "history_baseline")
-	if tx.Error != nil {
+func GetHistoryBaseLine(userName string) string {
+	configValue, err := getSpiderParam(userName, "history_baseline")
+	if err != nil {
 		return ""
 	}
-	if tx.RowsAffected == 0 {
-		GormDB.Create(&BiliSpiderHistory{KeyName: "history_baseline", Values: ""})
-	}
-	return bsh.Values
+	return configValue
 }
-func SaveHistoryBaseLine(baseline string) {
-	GormDB.Model(&BiliSpiderHistory{}).Where("key_name = ? and user_id=764886", "history_baseline").Update("values", baseline)
+func SaveHistoryBaseLine(baseline, userName string) {
+	err := saveSpiderParam(userName, "history_baseline", baseline)
+	if err != nil {
+		utils.ErrorLog.Printf("保存dynamic_baseline失败:%s", err.Error())
+	}
 }

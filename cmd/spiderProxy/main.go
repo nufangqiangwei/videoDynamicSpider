@@ -78,6 +78,7 @@ func main() {
 	//go deleteFile()
 	server := gin.Default()
 	server.POST("recommendVideo", bilibiliRecommendVideoSave)
+	server.POST("uploadStaticFile", deployWebSIteHtmlFile)
 
 	proxyPath := server.Group("proxy", checkToken)
 	proxyPath.POST(baseStruct.AuthorVideoList, getAuthorAllVideo)

@@ -18,7 +18,7 @@ type cookies struct {
 
 const (
 	cookiesFileFolder = "biliCookies"
-	DefaultCookies    = "default"
+	DefaultCookies    = "干煸花椰菜"
 )
 
 func (c *cookies) flushCookies() {
@@ -72,9 +72,6 @@ type cookiesManager struct {
 	cookiesMap map[string]*cookies
 }
 
-func defaultUserCookies() *cookies {
-	return biliCookiesManager.cookiesMap["default"]
-}
 func (cm *cookiesManager) flushCookies() {
 	// 遍历文件夹下的所有cookies文件，刷新cookies
 	files, err := os.ReadDir(path.Join(baseStruct.RootPath, cookiesFileFolder))
@@ -105,4 +102,13 @@ func (cm *cookiesManager) getUser(key string) *cookies {
 		cm.cookiesMap[key] = c
 	}
 	return c
+}
+
+func (cm *cookiesManager) cookiesGetUserName(cookieKey, cookieValue string) string {
+	for userName, cookiesObj := range cm.cookiesMap {
+		if cookiesObj.getCookiesKeyValue(cookieKey) == cookieValue {
+			return userName
+		}
+	}
+	return ""
 }
