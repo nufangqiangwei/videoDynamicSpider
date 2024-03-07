@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
@@ -65,7 +66,20 @@ func readConfig() error {
 	return nil
 }
 
+var (
+	spiderManager = SpiderManager{}
+)
+
+type SpiderManager struct {
+	collection []baseStruct.VideoCollection
+}
+
 func main() {
+	spiderManager = SpiderManager{
+		collection: []baseStruct.VideoCollection{
+			bilibili.Spider,
+		},
+	}
 	err := readConfig()
 	if err != nil {
 		println(err.Error())

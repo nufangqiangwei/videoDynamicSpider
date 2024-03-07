@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
@@ -18,18 +19,34 @@ type BiliSpider struct {
 
 const (
 	defaultUpdateNumber = 100
+	webSiteName         = "bilibili"
 )
+
+var (
+	Spider             = BiliSpider{}
+	wbiSignObj         = wbiSign{}
+	dynamicBaseLineMap map[string]int
+	historyBaseLineMap map[string]int64
+	webSiteId          int64
+)
+
+func (s BiliSpider) Init(dynamicBaseLine map[string]int, historyBaseLine map[string]int64, webSiteTableId int64) {
+	dynamicBaseLineMap = dynamicBaseLine
+	historyBaseLineMap = historyBaseLine
+	fmt.Printf("bilibili初始化成功,\n网站ID:%d,\n动态基线:%v,\n历史基线:%v,\n", webSiteTableId, dynamicBaseLine, historyBaseLine)
+	webSiteId = webSiteTableId
+}
 
 func (s BiliSpider) GetWebSiteName() models.WebSite {
 	return models.WebSite{
-		WebName:          "bilibili",
+		WebName:          webSiteName,
 		WebHost:          "https://www.bilibili.com/",
 		WebAuthorBaseUrl: "https://space.bilibili.com/",
 		WebVideoBaseUrl:  "https://www.bilibili.com/",
 	}
 }
 
-func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- baseStruct.TaskClose, webSiteId int64) {
+func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- baseStruct.TaskClose) {
 	var (
 		intLatestBaseline int
 		videoBaseLine     int
@@ -40,18 +57,22 @@ func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- ba
 		Baseline          string
 		ok                bool
 		requestNumber     int
+		dynamicBaseLine   int
 	)
-	for fileName, userCookies := range biliCookiesManager.cookiesMap {
+	dynamicVideoObject := dynamicVideo{}
+	userEndBaseLine := make([]struct {
+		UserId      int64
+		EndBaseLine string
+	}, 0)
+	for userName, userCookies := range cookies.GetWebSiteUser(webSiteName) {
 		dynamicVideoObject.userCookie = *userCookies
-		dynamicBaseLine := models.GetDynamicBaseline(fileName)
-		if dynamicBaseLine == "" {
+		dynamicBaseLine, ok = dynamicBaseLineMap[userName]
+		if !ok {
+			dynamicBaseLine = 0
+			dynamicBaseLineMap[userName] = 0
+		}
+		if dynamicBaseLine == 0 {
 			updateNumber = defaultUpdateNumber
-		} else {
-			intLatestBaseline, err = strconv.Atoi(dynamicBaseLine)
-			if err != nil {
-				utils.ErrorLog.Printf("intLatestBaseline 转换出错：%d\n", intLatestBaseline)
-				updateNumber = defaultUpdateNumber
-			}
 		}
 
 		var pushTime time.Time
@@ -116,7 +137,7 @@ func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- ba
 					},
 				}
 
-				if dynamicBaseLine == "" {
+				if dynamicBaseLine == 0 {
 					updateNumber--
 					if updateNumber == 0 {
 						breakFlag = false
@@ -130,53 +151,61 @@ func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- ba
 			time.Sleep(time.Second * 5)
 		}
 		if startBaseLine > 0 {
-			models.SaveDynamicBaseline(strconv.Itoa(startBaseLine), fileName)
+			dynamicBaseLineMap[userName] = startBaseLine
+			userEndBaseLine = append(userEndBaseLine, struct {
+				UserId      int64
+				EndBaseLine string
+			}{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.Itoa(startBaseLine)})
 		}
 	}
 	closeChan <- baseStruct.TaskClose{
-		WebSite: "bilibili",
-		Code:    startBaseLine,
+		WebSite: webSiteName,
+		Code:    0,
+		Data:    userEndBaseLine,
 	}
 }
 
-//func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]string {
-//	result := make(map[string]string)
-//	offset := baseOffset
-//	var (
-//		ok      bool
-//		_offset string
-//	)
-//	for {
-//		response := dynamicVideoObject.getResponse(0, author, offset, biliCookiesManager.getUser(DefaultCookies))
-//		if response == nil {
-//			break
-//		}
-//		da, _ := json.Marshal(response)
-//		result[response.Data.Offset] = string(da)
-//
-//		for _, info := range response.Data.Items {
-//			_offset, ok = info.IdStr.(string)
-//			if !ok {
-//				a, ok := info.IdStr.(int)
-//				if ok {
-//					_offset = strconv.Itoa(a)
-//				} else {
-//					break
-//				}
-//			}
-//			if baseOffset == _offset {
-//				break
-//			}
-//		}
-//	}
-//
-//	return result
-//}
+func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]string {
+	result := make(map[string]string)
+	offset := baseOffset
+	var (
+		ok      bool
+		_offset string
+	)
+	dynamicVideoObject := dynamicVideo{
+		userCookie: cookies.NewDefaultUserCookie(webSiteName),
+	}
+	for {
+		response := dynamicVideoObject.getResponse(0, author, offset)
+		if response == nil {
+			break
+		}
+		da, _ := json.Marshal(response)
+		result[response.Data.Offset] = string(da)
+
+		for _, info := range response.Data.Items {
+			_offset, ok = info.IdStr.(string)
+			if !ok {
+				a, ok := info.IdStr.(int)
+				if ok {
+					_offset = strconv.Itoa(a)
+				} else {
+					break
+				}
+			}
+			if baseOffset == _offset {
+				break
+			}
+		}
+	}
+
+	return result
+}
 
 func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageIndex int) map[string]string {
 	result := make(map[string]string)
 	video := videoListPage{
-		userCookie: cookies{},
+		userCookie: cookies.NewDefaultUserCookie(webSiteName),
 	}
 	for {
 		response := video.getResponse(author, startPageIndex)
@@ -194,7 +223,7 @@ func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageInd
 
 }
 
-func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, VideoHistoryCloseChan chan<- int64, webSiteId int64) {
+func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, VideoHistoryCloseChan chan<- baseStruct.TaskClose, webSiteId int64) {
 	history := historyRequest{}
 	var (
 		maxNumber            = 100
@@ -203,20 +232,20 @@ func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, Vi
 		viewAt               int64
 		max                  int
 		lastHistoryTimestamp int64
-		err                  error
 		spiderAccount        bool
+		ok                   bool
 	)
-	for fileName, userCookies := range biliCookiesManager.cookiesMap {
-		baseLine := models.GetHistoryBaseLine(fileName)
-		if baseLine != "" {
-			lastHistoryTimestamp, err = strconv.ParseInt(baseLine, 10, 64)
-			if err != nil {
-				utils.ErrorLog.Println("获取历史基线失败")
-				continue
-			}
+	userEndBaseLine := make([]struct {
+		UserId      int64
+		EndBaseLine string
+	}, 0)
+	for userName, userCookies := range cookies.GetWebSiteUser(webSiteName) {
+		lastHistoryTimestamp, ok = historyBaseLineMap[userName]
+		if !ok {
+			lastHistoryTimestamp = 0
+			historyBaseLineMap[userName] = 0
 		}
 		println("lastHistoryTimestamp: ", lastHistoryTimestamp)
-
 		business = ""
 		var pushTime time.Time
 		history.userCookie = *userCookies
@@ -224,7 +253,7 @@ func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, Vi
 		for spiderAccount {
 			data := history.getResponse(max, viewAt, business)
 			if data == nil {
-				utils.Info.Printf("b站%s账号爬取历史记录请求异常退出: ", fileName)
+				utils.Info.Printf("b站%s账号爬取历史记录请求异常退出: ", userName)
 				spiderAccount = false
 				continue
 			}
@@ -232,8 +261,7 @@ func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, Vi
 				newestTimestamp = data.Data.List[0].ViewAt
 			}
 			if data.Data.Cursor.Max == 0 || data.Data.Cursor.ViewAt == 0 {
-				// https://s1.hdslb.com/bfs/static/history-record/img/historyend.png
-				utils.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", fileName, newestTimestamp)
+				utils.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", userName, newestTimestamp)
 				spiderAccount = false
 				continue
 			}
@@ -242,7 +270,7 @@ func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, Vi
 			business = data.Data.Cursor.Business
 			for _, info := range data.Data.List {
 				if info.ViewAt < lastHistoryTimestamp || maxNumber == 0 {
-					utils.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", fileName, newestTimestamp)
+					utils.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", userName, newestTimestamp)
 					spiderAccount = false
 					break
 				}
@@ -293,11 +321,22 @@ func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, Vi
 			if spiderAccount {
 				time.Sleep(time.Second)
 			} else {
-				models.SaveHistoryBaseLine(strconv.FormatInt(newestTimestamp, 10), fileName)
+				models.SaveHistoryBaseLine(strconv.FormatInt(newestTimestamp, 10), userName)
 			}
 		}
+		if newestTimestamp > 0 {
+			historyBaseLineMap[userName] = newestTimestamp
+			userEndBaseLine = append(userEndBaseLine, struct {
+				UserId      int64
+				EndBaseLine string
+			}{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.FormatInt(newestTimestamp, 10)})
+		}
 	}
-	VideoHistoryCloseChan <- 0
+	VideoHistoryCloseChan <- baseStruct.TaskClose{
+		WebSite: webSiteName,
+		Code:    0,
+		Data:    userEndBaseLine,
+	}
 }
 
 func SaveVideoHistoryList() {
@@ -389,8 +428,8 @@ func (s BiliSpider) GetCollectList() NewCollect {
 		PageIndex   int
 	)
 	PageIndex = 1
-	for _, userCookies := range biliCookiesManager.cookiesMap {
-		mid := userCookies.getCookiesKeyValue("DedeUserID")
+	for _, userCookies := range cookies.GetWebSiteUser(webSiteName) {
+		mid := userCookies.GetCookiesKeyValue("DedeUserID")
 		for {
 			a := getCollectList(mid, PageIndex, *userCookies)
 			if a != nil {
@@ -470,7 +509,7 @@ func (s BiliSpider) GetCollectAllVideo(collectId int64, maxPage int) []CollectVi
 		page        = 1
 		result      []CollectVideoDetailInfo
 	)
-	for _, userCookies := range biliCookiesManager.cookiesMap {
+	for _, userCookies := range cookies.GetWebSiteUser(webSiteName) {
 		for {
 			response = getCollectVideoInfo(collectId, page, *userCookies)
 			if videoNumber == 0 {
@@ -515,25 +554,26 @@ func (s BiliSpider) GetSeasonAllVideo(seasonId int64) []SeasonAllVideoDetailInfo
 
 }
 
-func (s BiliSpider) GetFollowingList(resultChan chan<- baseStruct.FollowInfo, closeChan chan<- int64, webSiteId int64) {
+func (s BiliSpider) GetFollowingList(resultChan chan<- baseStruct.FollowInfo, closeChan chan<- int64) {
 	var (
 		total   = 0
 		maxPage = 1
 		f       followings
 		userId  int64
-		err     error
 	)
 	f = followings{
 		pageNumber: 1,
 	}
-	for fileName, userCookies := range biliCookiesManager.cookiesMap {
-		userId, err = models.GetAuthorId(fileName)
-		if err != nil {
+	for fileName, userCookies := range cookies.GetWebSiteUser(webSiteName) {
+		userId = userCookies.GetDBPrimaryKeyId()
+		if userId == 0 {
 			utils.ErrorLog.Printf("%s用户不存在,请手动添加", fileName)
 			continue
 		}
 		f.pageNumber = 1
 		f.userCookies = *userCookies
+		maxPage = 1
+		total = 0
 		utils.Info.Printf("%s用户的id是:%d", fileName, userId)
 		for {
 			response := f.getResponse(0)
@@ -564,7 +604,7 @@ func (s BiliSpider) GetFollowingList(resultChan chan<- baseStruct.FollowInfo, cl
 				break
 			}
 			f.pageNumber++
-			time.Sleep(time.Second * 3)
+			time.Sleep(time.Second * 1)
 		}
 	}
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
@@ -64,16 +65,16 @@ type FollowingUP struct {
 
 type followings struct {
 	pageNumber  int
-	userCookies cookies
+	userCookies cookies.UserCookie
 }
 
 func (f *followings) getRequest() *http.Request {
 	// https://api.bilibili.com/x/relation/followings?vmid=10932398&pn=1&ps=20&order=desc&order_type=&gaia_source=main_web
 	request, _ := http.NewRequest("GET", followingsBseUrl, nil)
-	request.Header.Add("Cookie", f.userCookies.cookies)
+	request.Header.Add("Cookie", f.userCookies.GetCookies())
 	//request.Header.Add("User-Agent", "Mozilla/5.0")
 	q := request.URL.Query()
-	q.Add("vmid", f.userCookies.getCookiesKeyValue("DedeUserID"))
+	q.Add("vmid", f.userCookies.GetCookiesKeyValue("DedeUserID"))
 	q.Add("pn", strconv.Itoa(f.pageNumber))
 	q.Add("ps", "20")
 	q.Add("order", "desc")
@@ -88,7 +89,7 @@ func (f *followings) getResponse(retriesNumber int) *followingsResponse {
 		utils.ErrorLog.Println("重试次数过多")
 		return nil
 	}
-	f.userCookies.flushCookies()
+	f.userCookies.FlushCookies()
 	request := f.getRequest()
 	//utils.Info.Println("请求地址", request.URL.String())
 	client := &http.Client{}
@@ -99,7 +100,7 @@ func (f *followings) getResponse(retriesNumber int) *followingsResponse {
 		return nil
 	}
 	result := new(followingsResponse)
-	err = responseCodeCheck(response, result)
+	err = responseCodeCheck(response, result, f.userCookies)
 	if err != nil {
 		return nil
 	}
@@ -107,7 +108,7 @@ func (f *followings) getResponse(retriesNumber int) *followingsResponse {
 
 }
 
-func (f *followings) getFollowings(webSiteId int64, cookiesObj cookies) (result []models.Author) {
+func (f *followings) getFollowings(webSiteId int64) (result []models.Author) {
 	f.pageNumber = 1
 	result = make([]models.Author, 0)
 	response := f.getResponse(0)

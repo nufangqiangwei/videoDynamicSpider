@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -141,7 +142,7 @@ type VideoList struct {
 	VtDisplay     string `json:"vt_display"`
 }
 type videoListPage struct {
-	userCookie cookies
+	userCookie cookies.UserCookie
 }
 
 func (v *videoListPage) getRequest(mid string, pageIndex int) *http.Request {
@@ -153,15 +154,15 @@ func (v *videoListPage) getRequest(mid string, pageIndex int) *http.Request {
 	q.Add("pn", strconv.Itoa(pageIndex))
 
 	request.URL.RawQuery = wbiSignObj.getSing(q).Encode()
-	request.Header.Add("Cookie", v.userCookie.cookies)
+	request.Header.Add("Cookie", v.userCookie.GetCookies())
 	request.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69")
 	//utils.Info.Println(request.URL.String())
 	return request
 }
 
 func (v *videoListPage) getResponse(mid string, pageIndex int) *VideoListPageResponse {
-	v.userCookie.flushCookies()
-	if !v.userCookie.cookiesFail {
+	v.userCookie.FlushCookies()
+	if !v.userCookie.GetStatus() {
 		return nil
 	}
 	response, err := http.DefaultClient.Do(v.getRequest(mid, pageIndex))
@@ -171,7 +172,7 @@ func (v *videoListPage) getResponse(mid string, pageIndex int) *VideoListPageRes
 		return nil
 	}
 	responseBody := new(VideoListPageResponse)
-	err = responseCodeCheck(response, responseBody)
+	err = responseCodeCheck(response, responseBody, v.userCookie)
 	if err != nil {
 		return nil
 	}
@@ -180,7 +181,7 @@ func (v *videoListPage) getResponse(mid string, pageIndex int) *VideoListPageRes
 
 func GetAuthorAllVideoListByByte(uid string, pageIndex int) ([]byte, error, string) {
 	v := videoListPage{
-		userCookie: cookies{},
+		userCookie: cookies.NewDefaultUserCookie("bilibili"),
 	}
 	response, err := http.DefaultClient.Do(v.getRequest(uid, pageIndex))
 

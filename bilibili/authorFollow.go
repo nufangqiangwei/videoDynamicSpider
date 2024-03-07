@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"videoDynamicAcquisition/cookies"
 )
 
 // api文档 https://socialsisteryi.github.io/bilibili-API-collect/docs/user/relation.html#操作关系
@@ -81,13 +82,13 @@ curl 'https://api.bilibili.com/x/relation/modify' \
 */
 const (
 	relationAuthorUrl  = "https://api.bilibili.com/x/relation/modify"
-	FollowAuthor       = 1
-	UnFollowAuthor     = 2
-	HideFollowAuthor   = 3
-	UnHideFollowAuthor = 4
-	InToBlackList      = 5
-	RemoveBlackList    = 6
-	RemoveFollowers    = 7
+	FollowAuthor       = 1 // 关注
+	UnFollowAuthor     = 2 // 取关
+	HideFollowAuthor   = 3 // 悄悄关注
+	UnHideFollowAuthor = 4 // 取消悄悄关注
+	InToBlackList      = 5 // 拉黑
+	RemoveBlackList    = 6 // 取消拉黑
+	RemoveFollowers    = 7 // 踢出粉丝
 )
 
 type RelationAuthorRequestBody struct {
@@ -104,7 +105,8 @@ type RelationAuthorResponse struct {
 	Ttl     int    `json:"ttl"`
 }
 
-func RelationAuthor(action int, authorMid, user string) error {
+// RelationAuthor 用户关注操作
+func RelationAuthor(action int, authorMid string, targetUser cookies.UserCookie) error {
 	switch action {
 	case FollowAuthor:
 	case UnFollowAuthor:
@@ -121,14 +123,14 @@ func RelationAuthor(action int, authorMid, user string) error {
 	formData.Set("fid", authorMid)
 	formData.Set("act", strconv.Itoa(action))
 	formData.Set("re_src", "11")
-	formData.Set("csrf", biliCookiesManager.getUser(user).getCookiesKeyValue("bili_jct"))
+	formData.Set("csrf", targetUser.GetCookiesKeyValue("bili_jct"))
 	formEncoded := formData.Encode()
 
 	request, err := http.NewRequest("POST", relationAuthorUrl, strings.NewReader(formEncoded))
 	if err != nil {
 		return err
 	}
-	request.Header.Add("Cookie", biliCookiesManager.getUser(user).cookies)
+	request.Header.Add("Cookie", targetUser.GetCookies())
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Add("Referer", "https://space.bilibili.com/"+authorMid)
 	request.Header.Add("Origin", "https://space.bilibili.com")

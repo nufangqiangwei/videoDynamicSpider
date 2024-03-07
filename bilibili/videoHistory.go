@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -61,7 +62,7 @@ type HistoryResponse struct {
 }
 
 type historyRequest struct {
-	userCookie cookies
+	userCookie cookies.UserCookie
 }
 
 //
@@ -77,13 +78,13 @@ func (h *historyRequest) getRequest(max int, viewAt int64, business string) *htt
 		q.Add("view_at", strconv.FormatInt(viewAt, 10))
 	}
 	request.URL.RawQuery = q.Encode()
-	request.Header.Add("Cookie", h.userCookie.cookies)
+	request.Header.Add("Cookie", h.userCookie.GetCookies())
 	return request
 }
 
 func (h *historyRequest) getResponse(max int, viewAt int64, business string) *HistoryResponse {
-	h.userCookie.flushCookies()
-	if !h.userCookie.cookiesFail {
+	h.userCookie.FlushCookies()
+	if !h.userCookie.GetStatus() {
 		return nil
 	}
 	request := h.getRequest(max, viewAt, business)
@@ -93,7 +94,7 @@ func (h *historyRequest) getResponse(max int, viewAt int64, business string) *Hi
 		return nil
 	}
 	result := new(HistoryResponse)
-	err = responseCodeCheck(response, result)
+	err = responseCodeCheck(response, result, h.userCookie)
 	if err != nil {
 		return nil
 	}

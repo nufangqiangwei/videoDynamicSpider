@@ -12,6 +12,7 @@ import (
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
+	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
@@ -27,7 +28,7 @@ const (
 )
 
 var (
-	videoCollection []VideoCollection
+	videoCollection []baseStruct.VideoCollection
 	wheel           *timeWheel.TimeWheel
 	spider          *Spider
 	historyTaskId   int64
@@ -35,17 +36,12 @@ var (
 	config          *utils.Config
 )
 
-type VideoCollection interface {
-	GetWebSiteName() models.WebSite
-	GetVideoList(chan<- models.Video, chan<- baseStruct.TaskClose, int64)
-}
-
 type Spider struct {
 	interval int64
 }
 
 func readConfig() error {
-	fileData, err := os.ReadFile("./config.json")
+	fileData, err := os.ReadFile("E:\\GoCode\\videoDynamicAcquisition\\cmd\\spider\\config.json")
 	if err != nil {
 		println(err.Error())
 		return err
@@ -80,9 +76,10 @@ func init() {
 		dataPath = baseStruct.RootPath
 	}
 	utils.InitLog(dataPath)
-
+	cookies.FlushAllCookies()
 	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), false)
+	initWebSiteSpider()
 	wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
 		IsRun: false,
 		Log:   utils.TimeWheelLog,
@@ -91,8 +88,61 @@ func init() {
 	utils.Info.Println("初始化完成：", time.Now().Format("2006.01.02 15:04:05"))
 }
 
+func initWebSiteSpider() {
+	w := models.WebSite{}
+	models.GormDB.Where("web_name=?", bilibili.Spider.GetWebSiteName().WebName).First(&w)
+	if w.Id == 0 {
+		panic(fmt.Sprintf("%s站点在数据库中找不到对应的数据。", bilibili.Spider.GetWebSiteName().WebName))
+	}
+	var (
+		dynamicBaseLine map[string]int
+		historyBaseLine map[string]int64
+	)
+	dynamicBaseLine = make(map[string]int)
+	historyBaseLine = make(map[string]int64)
+	cookies.RangeCookiesMap(func(webSiteName, userName string, userCookie *cookies.UserCookie) {
+		userId, err := models.GetAuthorId(userName)
+		if err != nil {
+			utils.ErrorLog.Printf("获取%s用户id失败：%s\n", userName, err.Error())
+			return
+		}
+		userCookie.SetDBPrimaryKeyId(userId)
+
+		if webSiteName == bilibili.Spider.GetWebSiteName().WebName {
+			var (
+				result []models.BiliSpiderHistory
+
+				err                  error
+				intLatestBaseline    int
+				lastHistoryTimestamp int64
+			)
+			models.GormDB.Model(&models.BiliSpiderHistory{}).Where("author_id = ?", userId).Find(&result)
+			for _, rowData := range result {
+				if rowData.KeyName == "dynamic_baseline" {
+					intLatestBaseline, err = strconv.Atoi(rowData.Values)
+					if err != nil {
+						utils.ErrorLog.Printf("转换%s的dynamic_baseline失败：%s\n", userName, err.Error())
+						continue
+					}
+					dynamicBaseLine[userName] = intLatestBaseline
+				}
+				if rowData.KeyName == "history_baseline" {
+					lastHistoryTimestamp, err = strconv.ParseInt(rowData.Values, 10, 64)
+					if err != nil {
+						utils.ErrorLog.Printf("转换%s的history_baseline失败：%s\n", userName, err.Error())
+						continue
+					}
+					historyBaseLine[userName] = lastHistoryTimestamp
+				}
+			}
+		}
+	})
+	bilibili.Spider.Init(dynamicBaseLine, historyBaseLine, w.Id)
+}
+
 func main() {
-	videoCollection = []VideoCollection{
+
+	videoCollection = []baseStruct.VideoCollection{
 		bilibili.Spider,
 	}
 	spider = &Spider{
@@ -178,7 +228,7 @@ func (s *Spider) getDynamic(interface{}) {
 			utils.ErrorLog.Printf("%s站点在数据库中找不到对应的数据。", v.GetWebSiteName().WebName)
 			continue
 		}
-		go v.GetVideoList(videoResultChan, closeChan, webSite.Id)
+		go v.GetVideoList(videoResultChan, closeChan)
 		runWebSite = append(runWebSite, v.GetWebSiteName().WebName)
 	}
 
@@ -199,8 +249,13 @@ func (s *Spider) getDynamic(interface{}) {
 					break
 				}
 			}
-			if closeInfo.WebSite == "bilibili" && closeInfo.Code > 0 {
-
+			if closeInfo.WebSite == bilibili.Spider.GetWebSiteName().WebName {
+				for _, info := range closeInfo.Data {
+					err = models.SaveSpiderParamByUserId(info.UserId, "dynamic_baseline", info.EndBaseLine)
+					if err != nil {
+						utils.ErrorLog.Printf("保存dynamic_baseline失败：%s\n", err.Error())
+					}
+				}
 			}
 		}
 		if len(runWebSite) == 0 {
@@ -237,22 +292,24 @@ func getHistory(interface{}) {
 		}
 	}()
 	utils.Info.Printf("历史任务执行id：%d\n", historyTaskId)
-	//bilibili.SaveVideoHistoryList()
-	//var err error
-	//historyTaskId, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
-	//if err != nil {
-	//	utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-	//	return
-	//}
+
 	var err error
 	VideoHistoryChan := make(chan models.Video)
-	VideoHistoryCloseChan := make(chan int64)
+	VideoHistoryCloseChan := make(chan baseStruct.TaskClose)
 	go bilibili.Spider.GetVideoHistoryList(VideoHistoryChan, VideoHistoryCloseChan, 1)
 	for {
 		select {
 		case videoInfo := <-VideoHistoryChan:
 			videoInfo.UpdateVideo()
-		case <-VideoHistoryCloseChan:
+		case closeInfo := <-VideoHistoryCloseChan:
+			if closeInfo.WebSite == bilibili.Spider.GetWebSiteName().WebName {
+				for _, info := range closeInfo.Data {
+					err = models.SaveSpiderParamByUserId(info.UserId, "dynamic_baseline", info.EndBaseLine)
+					if err != nil {
+						utils.ErrorLog.Printf("保存dynamic_baseline失败：%s\n", err.Error())
+					}
+				}
+			}
 			historyTaskId, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
 			if err != nil {
 				utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
@@ -508,7 +565,7 @@ func updateFollowInfo(interface{}) {
 	}
 	resultChan := make(chan baseStruct.FollowInfo)
 	closeChan := make(chan int64)
-	go bilibili.Spider.GetFollowingList(resultChan, closeChan, web.Id)
+	go bilibili.Spider.GetFollowingList(resultChan, closeChan)
 
 	var (
 		followList           map[int64]map[string]int64

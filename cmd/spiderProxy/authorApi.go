@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	"videoDynamicAcquisition/bilibili"
+	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
@@ -35,10 +36,55 @@ func migrateFollowAuthor(gtx *gin.Context) {
 		gtx.JSONP(400, map[string]string{"msg": "参数错误"})
 		return
 	}
-	err = bilibili.RelationAuthor(bilibili.FollowAuthor, requestBody.AuthorUid, "xiaohao")
+	user := cookies.GetUser(bilibili.Spider.GetWebSiteName().WebName, "xiaohao")
+	err = bilibili.RelationAuthor(bilibili.FollowAuthor, requestBody.AuthorUid, *user)
 	if err != nil {
 		gtx.JSONP(400, map[string]string{"msg": "关注失败"})
 		utils.ErrorLog.Printf("子账号添加关注失败,%s", err.Error())
 		return
 	}
+}
+
+type followAuthorRequestBody struct {
+	WebName        string `json:"webName"`
+	AuthorUid      string `json:"authorUid"`
+	SourceUserName string `json:"sourceUserName"`
+	TargetUserName string `json:"targetUserName"`
+}
+
+func followAuthor(gtx *gin.Context) {
+	requestBody := followAuthorRequestBody{}
+	err := gtx.BindJSON(&requestBody)
+	if err != nil {
+		gtx.JSONP(400, map[string]string{"msg": "参数错误"})
+		return
+	}
+	var (
+		sourceUser *cookies.UserCookie
+		targetUser *cookies.UserCookie
+	)
+	for _, webSiteInfo := range spiderManager.collection {
+		if webSiteInfo.GetWebSiteName().WebName == requestBody.WebName {
+			sourceUser = cookies.GetUser(webSiteInfo.GetWebSiteName().WebName, requestBody.SourceUserName)
+			sourceUser = cookies.GetUser(webSiteInfo.GetWebSiteName().WebName, requestBody.TargetUserName)
+			break
+		}
+	}
+	if sourceUser == nil || targetUser == nil {
+		gtx.JSONP(400, map[string]string{"msg": "账号错误"})
+		return
+	}
+	err = bilibili.RelationAuthor(bilibili.FollowAuthor, requestBody.AuthorUid, *targetUser)
+	if err != nil {
+		gtx.JSONP(400, map[string]string{"msg": "关注失败"})
+		utils.ErrorLog.Printf("子账号添加关注失败,%s", err.Error())
+		return
+	}
+	err = bilibili.RelationAuthor(bilibili.UnFollowAuthor, requestBody.AuthorUid, *sourceUser)
+	if err != nil {
+		gtx.JSONP(400, map[string]string{"msg": "取关失败"})
+		utils.ErrorLog.Printf("主账号取关失败,%s", err.Error())
+		return
+	}
+
 }

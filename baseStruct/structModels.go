@@ -1,6 +1,9 @@
 package baseStruct
 
-import "time"
+import (
+	"time"
+	"videoDynamicAcquisition/models"
+)
 
 type FollowInfo struct {
 	WebSiteId  int64
@@ -10,4 +13,9 @@ type FollowInfo struct {
 	Avatar     string
 	AuthorDesc string
 	FollowTime *time.Time
+}
+
+type VideoCollection interface {
+	GetWebSiteName() models.WebSite
+	GetVideoList(chan<- models.Video, chan<- TaskClose)
 }

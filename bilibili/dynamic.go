@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -232,7 +233,7 @@ type dynamicVideoInfo struct {
 }
 
 type dynamicVideo struct {
-	userCookie cookies
+	userCookie cookies.UserCookie
 }
 
 // getRequest 设置请求头
@@ -258,14 +259,14 @@ func (b *dynamicVideo) getRequest(mid int, offset string) *http.Request {
 	}
 
 	request.URL.RawQuery = q.Encode()
-	request.Header.Add("Cookie", b.userCookie.cookies)
+	request.Header.Add("Cookie", b.userCookie.GetCookies())
 	return request
 }
 
 func (b *dynamicVideo) getUpdateVideoNumber(updateBaseline string) int {
 	utils.Info.Println("获取更新视频数量")
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all/update?type=video&update_baseline="+updateBaseline, nil)
-	request.Header.Add("Cookie", b.userCookie.cookies)
+	request.Header.Add("Cookie", b.userCookie.GetCookies())
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		utils.ErrorLog.Println(err.Error())
@@ -291,8 +292,8 @@ func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (d
 	if retriesNumber > 3 {
 		return dynamicResponseBody
 	}
-	b.userCookie.flushCookies()
-	if !b.userCookie.cookiesFail {
+	b.userCookie.FlushCookies()
+	if !b.userCookie.GetStatus() {
 		return dynamicResponseBody
 	}
 
@@ -302,7 +303,7 @@ func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (d
 		return
 	}
 	dynamicResponseBody = &dynamicResponse{}
-	err = responseCodeCheck(response, dynamicResponseBody)
+	err = responseCodeCheck(response, dynamicResponseBody, b.userCookie)
 	if err != nil {
 		return nil
 	}

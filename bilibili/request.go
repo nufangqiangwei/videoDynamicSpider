@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"time"
+	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -14,40 +15,12 @@ const (
 	followingsBseUrl = "https://api.bilibili.com/x/relation/followings"
 )
 
-var (
-	Spider             BiliSpider
-	biliCookiesManager cookiesManager
-	dynamicVideoObject dynamicVideo
-
-	//latestBaseline     = "" // 836201790065082504
-	wbiSignObj = wbiSign{}
-)
-
-func init() {
-	Spider = BiliSpider{}
-	biliCookiesManager = cookiesManager{
-		cookiesMap: make(map[string]*cookies),
-	}
-	biliCookiesManager.flushCookies()
-	wbiSignObj.lastUpdateTime = time.Now()
-	for _, c := range biliCookiesManager.cookiesMap {
-		dynamicVideoObject = dynamicVideo{
-			userCookie: *c,
-		}
-		break
-	}
-	if dynamicVideoObject.userCookie.cookies == "" {
-		panic("缺少cookies文件")
-	}
-
-}
-
 type responseCheck interface {
 	getCode() int
 	bindJSON([]byte) error
 }
 
-func responseCodeCheck(response *http.Response, apiResponseStruct responseCheck) error {
+func responseCodeCheck(response *http.Response, apiResponseStruct responseCheck, user cookies.UserCookie) error {
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	if response.StatusCode != 200 {
@@ -69,24 +42,14 @@ func responseCodeCheck(response *http.Response, apiResponseStruct responseCheck)
 	code := apiResponseStruct.getCode()
 	if code == -101 {
 		// cookies失效
-
-		requestCookies := response.Request.Cookies()
-		buvid4 := ""
-		for _, c := range requestCookies {
-			if c.Name == "buvid4" {
-				buvid4 = c.Value
-			}
-		}
-		user := biliCookiesManager.cookiesGetUserName("buvid4", buvid4)
-		utils.ErrorLog.Printf("%s:cookies失效", user)
-		biliCookiesManager.getUser(user).cookiesFail = false
-		biliCookiesManager.flushCookies()
-		if biliCookiesManager.getUser(user).cookiesFail {
+		utils.ErrorLog.Printf("%s:cookies失效", user.GetUserName())
+		user.InvalidCookies()
+		if user.GetStatus() {
 			time.Sleep(time.Second * 10)
-			return errors.New(fmt.Sprintf("%s:cookies失效", user))
+			return errors.New(fmt.Sprintf("%s:cookies失效", user.GetUserName()))
 		} else {
-			utils.ErrorLog.Printf("%s:cookies失效，请更新cookies文件2", user)
-			return errors.New(fmt.Sprintf("%s:cookies失效，请更新cookies文件", user))
+			utils.ErrorLog.Printf("%s:cookies失效，请更新cookies文件2", user.GetUserName())
+			return errors.New(fmt.Sprintf("%s:cookies失效，请更新cookies文件", user.GetUserName()))
 		}
 	}
 	if code == -352 {

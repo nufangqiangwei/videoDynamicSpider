@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -458,7 +459,7 @@ func (vd *VideoDetailResponse) BindJSON(data []byte) error {
 }
 
 type videoDetail struct {
-	userCookie cookies
+	userCookie cookies.UserCookie
 }
 
 func (receiver videoDetail) getRequest(byid string) *http.Request {
@@ -467,13 +468,13 @@ func (receiver videoDetail) getRequest(byid string) *http.Request {
 	q.Add("bvid", byid)
 	request.URL.RawQuery = q.Encode()
 	request.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.69")
-	//request.Header.Add("Cookie", bilibiliCookies.cookies)
+	//request.Header.Add("Cookie", bilibiliCookies.UserCookie)
 	return request
 }
 
 func (receiver videoDetail) getResponse(bvid string) *VideoDetailResponse {
-	receiver.userCookie.flushCookies()
-	if !receiver.userCookie.cookiesFail {
+	receiver.userCookie.FlushCookies()
+	if !receiver.userCookie.GetStatus() {
 		return nil
 	}
 	response, err := http.DefaultClient.Do(receiver.getRequest(bvid))
@@ -482,7 +483,7 @@ func (receiver videoDetail) getResponse(bvid string) *VideoDetailResponse {
 		return nil
 	}
 	result := new(VideoDetailResponse)
-	err = responseCodeCheck(response, result)
+	err = responseCodeCheck(response, result, receiver.userCookie)
 	if err != nil {
 		return nil
 	}
@@ -490,8 +491,8 @@ func (receiver videoDetail) getResponse(bvid string) *VideoDetailResponse {
 }
 
 func GetVideoDetailByByte(bvid string) ([]byte, string) {
-	var userCookie cookies
-	for _, c := range biliCookiesManager.cookiesMap {
+	var userCookie cookies.UserCookie
+	for _, c := range cookies.GetWebSiteUser(webSiteName) {
 		userCookie = *c
 		break
 	}

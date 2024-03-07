@@ -24,7 +24,7 @@ func (m *BiliSpiderHistory) BeforeUpdate(tx *gorm.DB) (err error) {
 	return nil
 }
 
-func getSpiderParam(userName, keyName string) (string, error) {
+func getSpiderParamByUserName(userName, keyName string) (string, error) {
 	var userId int64
 	if userName == "default" {
 		userId = defaultUserId
@@ -50,7 +50,7 @@ func getSpiderParam(userName, keyName string) (string, error) {
 	return bsh.Values, nil
 }
 
-func saveSpiderParam(userName, keyName, values string) error {
+func saveSpiderParamByUserName(userName, keyName, values string) error {
 	var userId int64
 	if userName == "default" {
 		userId = defaultUserId
@@ -65,9 +65,27 @@ func saveSpiderParam(userName, keyName, values string) error {
 	return GormDB.Model(&BiliSpiderHistory{}).Where("author_id = ? and key_name = ?", userId, keyName).Update("values", values).Error
 }
 
+func GetSpiderParamByUserId(userId int64, keyName string) (string, error) {
+	bsh := &BiliSpiderHistory{}
+	tx := GormDB.First(bsh, "author_id = ? and key_name = ?", userId, keyName)
+	if tx.Error != nil {
+		return "", tx.Error
+	}
+	if tx.RowsAffected == 0 {
+		createErr := GormDB.Create(&BiliSpiderHistory{KeyName: keyName, Values: "", AuthorId: userId, LastUpdateTime: time.Now()}).Error
+		if createErr != nil {
+			return "", createErr
+		}
+	}
+	return bsh.Values, nil
+}
+func SaveSpiderParamByUserId(userId int64, keyName, values string) error {
+	return GormDB.Model(&BiliSpiderHistory{}).Where("author_id = ? and key_name = ?", userId, keyName).Update("values", values).Error
+}
+
 // GetDynamicBaseline 获取上次获取动态的最后baseline
 func GetDynamicBaseline(userName string) string {
-	configValue, err := getSpiderParam(userName, "dynamic_baseline")
+	configValue, err := getSpiderParamByUserName(userName, "dynamic_baseline")
 	if err != nil {
 		return ""
 	}
@@ -75,21 +93,21 @@ func GetDynamicBaseline(userName string) string {
 
 }
 func SaveDynamicBaseline(baseline, userName string) {
-	err := saveSpiderParam(userName, "dynamic_baseline", baseline)
+	err := saveSpiderParamByUserName(userName, "dynamic_baseline", baseline)
 	if err != nil {
 		utils.ErrorLog.Printf("保存dynamic_baseline失败:%s", err.Error())
 	}
 }
 
 func GetHistoryBaseLine(userName string) string {
-	configValue, err := getSpiderParam(userName, "history_baseline")
+	configValue, err := getSpiderParamByUserName(userName, "history_baseline")
 	if err != nil {
 		return ""
 	}
 	return configValue
 }
 func SaveHistoryBaseLine(baseline, userName string) {
-	err := saveSpiderParam(userName, "history_baseline", baseline)
+	err := saveSpiderParamByUserName(userName, "history_baseline", baseline)
 	if err != nil {
 		utils.ErrorLog.Printf("保存dynamic_baseline失败:%s", err.Error())
 	}

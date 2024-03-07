@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -193,22 +194,22 @@ type CollectVideoDetailInfo struct {
 }
 
 // https://api.bilibili.com/x/v3/fav/folder/created/list-all?up_mid=10932398 获取收藏夹列表
-func getCollectList(mid string, pageIndex int, userCookie cookies) *collectListResponse {
-	userCookie.flushCookies()
+func getCollectList(mid string, pageIndex int, userCookie cookies.UserCookie) *collectListResponse {
+	userCookie.FlushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/v3/fav/folder/created/list-all", nil)
 	q := request.URL.Query()
 	q.Add("up_mid", mid)
 	q.Add("pn", strconv.Itoa(pageIndex))
 	q.Add("ps", "50")
 	request.URL.RawQuery = q.Encode()
-	request.Header.Add("Cookie", userCookie.cookies)
+	request.Header.Add("Cookie", userCookie.GetCookies())
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		utils.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
 	result := new(collectListResponse)
-	err = responseCodeCheck(response, result)
+	err = responseCodeCheck(response, result, userCookie)
 	if err != nil {
 		return nil
 	}
@@ -216,8 +217,8 @@ func getCollectList(mid string, pageIndex int, userCookie cookies) *collectListR
 }
 
 // https://api.bilibili.com/x/v3/fav/folder/collected/list?pn=1&ps=20&up_mid=10932398&platform=web 获取收藏和订阅列表
-func subscriptionList(mid string, pageIndex int, userCookie cookies) *subscriptionListResponse {
-	userCookie.flushCookies()
+func subscriptionList(mid string, pageIndex int, userCookie cookies.UserCookie) *subscriptionListResponse {
+	userCookie.FlushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/v3/fav/folder/collected/list", nil)
 	q := request.URL.Query()
 	q.Add("up_mid", mid)
@@ -225,14 +226,14 @@ func subscriptionList(mid string, pageIndex int, userCookie cookies) *subscripti
 	q.Add("ps", "50")
 	q.Add("platform", "web")
 	request.URL.RawQuery = q.Encode()
-	request.Header.Add("Cookie", userCookie.cookies)
+	request.Header.Add("Cookie", userCookie.GetCookies())
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		utils.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
 	result := new(subscriptionListResponse)
-	err = responseCodeCheck(response, result)
+	err = responseCodeCheck(response, result, userCookie)
 	if err != nil {
 		return nil
 	}
@@ -242,20 +243,21 @@ func subscriptionList(mid string, pageIndex int, userCookie cookies) *subscripti
 // GetCollectVideoList 只能获取个人收藏夹的视频列表
 // https://api.bilibili.com/x/v3/fav/resource/ids?media_id=55899098&platform=web
 func GetCollectVideoList(id int64, userName string) *CollectAllVideoListResponse {
-	biliCookiesManager.getUser(userName).flushCookies()
+	userCookie := cookies.GetUser(webSiteName, userName)
+	userCookie.FlushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/v3/fav/resource/ids", nil)
 	q := request.URL.Query()
 	q.Add("media_id", strconv.FormatInt(id, 10))
 	q.Add("platform", "web")
 	request.URL.RawQuery = q.Encode()
-	request.Header.Add("Cookie", biliCookiesManager.getUser(userName).cookies)
+	request.Header.Add("Cookie", userCookie.GetCookies())
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		utils.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
 	result := new(CollectAllVideoListResponse)
-	err = responseCodeCheck(response, result)
+	err = responseCodeCheck(response, result, *userCookie)
 	if err != nil {
 		return nil
 	}
@@ -264,8 +266,8 @@ func GetCollectVideoList(id int64, userName string) *CollectAllVideoListResponse
 
 // 只能获取个人收藏夹的视频列表
 // https://api.bilibili.com/x/v3/fav/resource/list?media_id=55899098&pn=1&ps=20&keyword=&order=mtime&type=0&tid=0&platform=web
-func getCollectVideoInfo(collectId int64, page int, userCookie cookies) *collectVideoDetailResponse {
-	userCookie.flushCookies()
+func getCollectVideoInfo(collectId int64, page int, userCookie cookies.UserCookie) *collectVideoDetailResponse {
+	userCookie.FlushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/v3/fav/resource/list", nil)
 	q := request.URL.Query()
 	q.Add("media_id", strconv.FormatInt(collectId, 10))
@@ -277,14 +279,14 @@ func getCollectVideoInfo(collectId int64, page int, userCookie cookies) *collect
 	q.Add("tid", "0")
 	q.Add("platform", "web")
 	request.URL.RawQuery = q.Encode()
-	request.Header.Add("Cookie", userCookie.cookies)
+	request.Header.Add("Cookie", userCookie.GetCookies())
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		utils.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
 	result := new(collectVideoDetailResponse)
-	err = responseCodeCheck(response, result)
+	err = responseCodeCheck(response, result, userCookie)
 	if err != nil {
 		return nil
 	}
@@ -294,21 +296,21 @@ func getCollectVideoInfo(collectId int64, page int, userCookie cookies) *collect
 
 // https://api.bilibili.com/x/space/fav/season/list?season_id=1057928&pn=1&ps=20
 func getSeasonVideoInfo(collectId int64, page int) *seasonAllVideoDetailResponse {
-	//biliCookiesManager.getUser(DefaultCookies).flushCookies()
+	//biliCookiesManager.GetUser(DefaultCookies).FlushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/space/fav/season/list", nil)
 	q := request.URL.Query()
 	q.Add("season_id", strconv.FormatInt(collectId, 10))
 	q.Add("pn", strconv.Itoa(page))
 	q.Add("ps", "20")
 	request.URL.RawQuery = q.Encode()
-	//request.Header.Add("Cookie", biliCookiesManager.getUser(DefaultCookies).cookies)
+	//request.Header.Add("Cookie", biliCookiesManager.GetUser(DefaultCookies).UserCookie)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		utils.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
 	result := new(seasonAllVideoDetailResponse)
-	err = responseCodeCheck(response, result)
+	err = responseCodeCheck(response, result, cookies.NewDefaultUserCookie(webSiteName))
 	if err != nil {
 		return nil
 	}
