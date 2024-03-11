@@ -47,122 +47,118 @@ func (s BiliSpider) GetWebSiteName() models.WebSite {
 }
 
 func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- baseStruct.TaskClose) {
-	var (
-		intLatestBaseline int
-		videoBaseLine     int
-		startBaseLine     int
-		err               error
-		baseLine          string
-		updateNumber      int
-		Baseline          string
-		ok                bool
-		requestNumber     int
-		dynamicBaseLine   int
-	)
-	dynamicVideoObject := dynamicVideo{}
-	userEndBaseLine := make([]struct {
-		UserId      int64
-		EndBaseLine string
-	}, 0)
+	userEndBaseLine := make([]baseStruct.UserBaseLine, 0)
 	for userName, userCookies := range cookies.GetWebSiteUser(webSiteName) {
-		dynamicVideoObject.userCookie = *userCookies
-		dynamicBaseLine, ok = dynamicBaseLineMap[userName]
-		if !ok {
-			dynamicBaseLine = 0
-			dynamicBaseLineMap[userName] = 0
+		if userCookies == nil {
+			utils.ErrorLog.Printf("%s用户未初始化cookies", userName)
+			continue
 		}
-		if dynamicBaseLine == 0 {
-			updateNumber = defaultUpdateNumber
-		}
-
-		var pushTime time.Time
-		breakFlag := true
-		baseLine = ""
-		startBaseLine = 0
-		requestNumber = 0
-		for breakFlag {
-			response := dynamicVideoObject.getResponse(0, 0, baseLine)
-			if response == nil {
-				breakFlag = false
-				continue
-			}
-			for infoIndex, info := range response.Data.Items {
-				Baseline, ok = info.IdStr.(string)
-				if !ok {
-					a, ok := info.IdStr.(int)
-					if ok {
-						Baseline = strconv.Itoa(a)
-						videoBaseLine = a
-					} else {
-						utils.ErrorLog.Print("未知的Baseline: ", info.IdStr)
-						utils.ErrorLog.Println("更新基线：", baseLine)
-						continue
-					}
-				} else {
-					videoBaseLine, err = strconv.Atoi(Baseline)
-					if err != nil {
-						utils.ErrorLog.Println("视频的IDStr错误")
-						continue
-					}
-				}
-
-				if videoBaseLine <= intLatestBaseline {
-					breakFlag = false
-					break
-				}
-
-				if requestNumber == 0 && infoIndex == 0 {
-					startBaseLine = videoBaseLine
-				}
-				pushTime = time.Unix(info.Modules.ModuleAuthor.PubTs, 0)
-				result <- models.Video{
-					WebSiteId:  webSiteId,
-					Title:      info.Modules.ModuleDynamic.Major.Archive.Title,
-					VideoDesc:  info.Modules.ModuleDynamic.Major.Archive.Desc,
-					Duration:   HourAndMinutesAndSecondsToSeconds(info.Modules.ModuleDynamic.Major.Archive.DurationText),
-					Uuid:       info.Modules.ModuleDynamic.Major.Archive.Bvid,
-					Url:        info.Modules.ModuleDynamic.Major.Archive.JumpUrl,
-					CoverUrl:   info.Modules.ModuleDynamic.Major.Archive.Cover,
-					UploadTime: &pushTime,
-					Authors: []models.VideoAuthor{
-						{Contribute: "UP主", AuthorUUID: strconv.Itoa(info.Modules.ModuleAuthor.Mid)},
-					},
-					StructAuthor: []models.Author{
-						{
-							WebSiteId:    webSiteId,
-							AuthorName:   info.Modules.ModuleAuthor.Name,
-							AuthorWebUid: strconv.Itoa(info.Modules.ModuleAuthor.Mid),
-							Avatar:       info.Modules.ModuleAuthor.Face,
-						},
-					},
-				}
-
-				if dynamicBaseLine == 0 {
-					updateNumber--
-					if updateNumber == 0 {
-						breakFlag = false
-						break
-					}
-				}
-
-			}
-			baseLine = response.Data.Offset
-			requestNumber++
-			time.Sleep(time.Second * 5)
-		}
-		if startBaseLine > 0 {
-			dynamicBaseLineMap[userName] = startBaseLine
-			userEndBaseLine = append(userEndBaseLine, struct {
-				UserId      int64
-				EndBaseLine string
-			}{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.Itoa(startBaseLine)})
-		}
+		userEndBaseLine = append(userEndBaseLine, getUserFollowAuthorVideo(result, *userCookies))
 	}
 	closeChan <- baseStruct.TaskClose{
 		WebSite: webSiteName,
 		Code:    0,
 		Data:    userEndBaseLine,
 	}
+}
+func getUserFollowAuthorVideo(result chan<- models.Video, userCookies cookies.UserCookie) baseStruct.UserBaseLine {
+	var (
+		videoBaseLine, startBaseLine, requestNumber, dynamicBaseLine, updateNumber int
+		err                                                                        error
+		baseLine, Baseline                                                         string
+		ok                                                                         bool
+	)
+	dynamicVideoObject := dynamicVideo{userCookie: userCookies}
+	dynamicBaseLine, ok = dynamicBaseLineMap[userCookies.GetUserName()]
+	if !ok {
+		dynamicBaseLine = 0
+		dynamicBaseLineMap[userCookies.GetUserName()] = 0
+	}
+	if dynamicBaseLine == 0 {
+		updateNumber = defaultUpdateNumber
+	}
+	utils.Info.Printf("%s用户开始获取关注用户视频%d", userCookies.GetUserName(), dynamicBaseLine)
+	var pushTime time.Time
+	breakFlag := true
+	baseLine = ""
+	startBaseLine = 0
+	requestNumber = 0
+	for breakFlag {
+		response := dynamicVideoObject.getResponse(0, 0, baseLine)
+		if response == nil {
+			breakFlag = false
+			continue
+		}
+		for infoIndex, info := range response.Data.Items {
+			Baseline, ok = info.IdStr.(string)
+			if !ok {
+				a, ok := info.IdStr.(int)
+				if ok {
+					Baseline = strconv.Itoa(a)
+					videoBaseLine = a
+				} else {
+					utils.ErrorLog.Print("未知的Baseline: ", info.IdStr)
+					utils.ErrorLog.Println("更新基线：", baseLine)
+					continue
+				}
+			} else {
+				videoBaseLine, err = strconv.Atoi(Baseline)
+				if err != nil {
+					utils.ErrorLog.Println("视频的IDStr错误")
+					continue
+				}
+			}
+
+			if videoBaseLine <= dynamicBaseLine {
+				breakFlag = false
+				break
+			}
+
+			if requestNumber == 0 && infoIndex == 0 {
+				startBaseLine = videoBaseLine
+			}
+			pushTime = time.Unix(info.Modules.ModuleAuthor.PubTs, 0)
+			result <- models.Video{
+				WebSiteId:  webSiteId,
+				Title:      info.Modules.ModuleDynamic.Major.Archive.Title,
+				VideoDesc:  info.Modules.ModuleDynamic.Major.Archive.Desc,
+				Duration:   HourAndMinutesAndSecondsToSeconds(info.Modules.ModuleDynamic.Major.Archive.DurationText),
+				Uuid:       info.Modules.ModuleDynamic.Major.Archive.Bvid,
+				Url:        info.Modules.ModuleDynamic.Major.Archive.JumpUrl,
+				CoverUrl:   info.Modules.ModuleDynamic.Major.Archive.Cover,
+				UploadTime: &pushTime,
+				Authors: []models.VideoAuthor{
+					{Contribute: "UP主", AuthorUUID: strconv.Itoa(info.Modules.ModuleAuthor.Mid)},
+				},
+				StructAuthor: []models.Author{
+					{
+						WebSiteId:    webSiteId,
+						AuthorName:   info.Modules.ModuleAuthor.Name,
+						AuthorWebUid: strconv.Itoa(info.Modules.ModuleAuthor.Mid),
+						Avatar:       info.Modules.ModuleAuthor.Face,
+					},
+				},
+			}
+
+			if dynamicBaseLine == 0 {
+				updateNumber--
+				if updateNumber == 0 {
+					breakFlag = false
+					break
+				}
+			}
+
+		}
+		baseLine = response.Data.Offset
+		requestNumber++
+		if breakFlag {
+			time.Sleep(time.Second * 5)
+		}
+	}
+	if startBaseLine > 0 {
+		dynamicBaseLineMap[userCookies.GetUserName()] = startBaseLine
+	}
+	return baseStruct.UserBaseLine{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.Itoa(startBaseLine)}
 }
 
 func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]string {
@@ -202,8 +198,8 @@ func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]s
 	return result
 }
 
-func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageIndex int) map[string]string {
-	result := make(map[string]string)
+func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageIndex int) map[int]VideoListPageResponse {
+	result := make(map[int]VideoListPageResponse)
 	video := videoListPage{
 		userCookie: cookies.NewDefaultUserCookie(webSiteName),
 	}
@@ -212,8 +208,7 @@ func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageInd
 		if response == nil {
 			break
 		}
-		da, _ := json.Marshal(response)
-		result[strconv.Itoa(startPageIndex)] = string(da)
+		result[startPageIndex] = *response
 		startPageIndex++
 		if startPageIndex == endPageIndex {
 			break
@@ -223,120 +218,110 @@ func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageInd
 
 }
 
-func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, VideoHistoryCloseChan chan<- baseStruct.TaskClose, webSiteId int64) {
-	history := historyRequest{}
-	var (
-		maxNumber            = 100
-		newestTimestamp      int64
-		business             string
-		viewAt               int64
-		max                  int
-		lastHistoryTimestamp int64
-		spiderAccount        bool
-		ok                   bool
-	)
-	userEndBaseLine := make([]struct {
-		UserId      int64
-		EndBaseLine string
-	}, 0)
+func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, VideoHistoryCloseChan chan<- baseStruct.TaskClose) {
+	userEndBaseLine := make([]baseStruct.UserBaseLine, 0)
 	for userName, userCookies := range cookies.GetWebSiteUser(webSiteName) {
-		lastHistoryTimestamp, ok = historyBaseLineMap[userName]
-		if !ok {
-			lastHistoryTimestamp = 0
-			historyBaseLineMap[userName] = 0
+		if userCookies == nil {
+			utils.ErrorLog.Printf("%s用户未初始化cookies", userName)
+			continue
 		}
-		println("lastHistoryTimestamp: ", lastHistoryTimestamp)
-		business = ""
-		var pushTime time.Time
-		history.userCookie = *userCookies
-		spiderAccount = true
-		for spiderAccount {
-			data := history.getResponse(max, viewAt, business)
-			if data == nil {
-				utils.Info.Printf("b站%s账号爬取历史记录请求异常退出: ", userName)
-				spiderAccount = false
-				continue
-			}
-			if viewAt == 0 {
-				newestTimestamp = data.Data.List[0].ViewAt
-			}
-			if data.Data.Cursor.Max == 0 || data.Data.Cursor.ViewAt == 0 {
-				utils.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", userName, newestTimestamp)
-				spiderAccount = false
-				continue
-			}
-			max = data.Data.Cursor.Max
-			viewAt = data.Data.Cursor.ViewAt
-			business = data.Data.Cursor.Business
-			for _, info := range data.Data.List {
-				if info.ViewAt < lastHistoryTimestamp || maxNumber == 0 {
-					utils.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", userName, newestTimestamp)
-					spiderAccount = false
-					break
-				}
-				switch info.Badge {
-				// 稿件视频 / 剧集 / 笔记 / 纪录片 / 专栏 / 国创 / 番剧
-				case "": // 稿件视频
-					pushTime = time.Unix(info.ViewAt, 0)
-					VideoHistoryChan <- models.Video{
-						WebSiteId: webSiteId,
-						Title:     info.Title,
-						Uuid:      info.History.Bvid,
-						CoverUrl:  info.Cover,
-						Authors: []models.VideoAuthor{
-							{Contribute: "UP主", AuthorUUID: strconv.FormatInt(info.AuthorMid, 10), Uuid: info.History.Bvid},
-						},
-						StructAuthor: []models.Author{
-							{
-								AuthorWebUid: strconv.FormatInt(info.AuthorMid, 10),
-								AuthorName:   info.AuthorName,
-								WebSiteId:    webSiteId,
-								Avatar:       info.AuthorFace,
-							},
-						},
-						ViewHistory: []models.VideoHistory{
-							{ViewTime: pushTime, WebSiteId: webSiteId, WebUUID: info.History.Bvid},
-						},
-					}
-				case "剧集":
-				case "笔记":
-				case "纪录片":
-				case "专栏":
-				case "国创":
-				case "番剧":
-				case "综艺":
-				case "live":
-					utils.Info.Printf("未处理的历史记录 %v\n", info)
-					continue
-				default:
-					utils.Info.Printf("未知类型的历史记录 %v\n", info)
-					continue
-				}
-
-				if lastHistoryTimestamp == 0 {
-					maxNumber--
-				}
-
-			}
-			if spiderAccount {
-				time.Sleep(time.Second)
-			} else {
-				models.SaveHistoryBaseLine(strconv.FormatInt(newestTimestamp, 10), userName)
-			}
-		}
-		if newestTimestamp > 0 {
-			historyBaseLineMap[userName] = newestTimestamp
-			userEndBaseLine = append(userEndBaseLine, struct {
-				UserId      int64
-				EndBaseLine string
-			}{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.FormatInt(newestTimestamp, 10)})
-		}
+		userEndBaseLine = append(userEndBaseLine, getUserViewVideoHistory(VideoHistoryChan, *userCookies))
 	}
 	VideoHistoryCloseChan <- baseStruct.TaskClose{
 		WebSite: webSiteName,
 		Code:    0,
 		Data:    userEndBaseLine,
 	}
+}
+func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies cookies.UserCookie) baseStruct.UserBaseLine {
+	var (
+		maxNumber                                     = 100
+		newestTimestamp, lastHistoryTimestamp, viewAt int64
+		spiderAccount, ok                             bool
+	)
+	history := historyRequest{userCookie: userCookies}
+	lastHistoryTimestamp, ok = historyBaseLineMap[userCookies.GetUserName()]
+	if !ok {
+		lastHistoryTimestamp = 0
+		historyBaseLineMap[userCookies.GetUserName()] = 0
+	}
+	println("lastHistoryTimestamp: ", lastHistoryTimestamp)
+	spiderAccount = true
+	for spiderAccount {
+		data := history.getResponse(0, viewAt, "archive")
+		if data == nil {
+			utils.Info.Printf("b站%s账号爬取历史记录请求异常退出: ", userCookies.GetUserName())
+			spiderAccount = false
+			continue
+		}
+		if viewAt == 0 {
+			newestTimestamp = data.Data.List[0].ViewAt
+		}
+		if data.Data.Cursor.Max == 0 || data.Data.Cursor.ViewAt == 0 {
+			utils.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", userCookies.GetUserName(), newestTimestamp)
+			spiderAccount = false
+			continue
+		}
+		viewAt = data.Data.Cursor.ViewAt
+		var pushTime time.Time
+		for _, info := range data.Data.List {
+			if info.ViewAt < lastHistoryTimestamp || maxNumber == 0 {
+				utils.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", userCookies.GetUserName(), newestTimestamp)
+				spiderAccount = false
+				break
+			}
+			switch info.Badge {
+			// 稿件视频 / 剧集 / 笔记 / 纪录片 / 专栏 / 国创 / 番剧
+			case "": // 稿件视频
+				pushTime = time.Unix(info.ViewAt, 0)
+				VideoHistoryChan <- models.Video{
+					WebSiteId: webSiteId,
+					Title:     info.Title,
+					Uuid:      info.History.Bvid,
+					CoverUrl:  info.Cover,
+					Authors: []models.VideoAuthor{
+						{Contribute: "UP主", AuthorUUID: strconv.FormatInt(info.AuthorMid, 10), Uuid: info.History.Bvid},
+					},
+					StructAuthor: []models.Author{
+						{
+							AuthorWebUid: strconv.FormatInt(info.AuthorMid, 10),
+							AuthorName:   info.AuthorName,
+							WebSiteId:    webSiteId,
+							Avatar:       info.AuthorFace,
+						},
+					},
+					ViewHistory: []models.VideoHistory{
+						{ViewTime: pushTime, WebSiteId: webSiteId, WebUUID: info.History.Bvid},
+					},
+				}
+			case "剧集":
+			case "笔记":
+			case "纪录片":
+			case "专栏":
+			case "国创":
+			case "番剧":
+			case "综艺":
+			case "live":
+				utils.Info.Printf("未处理的历史记录 %v\n", info)
+				continue
+			default:
+				utils.Info.Printf("未知类型的历史记录 %v\n", info)
+				continue
+			}
+
+			if lastHistoryTimestamp == 0 {
+				maxNumber--
+			}
+
+		}
+		if spiderAccount {
+			time.Sleep(time.Second)
+		}
+	}
+	if newestTimestamp > 0 {
+		historyBaseLineMap[userCookies.GetUserName()] = newestTimestamp
+	}
+	return baseStruct.UserBaseLine{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.FormatInt(newestTimestamp, 10)}
 }
 
 func SaveVideoHistoryList() {
@@ -346,7 +331,6 @@ func SaveVideoHistoryList() {
 		lastHistoryTimestamp int64
 		business             string
 		viewAt               int64
-		max                  int
 	)
 	history := historyRequest{}
 
@@ -372,7 +356,7 @@ func SaveVideoHistoryList() {
 	}
 	defer file.Close()
 	for {
-		data := history.getResponse(max, viewAt, business)
+		data := history.getResponse(0, viewAt, business)
 		if data == nil {
 			utils.Info.Println("退出: ", newestTimestamp)
 			os.WriteFile(path.Join(baseStruct.RootPath, "bilbilHistoryFile", "bilbilHistoryBaseLine"), []byte(strconv.FormatInt(newestTimestamp, 10)), 0644)
@@ -384,12 +368,11 @@ func SaveVideoHistoryList() {
 			newestTimestamp = data.Data.List[0].ViewAt
 		}
 		if data.Data.Cursor.Max == 0 || data.Data.Cursor.ViewAt == 0 {
-			// https://s1.hdslb.com/bfs/static/history-record/img/historyend.png
 			os.WriteFile(path.Join(baseStruct.RootPath, "bilbilHistoryFile", "bilbilHistoryBaseLine"), []byte(strconv.FormatInt(newestTimestamp, 10)), 0644)
 			utils.Info.Println("退出: ", newestTimestamp)
 			return
 		}
-		max = data.Data.Cursor.Max
+
 		viewAt = data.Data.Cursor.ViewAt
 		business = data.Data.Cursor.Business
 		for _, info := range data.Data.List {

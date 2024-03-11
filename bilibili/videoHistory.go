@@ -65,12 +65,11 @@ type historyRequest struct {
 	userCookie cookies.UserCookie
 }
 
-//
 func (h *historyRequest) getRequest(max int, viewAt int64, business string) *http.Request {
 	url := "https://api.bilibili.com/x/web-interface/history/cursor"
 	request, _ := http.NewRequest("GET", url, nil)
 	q := request.URL.Query()
-	q.Add("business", business)
+	q.Add("type", business)
 	if max > 0 {
 		q.Add("max", strconv.Itoa(max))
 	}

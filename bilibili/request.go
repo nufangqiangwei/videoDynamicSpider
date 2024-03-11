@@ -53,11 +53,11 @@ func responseCodeCheck(response *http.Response, apiResponseStruct responseCheck,
 		}
 	}
 	if code == -352 {
-		utils.ErrorLog.Println("352错误，拒绝访问")
+		utils.ErrorLog.Printf("%s用户。352错误，拒绝访问", user.GetUserName())
 		return errors.New("352错误，拒绝访问")
 	}
 	if code != 0 {
-		utils.ErrorLog.Println("响应状态码错误", code)
+		utils.ErrorLog.Printf("%s用户。响应状态码错误%d", user.GetUserName(), code)
 		utils.ErrorLog.Println(string(body))
 		return errors.New("响应状态码错误")
 	}

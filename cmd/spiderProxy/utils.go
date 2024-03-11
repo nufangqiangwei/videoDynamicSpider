@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"compress/gzip"
 	"github.com/gin-gonic/gin"
 	"io"
 	"os"
@@ -29,11 +30,12 @@ func deployWebSIteHtmlFile(gtx *gin.Context) {
 		return
 	}
 	// 判断文件是否是tar.gz文件
-	if !strings.HasSuffix(file.Filename, ".tar") {
+	if !strings.HasSuffix(file.Filename, ".tar.gz") {
 		utils.ErrorLog.Println(err)
 		gtx.String(400, "Bad Request2")
 		return
 	}
+
 	uploadFile, err := file.Open()
 	if err != nil {
 		utils.ErrorLog.Println(err)
@@ -41,9 +43,16 @@ func deployWebSIteHtmlFile(gtx *gin.Context) {
 		return
 	}
 	defer uploadFile.Close()
-	tarRead := tar.NewReader(uploadFile)
+	gzRead, err := gzip.NewReader(uploadFile)
+	if err != nil {
+		utils.ErrorLog.Println(err)
+		return
+	}
+	defer gzRead.Close()
+	tarRead := tar.NewReader(gzRead)
 	readEOF := false
 	destDir := path.Join(baseStruct.RootPath, "html")
+	clearDirectory(destDir)
 	for !readEOF {
 		hdr, err := tarRead.Next()
 		switch {
@@ -91,6 +100,7 @@ func deployWebSIteHtmlFile(gtx *gin.Context) {
 			staticFile.Close()
 		}
 	}
+	clearDirectory(config.WebSiteStaticFolderPath)
 	moveFolder(path.Join(destDir, "dist"), config.WebSiteStaticFolderPath)
 	gtx.String(200, "deploy ok")
 }
@@ -139,4 +149,28 @@ func moveFolder(sourceDir, targetDir string) error {
 	})
 
 	return err
+}
+
+func clearDirectory(dirPath string) error {
+	dir, err := os.Open(dirPath)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+
+	fileInfos, err := dir.Readdir(-1)
+	if err != nil {
+		return err
+	}
+
+	for _, fileInfo := range fileInfos {
+		filePath := filepath.Join(dirPath, fileInfo.Name())
+
+		err = os.RemoveAll(filePath)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

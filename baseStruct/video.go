@@ -20,8 +20,9 @@ type VideoInfo struct {
 type TaskClose struct {
 	WebSite string
 	Code    int
-	Data    []struct {
-		UserId      int64
-		EndBaseLine string
-	}
+	Data    []UserBaseLine
+}
+type UserBaseLine struct {
+	UserId      int64
+	EndBaseLine string
 }

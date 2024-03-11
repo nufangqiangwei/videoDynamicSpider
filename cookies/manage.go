@@ -49,6 +49,13 @@ func (c *UserCookie) GetCookies() string {
 func (c *UserCookie) FlushCookies() {
 	if !c.cookiesFail || c.cookies == "" || c.lastFlushCookiesTime.Add(time.Hour*24).Before(time.Now()) {
 		// 如果cookies失效并且上次刷新时间超过24小时，重新刷新cookies
+		if !c.cookiesFail {
+			utils.Info.Printf("%scookies标注为失效", c.fileName)
+		} else if c.cookies == "" {
+			utils.Info.Printf("%scookies未加载", c.fileName)
+		} else {
+			utils.Info.Printf("%scookies距离上次加载已过24小时。上次加载时间%s", c.fileName, c.lastFlushCookiesTime.Format("2006.01.02 15:04:05"))
+		}
 		c.lastFlushCookiesTime = time.Now()
 		c.readFile()
 		if !c.cookiesFail {
