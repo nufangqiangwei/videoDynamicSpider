@@ -533,6 +533,11 @@ func updateCollectVideoList(interface{}) {
 	}
 }
 
+// 获取稍后观看列表信息
+func getWatchLaterList(interface{}) {
+
+}
+
 // 同步关注信息
 func updateFollowInfo(interface{}) {
 	defer func() {
@@ -711,25 +716,31 @@ func updateAuthorVideoList(interface{}) {
 			continue
 		}
 		authorVideoPage := bilibili.Spider.GetAuthorVideoList(author.AuthorWebUid, 1, 2)
-		for _, videoInfo := range authorVideoPage {
-			uploadTime := time.Unix(videoInfo.Pubdate, 0)
-			vi := models.Video{
-				WebSiteId:  web.Id,
-				Title:      videoInfo.Title,
-				VideoDesc:  videoInfo.Desc,
-				Duration:   videoInfo.Duration,
-				Uuid:       videoInfo.Bvid,
-				CoverUrl:   videoInfo.Pic,
-				UploadTime: &uploadTime,
-				Authors: []models.VideoAuthor{
-					{Uuid: videoInfo.Bvid, AuthorUUID: author.AuthorWebUid},
-				},
-				StructAuthor: []models.Author{
-					{
+		for _, videoListInfo := range authorVideoPage {
+			for _, videoInfo := range videoListInfo.Data.List.Vlist {
+				uploadTime := time.Unix(videoInfo.Created, 0)
+				authors := []models.VideoAuthor{}
+				structAuthor := []models.Author{}
+				// 是否是联合投稿 0：否 1：是
+				if videoInfo.IsUnionVideo == 0 {
+					authors = append(authors, models.VideoAuthor{Uuid: videoInfo.Bvid, AuthorUUID: author.AuthorWebUid})
+					structAuthor = append(structAuthor, models.Author{
 						WebSiteId:  web.Id,
-						AuthorName: authorInfo.Name,
-					},
-				},
+						AuthorName: videoInfo.Author,
+					})
+				}
+				vi := models.Video{
+					WebSiteId:    web.Id,
+					Title:        videoInfo.Title,
+					VideoDesc:    videoInfo.Description,
+					Duration:     bilibili.HourAndMinutesAndSecondsToSeconds(videoInfo.Length),
+					Uuid:         videoInfo.Bvid,
+					CoverUrl:     videoInfo.Pic,
+					UploadTime:   &uploadTime,
+					Authors:      authors,
+					StructAuthor: structAuthor,
+				}
+				vi.UpdateVideo()
 			}
 		}
 	}

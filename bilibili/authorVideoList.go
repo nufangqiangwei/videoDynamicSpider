@@ -12,7 +12,7 @@ import (
 )
 
 /*
-https://api.bilibili.com/x/space/wbi/arc/search?mid=11352614&ps=50&tid=4&special_type=&pn=1&keyword=&order=pubdate&platform=web&web_location=1550101&order_avoided=true&w_rid=bb2818a9f8cf0a38e55d6ad1d856cec0&wts=1693900786
+https://github.com/SocialSisterYi/bilibili-API-collect/blob/f9ee5c3b99335af6bef0d9d902101c565b3bea00/docs/user/space.md?plain=1#L2233
 {
 	"GET": {
 		"scheme": "https",

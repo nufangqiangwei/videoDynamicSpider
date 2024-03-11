@@ -2,9 +2,11 @@ package models
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/redis/go-redis/v9"
 	"strconv"
+	"time"
 )
 
 var (
@@ -13,7 +15,7 @@ var (
 
 func OpenRedis() {
 	redisDB = redis.NewClient(&redis.Options{
-		Addr:     "192.168.1.5:6379",
+		Addr:     "database:6379",
 		Password: "", // no password set
 		DB:       5,  // use default DB
 	})
@@ -187,4 +189,29 @@ func CreateVideoAuthorToRedis(AuthorWebUid string, authorId int64) {
 		return
 	}
 	redisDB.Set(context.Background(), AuthorWebUid, authorId, 0)
+}
+
+func UserLoginCache(userID, loginTime, expiration int64) error {
+	if redisDB == nil {
+		return errors.New("缓存出错")
+	}
+	x := redisDB.Set(context.Background(), fmt.Sprintf("user%d", userID), loginTime, time.Duration(expiration))
+	if x.Err() != nil {
+		return x.Err()
+	}
+	return nil
+}
+func GetUserLastLoginTime(userId int64) (int64, error) {
+	if redisDB == nil {
+		return 0, errors.New("缓存出错")
+	}
+	data, err := redisDB.Get(context.Background(), fmt.Sprintf("user%d", userId)).Result()
+	if err != nil {
+		return 0, err
+	}
+	num, err := strconv.ParseInt(data, 10, 64)
+	if err != nil {
+		return 0, errors.New(fmt.Sprintf("转换出错数据是%s", data))
+	}
+	return num, nil
 }

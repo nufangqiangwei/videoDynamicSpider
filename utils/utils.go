@@ -6,7 +6,9 @@ import (
 	"errors"
 	"github.com/go-sql-driver/mysql"
 	"io"
+	"math/rand"
 	"os"
+	"time"
 )
 
 const maxFileSize = 100 * 1024 * 1024 // 100M
@@ -118,4 +120,24 @@ func CheckFileWriteStatus(filePath string) bool {
 		return false
 	}
 	return true
+}
+
+func GetCurrentTime() int64 {
+	return time.Now().Unix()
+}
+
+func GenerateRandomString(length int) string {
+	// 定义包含所有可能字符的字符集
+	charSet := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	// 创建一个字节数组，用于存储生成的随机字符
+	randomString := make([]byte, length)
+
+	// 从字符集中随机选择字符，并将其添加到随机字符串中
+	for i := 0; i < length; i++ {
+		randomString[i] = charSet[rand.Intn(len(charSet))]
+	}
+
+	// 将字节数组转换为字符串并返回
+	return string(randomString)
 }

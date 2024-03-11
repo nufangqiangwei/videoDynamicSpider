@@ -1,112 +1,80 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
-	"strconv"
-	"time"
 )
 
 // EncryptToken 使用aes进行加密
-func EncryptToken(token, key string) string {
-	body := map[string]string{}
-	body["token"] = token
-	body["time"] = strconv.FormatInt(time.Now().Unix(), 10)
-	ip, _ := externalIP()
-	body["ip"] = ip.String()
-	data := []byte{}
-	err := json.Unmarshal(data, body)
-	if err != nil {
-		return ""
-	}
-	// 加密
-	aesKey := []byte(key)
-	block, err := aes.NewCipher(aesKey)
-	if err != nil {
-		panic(err)
-	}
-	// 创建一个GCM模式的AES加密器
-	// GCM模式提供了认证和加密功能
-	// 需要一个唯一的、非重复的nonce（用于加密）和额外的认证数据（用于认证）
-	nonce := make([]byte, 12)
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		panic(err)
-	}
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		panic(err)
-	}
-
-	// 加密数据
-	ciphertext := aesgcm.Seal(nil, nonce, data, nil)
-
-	fmt.Printf("加密后的数据（十六进制）：%s\n", hex.EncodeToString(ciphertext))
-
-	// 解密数据
-	decrypted, err := aesgcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("解密后的数据：%s\n", decrypted)
-	return hex.EncodeToString(ciphertext)
+func EncryptToken(token, key, ivStr string) string {
+	ciphertext := cbcEncrypter([]byte(token), []byte(key), []byte(ivStr))
+	ciphertextStr := hex.EncodeToString(ciphertext)
+	return ciphertextStr
 }
 
 // DecryptToken 使用aes进行解密
-func DecryptToken(token, key string) map[string]string {
-	// 解密
-	aesKey := []byte(key)
-	block, err := aes.NewCipher(aesKey)
-	if err != nil {
-		panic(err)
-	}
-	// 创建一个GCM模式的AES加密器
-	// GCM模式提供了认证和加密功能
-	// 需要一个唯一的、非重复的nonce（用于加密）和额外的认证数据（用于认证）
-	nonce := make([]byte, 12)
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		panic(err)
-	}
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		panic(err)
-	}
-
-	// 解密数据
+func DecryptToken(token, key, ivStr string, body any) error {
+	println("token：", token)
 	ciphertext, err := hex.DecodeString(token)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	decrypted, err := aesgcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("解密后的数据：%s\n", decrypted)
-	body := map[string]string{}
-	err = json.Unmarshal(decrypted, &body)
-	if err != nil {
-		return nil
-	}
-	_, ok := body["token"]
-	if !ok {
-		body["token"] = ""
-	}
-	_, ok = body["time"]
-	if !ok {
-		body["time"] = ""
-	}
-	return body
+	unpaddedPlaintext := cbcDecrypter(ciphertext, []byte(key), []byte(ivStr))
+
+	fmt.Println("Decrypted:", string(unpaddedPlaintext))
+	return json.Unmarshal(unpaddedPlaintext, &body)
 
 }
 
-// 获取公网IP地址
-func externalIP() (net.IP, error) {
+/*
+	CBC 加密
+	text 待加密的明文
+    key 秘钥
+*/
+func cbcEncrypter(text []byte, key []byte, iv []byte) []byte {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		fmt.Println(err)
+	}
+	// 填充
+	paddText := pkcs7Padding(text, block.BlockSize())
+
+	blockMode := cipher.NewCBCEncrypter(block, iv)
+
+	// 加密
+	result := make([]byte, len(paddText))
+	blockMode.CryptBlocks(result, paddText)
+	// 返回密文
+	return result
+}
+
+/*
+	CBC 解密
+	encrypter 待解密的密文
+	key 秘钥
+*/
+func cbcDecrypter(encrypter []byte, key []byte, iv []byte) []byte {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		fmt.Println(err)
+	}
+	blockMode := cipher.NewCBCDecrypter(block, iv)
+	result := make([]byte, len(encrypter))
+	blockMode.CryptBlocks(result, encrypter)
+	// 去除填充
+	print("result：")
+	println(string(result))
+	result = pkcs7UnPadding(result)
+	return result
+}
+
+// ExternalIP 获取公网IP地址
+func ExternalIP() (net.IP, error) {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
 		return nil, err
@@ -116,4 +84,33 @@ func externalIP() (net.IP, error) {
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 
 	return localAddr.IP, nil
+}
+
+/*
+	PKCS7Padding 填充模式
+	text：明文内容
+	blockSize：分组块大小
+*/
+func pkcs7Padding(text []byte, blockSize int) []byte {
+	// 计算待填充的长度
+	padding := blockSize - len(text)%blockSize
+	var paddingText []byte
+	if padding == 0 {
+		// 已对齐，填充一整块数据，每个数据为 blockSize
+		paddingText = bytes.Repeat([]byte{byte(blockSize)}, blockSize)
+	} else {
+		// 未对齐 填充 padding 个数据，每个数据为 padding
+		paddingText = bytes.Repeat([]byte{byte(padding)}, padding)
+	}
+	return append(text, paddingText...)
+}
+
+/*
+	去除 PKCS7Padding 填充的数据
+	text 待去除填充数据的原文
+*/
+func pkcs7UnPadding(text []byte) []byte {
+	// 取出填充的数据 以此来获得填充数据长度
+	unPadding := int(text[len(text)-1])
+	return text[:(len(text) - unPadding)]
 }
