@@ -171,22 +171,22 @@ type authorInfo struct {
 	userCookie cookies.UserCookie
 }
 
-func (a authorInfo) getRequest(mid int) *http.Request {
+func (a authorInfo) getRequest(mid string) *http.Request {
 	req, _ := http.NewRequest("GET", authorInfoUrl, nil)
 	q := req.URL.Query()
-	q.Add("mid", strconv.Itoa(mid))
+	q.Add("mid", mid)
 	q.Add("wts", strconv.FormatInt(time.Now().Unix(), 10))
 	req.URL.RawQuery = wbiSignObj.getSing(q).Encode()
 	req.Header.Add("Cookie", a.userCookie.GetCookies())
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 	return req
 }
-func (a authorInfo) getResponse() *AuthorInfoResponse {
+func (a authorInfo) getResponse(mid string) *AuthorInfoResponse {
 	a.userCookie.FlushCookies()
 	if !a.userCookie.GetStatus() {
 		return nil
 	}
-	response, err := http.DefaultClient.Do(a.getRequest(0))
+	response, err := http.DefaultClient.Do(a.getRequest(mid))
 	if err != nil {
 		return nil
 	}
@@ -199,12 +199,12 @@ func (a authorInfo) getResponse() *AuthorInfoResponse {
 
 }
 
-func getSelfInfo(mid int, cookiesContext string) (AuthorInfoResponse, error) {
+func getSelfInfo(mid, cookiesContext string) (AuthorInfoResponse, error) {
 	ai := authorInfo{
 		userCookie: cookies.NewTemporaryUserCookie(webSiteName, cookiesContext),
 	}
 
-	response := ai.getResponse()
+	response := ai.getResponse(mid)
 	if response == nil {
 		return AuthorInfoResponse{}, nil
 	}

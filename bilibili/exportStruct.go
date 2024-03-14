@@ -20,6 +20,7 @@ type BiliSpider struct {
 const (
 	defaultUpdateNumber = 100
 	webSiteName         = "bilibili"
+	selfUserMid         = "DedeUserID"
 )
 
 var (
@@ -595,8 +596,9 @@ func (s BiliSpider) GetFollowingList(resultChan chan<- baseStruct.FollowInfo, cl
 	return
 }
 
-func (s BiliSpider) GetSelfName(cookies string) any {
-	data, err := getSelfInfo(0, cookies)
+func (s BiliSpider) GetSelfName(cookiesContext string) any {
+	userCookies := cookies.NewTemporaryUserCookie(webSiteName, cookiesContext)
+	data, err := getSelfInfo(userCookies.GetCookiesKeyValue(selfUserMid), cookiesContext)
 	if err != nil {
 		return nil
 	}
