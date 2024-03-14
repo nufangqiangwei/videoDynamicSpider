@@ -46,7 +46,7 @@ func init() {
 	baseStruct.RootPath = config.ProxyDataRootPath
 	utils.InitLog(baseStruct.RootPath)
 
-	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), true)
+	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), true, nil)
 	models.OpenRedis()
 }
 

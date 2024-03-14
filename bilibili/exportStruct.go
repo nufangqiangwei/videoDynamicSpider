@@ -291,7 +291,7 @@ func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies c
 						},
 					},
 					ViewHistory: []models.VideoHistory{
-						{ViewTime: pushTime, WebSiteId: webSiteId, WebUUID: info.History.Bvid},
+						{ViewTime: pushTime, WebSiteId: webSiteId, WebUUID: info.History.Bvid, Duration: info.Duration},
 					},
 				}
 			case "剧集":
@@ -593,4 +593,12 @@ func (s BiliSpider) GetFollowingList(resultChan chan<- baseStruct.FollowInfo, cl
 
 	closeChan <- 0
 	return
+}
+
+func (s BiliSpider) GetSelfName(cookies string) any {
+	data, err := getSelfInfo(0, cookies)
+	if err != nil {
+		return nil
+	}
+	return data
 }

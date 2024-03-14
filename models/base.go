@@ -5,6 +5,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
+	"log"
 	"time"
 	"videoDynamicAcquisition/utils"
 )
@@ -14,17 +15,24 @@ var (
 	GormDB *gorm.DB
 )
 
-func InitDB(dsn string, createModel bool) {
+func InitDB(dsn string, createModel bool, log *log.Logger) {
 	cacheWebSite = make(map[string]WebSite)
-	var err error
+	var (
+		err    error
+		Logger logger.Interface
+	)
+	if log != nil {
+		Logger = logger.New(log, logger.Config{
+			SlowThreshold: 200 * time.Millisecond,
+			LogLevel:      logger.Warn,
+		})
+	}
+
 	GormDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: true, // 使用单数表名
 		},
-		Logger: logger.New(utils.DBlog, logger.Config{
-			SlowThreshold: 200 * time.Millisecond,
-			LogLevel:      logger.Warn,
-		}),
+		Logger: Logger,
 	})
 	if err != nil {
 		panic(err.Error())

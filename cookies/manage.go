@@ -14,6 +14,14 @@ const (
 	blankUserName     = "空用户"
 )
 
+func printLog(args ...string) {
+	if utils.ErrorLog == nil {
+		println(args)
+	} else {
+		utils.ErrorLog.Println(args)
+	}
+}
+
 type UserCookie struct {
 	cookies              string
 	lastFlushCookiesTime time.Time
@@ -69,18 +77,26 @@ func (c *UserCookie) FlushCookies() {
 	}
 }
 
-func NewDefaultUserCookie(webSiteName string) UserCookie {
-	return UserCookie{
-		fileName:    blankUserName,
-		webSiteName: webSiteName,
-	}
+func (c *UserCookie) setCookies(cookiesContext string) {
+	c.cookies = cookiesContext
 }
 
-func printLog(args ...string) {
-	if utils.ErrorLog == nil {
-		println(args)
-	} else {
-		utils.ErrorLog.Println(args)
+func (c *UserCookie) saveCookies() {
+	// 将cookies保存到本地文件夹中
+	if c.fileName == blankUserName {
+		return
+	}
+	webSitePath := path.Join(baseStruct.RootPath, cookiesFileFolder, c.webSiteName)
+	err := os.MkdirAll(webSitePath, 0666)
+	if err != nil {
+		utils.ErrorLog.Printf("创建文件夹出错,%s", err.Error())
+		return
+	}
+	filePath := path.Join(webSitePath, c.fileName)
+	printLog(c.webSiteName, "网站保存用户", c.fileName, "Cookies文件。文件地址是：", filePath)
+	err = os.WriteFile(filePath, []byte(c.cookies), 0666)
+	if err != nil {
+		utils.ErrorLog.Printf(err.Error())
 	}
 }
 
@@ -116,6 +132,21 @@ func (c *UserCookie) GetCookiesKeyValue(keyName string) string {
 		}
 	}
 	return ""
+}
+
+func NewDefaultUserCookie(webSiteName string) UserCookie {
+	return UserCookie{
+		fileName:    blankUserName,
+		webSiteName: webSiteName,
+	}
+}
+
+func NewTemporaryUserCookie(webSiteName, cookiesText string) UserCookie {
+	return UserCookie{
+		cookies:     cookiesText,
+		fileName:    blankUserName,
+		webSiteName: webSiteName,
+	}
 }
 
 type WebSiteCookiesManager struct {
@@ -220,4 +251,15 @@ func RangeCookiesMap(f func(weiSiteName, userName string, cookies *UserCookie)) 
 			f(weiSiteName, userName, cookies)
 		}
 	}
+}
+
+func UpdateUserCookies(weiSiteName, userName, cookiesContent string) {
+	GetUser(weiSiteName, userName).setCookies(cookiesContent)
+}
+
+func AddUserCookies(weiSiteName, userName, cookiesContent string, dbPrimaryKeyId int64) {
+	user := GetUser(weiSiteName, userName)
+	user.cookies = cookiesContent
+	user.dbPrimaryKeyId = dbPrimaryKeyId
+	user.saveCookies()
 }

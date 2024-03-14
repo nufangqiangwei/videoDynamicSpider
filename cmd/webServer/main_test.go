@@ -67,7 +67,7 @@ func TestWriteRequestParams(t *testing.T) {
 
 func TestIntoFileData(t *testing.T) {
 
-	filePath := "C:\\Code\\GO\\videoDynamicSpider\\cmd\\spiderProxy\\allVideo"
+	filePath := "C:\\Code\\GO\\videoDynamicSpider\\cmd\\webServer\\allVideo"
 	fileNameList := []string{}
 	filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -80,7 +80,7 @@ func TestIntoFileData(t *testing.T) {
 	})
 	responseStruct := new(bilibili.VideoListPageResponse)
 	utils.InitLog(baseStruct.RootPath)
-	models.InitDB("spider:spider@tcp(192.168.1.25:3306)/videoSpider?charset=utf8mb4&parseTime=True&loc=Local", false)
+	models.InitDB("spider:spider@tcp(192.168.1.25:3306)/videoSpider?charset=utf8mb4&parseTime=True&loc=Local", false, nil)
 	testIndex := 0
 	nowTime := time.Now()
 	for _, fileName := range fileNameList {
@@ -209,4 +209,38 @@ func TestStr(t *testing.T) {
 	fmt.Printf("%v\n", yyy)
 	yyy = []byte("{}\n")
 	fmt.Printf("%v\n", yyy)
+}
+
+type QueryData struct {
+	WebName     string `json:"webName"`
+	AuthorName  string `json:"authorName"`
+	CookiesFail bool   `json:"cookiesFail"`
+}
+
+func TestModelQueryBindStruct(t *testing.T) {
+	err := readConfig()
+	if err != nil {
+		println(err.Error())
+		os.Exit(4)
+	}
+	logBlockList := utils.InitLog(baseStruct.RootPath, "database")
+	var databaseLog utils.LogInputFile
+	for _, logBlock := range logBlockList {
+		if logBlock.FileName == "database" {
+			databaseLog = logBlock
+			break
+		}
+	}
+	models.InitDB("spider:p0o9i8u7@tcp(database:3306)/video?charset=utf8mb4&parseTime=True&loc=Local", false, databaseLog.WriterObject)
+	sql := `select w.web_name,a.author_name,ua.cookies_fail
+from user_web_site_account ua 
+    inner join author a on ua.author_id=a.id 
+    inner join web_site w on w.id=a.web_site_id
+         where ua.user_id=?`
+	result := []QueryData{}
+	err = models.GormDB.Raw(sql, 11).Scan(&result).Error
+	if err != nil {
+		println(err.Error())
+	}
+	fmt.Printf("%v\n", result)
 }

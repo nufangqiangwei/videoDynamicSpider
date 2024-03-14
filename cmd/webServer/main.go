@@ -85,7 +85,7 @@ func checkUser(ctx *gin.Context) {
 	err = utils.DecryptToken(cookies, config.AesKey, config.AesIv, &userCookies)
 	if err != nil {
 		utils.ErrorLog.Printf("解压用户cookies失败:%s", err.Error())
-		ctx.JSONP(403, map[string]string{"msg": "token错误1"})
+		ctx.JSONP(411, map[string]string{"msg": "token错误1"})
 		ctx.Abort()
 		return
 	}
@@ -102,7 +102,7 @@ func checkUser(ctx *gin.Context) {
 	//	return
 	//}
 	if (time.Now().Unix() - userCookies.LoginTime) > ExpirationTime {
-		ctx.JSONP(403, map[string]string{"msg": "登录过期"})
+		ctx.JSONP(411, map[string]string{"msg": "登录过期"})
 		ctx.Abort()
 		return
 	}
@@ -125,7 +125,7 @@ func checkUser(ctx *gin.Context) {
 }
 
 func readConfig() error {
-	//baseStruct.RootPath = "E:\\GoCode\\videoDynamicAcquisition\\cmd\\spiderProxy"
+	//baseStruct.RootPath = "E:\\GoCode\\videoDynamicAcquisition\\cmd\\webServer"
 	fileData, err := os.ReadFile(path.Join(baseStruct.RootPath, "config.json"))
 	if err != nil {
 		println(err.Error())
@@ -164,9 +164,16 @@ func main() {
 		println("aes key or iv error")
 		os.Exit(4)
 	}
-	utils.InitLog(baseStruct.RootPath)
+	logBlockList := utils.InitLog(baseStruct.RootPath, "database")
+	var databaseLog utils.LogInputFile
+	for _, logBlock := range logBlockList {
+		if logBlock.FileName == "database" {
+			databaseLog = logBlock
+			break
+		}
+	}
 	if config.DB.HOST != "" {
-		models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), false)
+		models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), false, databaseLog.WriterObject)
 		models.OpenRedis()
 	}
 	//go deleteFile()

@@ -18,4 +18,5 @@ type FollowInfo struct {
 type VideoCollection interface {
 	GetWebSiteName() models.WebSite
 	GetVideoList(chan<- models.Video, chan<- TaskClose)
+	GetSelfName(string) any
 }

@@ -41,24 +41,16 @@ func videoHistoryList(gtx *gin.Context) {
 }
 
 type videoUpdateListRequestBody struct {
-	Page        int `form:"page"`
-	Size        int `form:"size"`
-	MinDuration int `form:"minDuration"` // 最小时长
-	MaxDuration int `form:"maxDuration"` // 最大时长
+	Page            int   `form:"page"`
+	Size            int   `form:"size"`
+	MinDuration     int   `form:"minDuration"`     // 最小时长
+	MaxDuration     int   `form:"maxDuration"`     // 最大时长
+	LastRequestTime int64 `form:"lastRequestTime"` // 上次请求返回的最后一个视频的时间戳
 }
 
 func videoUpdateList(gtx *gin.Context) {
 	requestBody := videoUpdateListRequestBody{}
-	gtx.ShouldBindQuery(&requestBody)
-	if requestBody.Page == 0 {
-		requestBody.Page = 1
-	}
-	if requestBody.Size == 0 {
-		requestBody.Size = 10
-	}
-	if requestBody.Size > 30 {
-		requestBody.Size = 30
-	}
+	_ = gtx.ShouldBindQuery(&requestBody)
 	if requestBody.MinDuration < 30 {
 		requestBody.MinDuration = 30
 	}
@@ -71,26 +63,40 @@ func videoUpdateList(gtx *gin.Context) {
 		requestBody.MinDuration = requestBody.MinDuration - 10
 		requestBody.MaxDuration = requestBody.MaxDuration + 10
 	}
+	user := ctxGetUser(gtx)
 	result := make([]map[string]interface{}, 0)
-	models.GormDB.Raw(`select w.web_name as webSite, 
-       v.title,
-       v.uuid,
-       CAST(UNIX_TIMESTAMP(v.upload_time) AS UNSIGNED) as uploadTime,
-       v.video_desc as videoDesc,
-       v.cover_url as coverUrl,
-       v.duration,
-       a.author_name as authorName,
-       a.author_web_uid as authorWebUid,
-       a.avatar
-		from video v
-		 inner join video_author va on va.video_id = v.id
-		 inner join author a on va.author_id = a.id 
-		 inner join web_site w on v.web_site_id = w.id
-		inner join follow f on f.author_id=a.id
-		where duration > ? and duration < ?
-		order by v.upload_time desc
-		limit ? offset ?`, requestBody.MinDuration, requestBody.MaxDuration,
-		requestBody.Size, (requestBody.Page-1)*requestBody.Size).Scan(&result)
+	sql := `select *
+from (select w.web_name                                      as webSite,
+             a.author_name,
+             v.title,
+             v.uuid,
+             v.create_time,
+             v.upload_time,
+             CAST(UNIX_TIMESTAMP(v.upload_time) AS UNSIGNED) as upload,
+             v.video_desc                                    as videoDesc,
+             v.cover_url                                     as coverUrl,
+             v.duration,
+             a.author_name                                   as authorName,
+             a.author_web_uid                                as authorWebUid,
+             a.avatar,
+             (SELECT MAX(vh.duration)
+              FROM video_history vh
+              WHERE vh.video_id = v.id)                      AS max_duration
+      from user_web_site_account ua
+               inner join follow f on f.user_id = ua.author_id
+               inner join video_author va on va.author_id = f.author_id
+               inner join video v on v.id = va.video_id
+               inner join author a on f.author_id = a.id
+               inner join web_site w on w.id = v.web_site_id
+      where duration > ?
+        and duration < ?
+        and v.upload_time <= ?
+      and ua.user_id=?
+      order by v.upload_time desc) vi
+where vi.max_duration is null
+limit 30`
+	models.GormDB.Raw(sql, requestBody.MinDuration, requestBody.MaxDuration,
+		requestBody.LastRequestTime, user.ID).Scan(&result)
 	// and v.upload_time >= CURDATE() - INTERVAL 30 DAY
 	response := BaseResponse{
 		Code: 0,

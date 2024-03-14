@@ -33,6 +33,7 @@ var (
 	wheel           *timeWheel.TimeWheel
 	spider          *Spider
 	config          *utils.Config
+	wheelLog        utils.LogInputFile
 )
 
 type Spider struct {
@@ -71,14 +72,20 @@ func init() {
 	if config.DataPath != "" {
 		baseStruct.RootPath = config.DataPath
 	}
-	utils.InitLog(path.Join(baseStruct.RootPath, "log"))
+	logBlockList := utils.InitLog(path.Join(baseStruct.RootPath, "log"), "TimeWheel")
+	for _, logBlock := range logBlockList {
+		if logBlock.FileName == "TimeWheel" {
+			wheelLog = logBlock
+			break
+		}
+	}
 	cookies.FlushAllCookies()
 	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), false)
+		config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), false, nil)
 	initWebSiteSpider()
 	wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
 		IsRun: false,
-		Log:   utils.TimeWheelLog,
+		Log:   wheelLog.WriterObject,
 	})
 	rand.Seed(time.Now().UnixNano())
 	utils.Info.Println("初始化完成：", time.Now().Format("2006.01.02 15:04:05"))

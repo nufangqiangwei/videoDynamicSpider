@@ -102,3 +102,10 @@ func (user User) SetPassword() error {
 	}
 	return GormDB.Model(&User{}).Where("id = ?", user.ID).Update("password", user.Password).Error
 }
+
+type UserWebSiteAccount struct {
+	ID          int64 `json:"id" gorm:"primary_key"`
+	UserId      int64 `json:"userId"`
+	AuthorId    int64 `json:"-"`
+	CookiesFail bool  `json:"cookiesFail"`
+}

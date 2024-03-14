@@ -157,21 +157,7 @@ func resetUserPassword(ctx *gin.Context) {
 		ctx.JSON(400, gin.H{"error": "Invalid request body"})
 		return
 	}
-	var (
-		u    any
-		ok   bool
-		user models.User
-	)
-	u, ok = ctx.Get("user")
-	if !ok {
-		ctx.JSON(403, gin.H{"error": "未登录"})
-		return
-	}
-	user, ok = u.(models.User)
-	if !ok {
-		ctx.JSON(403, gin.H{"error": "未登录"})
-		return
-	}
+	user := ctxGetUser(ctx)
 	if user.UserName != body.UserName {
 		ctx.JSON(403, gin.H{"error": "非法操作"})
 		return
@@ -191,4 +177,113 @@ func resetUserPassword(ctx *gin.Context) {
 			UserName string `json:"userName"`
 		}{UserName: user.UserName},
 	})
+}
+
+func ctxGetUser(ctx *gin.Context) models.User {
+	var (
+		u    any
+		ok   bool
+		user models.User
+	)
+	u, ok = ctx.Get("user")
+	if !ok {
+		ctx.JSON(411, gin.H{"error": "未登录"})
+		ctx.Abort()
+		return user
+	}
+	user, ok = u.(models.User)
+	if !ok {
+		ctx.JSON(411, gin.H{"error": "未登录"})
+		ctx.Abort()
+		return user
+	}
+	return user
+}
+
+type UserBindAuthor struct {
+	WebName     string `json:"webName"`
+	AuthorName  string `json:"authorName"`
+	CookiesFail bool   `json:"cookiesFail"`
+}
+
+// 获取用户上传了cookies的网站信息
+func getUserManageCookiesWebSite(ctx *gin.Context) {
+	user := ctxGetUser(ctx)
+	sql := `select w.web_name,a.author_name,ua.cookies_fail
+from user_web_site_account ua 
+    inner join author a on ua.author_id=a.id 
+    inner join web_site w on w.id=a.web_site_id
+         where ua.user_id=?`
+	result := make([]UserBindAuthor, 0)
+	err := models.GormDB.Raw(sql, user.ID).Scan(&result).Error
+	if err != nil {
+		ctx.JSON(500, gin.H{"error": "Internal Server Error"})
+		return
+	}
+	ctx.JSON(200, BaseResponse{
+		Msg:  "ok",
+		Data: result,
+	})
+}
+
+type UserFollowAuthor struct {
+	WebName        string `json:"webName"`
+	UserAuthorId   int64  `json:"userAuthorId"`
+	UserAuthorName string `json:"userAuthorName"`
+	UserAuthorUid  string `json:"userAuthorUid"`
+	AuthorName     string `json:"authorName"`
+	AuthorAvatar   string `json:"authorAvatar"`
+	AuthorDesc     string `json:"authorDesc"`
+	AuthorUid      string `json:"authorUid"`
+	AuthorId       int64  `json:"authorId"`
+}
+
+//获取平台用户关联的账号，所有关注的视频主
+func getUserFollowAuthor(ctx *gin.Context) {
+	user := ctxGetUser(ctx)
+	sql := `select w.web_name,
+       a.id,
+       a.author_web_uid,
+       a.author_name,
+       ab.author_name,
+       ab.avatar,
+       ab.author_desc,
+       ab.author_web_uid,
+       ab.id
+from user_web_site_account ua
+         inner join author a on ua.author_id = a.id
+         inner join web_site w on w.id = a.web_site_id
+         inner join follow f on f.user_id = ua.author_id
+         inner join author ab on ab.id = f.author_id
+where ua.user_id = ?`
+	result := make([]UserFollowAuthor, 0)
+	err := models.GormDB.Raw(sql, user.ID).Scan(&result).Error
+	if err != nil {
+		ctx.JSON(500, gin.H{"error": "Internal Server Error"})
+		return
+	}
+	ctx.JSON(200, BaseResponse{
+		Msg:  "ok",
+		Data: result,
+	})
+}
+
+type uploadWebCookiesRequestBody struct {
+	WebName string `json:"webName"`
+	Cookies string `json:"cookies"`
+}
+
+// 用户上传自己的cookies
+func uploadWebCookies(ctx *gin.Context) {
+	body := uploadWebCookiesRequestBody{}
+	err := ctx.BindJSON(&body)
+	if err != nil {
+		ctx.JSON(400, gin.H{"error": "Invalid request body"})
+		return
+	}
+	for _, spider := range spiderManager.collection {
+		if spider.GetWebSiteName().WebName == body.WebName {
+			spider.GetSelfName(body.Cookies)
+		}
+	}
 }
