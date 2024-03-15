@@ -1,6 +1,7 @@
 package baseStruct
 
 import (
+	"fmt"
 	"time"
 	"videoDynamicAcquisition/models"
 )
@@ -24,4 +25,14 @@ type VideoCollection interface {
 type AccountInfo interface {
 	AccountName() string
 	GetAuthorModel() models.Author
+}
+
+type DateTime time.Time
+
+func (t DateTime) MarshalJSON() ([]byte, error) {
+	var stamp = fmt.Sprintf("\"%s\"", time.Time(t).Format("2006-01-02 15:04:05"))
+	return []byte(stamp), nil
+}
+func (t DateTime) Unix() int64 {
+	return time.Time(t).Unix()
 }

@@ -29,6 +29,7 @@ var (
 	dynamicBaseLineMap map[string]int
 	historyBaseLineMap map[string]int64
 	webSiteId          int64
+	historyRequestSave map[string]utils.WriteFile
 )
 
 func (s BiliSpider) Init(dynamicBaseLine map[string]int, historyBaseLine map[string]int64, webSiteTableId int64) {
@@ -221,10 +222,20 @@ func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageInd
 
 func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, VideoHistoryCloseChan chan<- baseStruct.TaskClose) {
 	userEndBaseLine := make([]baseStruct.UserBaseLine, 0)
+	if historyRequestSave == nil {
+		historyRequestSave = make(map[string]utils.WriteFile)
+	}
 	for userName, userCookies := range cookies.GetWebSiteUser(webSiteName) {
 		if userCookies == nil {
 			utils.ErrorLog.Printf("%s用户未初始化cookies", userName)
 			continue
+		}
+		_, ok := historyRequestSave[userName]
+		if !ok {
+			historyRequestSave[userName] = utils.WriteFile{
+				FolderPrefix:   []string{baseStruct.RootPath, "bilbilHistoryFile"},
+				FileNamePrefix: userName,
+			}
 		}
 		userEndBaseLine = append(userEndBaseLine, getUserViewVideoHistory(VideoHistoryChan, *userCookies))
 	}
@@ -255,6 +266,9 @@ func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies c
 			spiderAccount = false
 			continue
 		}
+		saveFile := historyRequestSave[userCookies.GetUserName()]
+		bData, _ := json.Marshal(data)
+		saveFile.WriteLine(bData)
 		if viewAt == 0 {
 			newestTimestamp = data.Data.List[0].ViewAt
 		}

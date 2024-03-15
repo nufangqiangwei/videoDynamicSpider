@@ -34,6 +34,7 @@ var (
 	spider          *Spider
 	config          *utils.Config
 	wheelLog        utils.LogInputFile
+	databaseLog     utils.LogInputFile
 )
 
 type Spider struct {
@@ -72,16 +73,20 @@ func init() {
 	if config.DataPath != "" {
 		baseStruct.RootPath = config.DataPath
 	}
-	logBlockList := utils.InitLog(path.Join(baseStruct.RootPath, "log"), "TimeWheel")
+	logBlockList := utils.InitLog(path.Join(baseStruct.RootPath, "log"), "TimeWheel", "database")
 	for _, logBlock := range logBlockList {
 		if logBlock.FileName == "TimeWheel" {
 			wheelLog = logBlock
-			break
+			continue
+		}
+		if logBlock.FileName == "databaseLog" {
+			databaseLog = logBlock
+			continue
 		}
 	}
 	cookies.FlushAllCookies()
 	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), false, nil)
+		config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), false, databaseLog.WriterObject)
 	initWebSiteSpider()
 	wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
 		IsRun: false,
@@ -113,8 +118,7 @@ func initWebSiteSpider() {
 
 		if webSiteName == bilibili.Spider.GetWebSiteName().WebName {
 			var (
-				result []models.BiliSpiderHistory
-
+				result               []models.BiliSpiderHistory
 				err                  error
 				intLatestBaseline    int
 				lastHistoryTimestamp int64

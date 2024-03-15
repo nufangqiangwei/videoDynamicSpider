@@ -2,6 +2,8 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
+	"time"
+	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/models"
 )
 
@@ -48,6 +50,22 @@ type videoUpdateListRequestBody struct {
 	LastRequestTime int64 `form:"lastRequestTime"` // 上次请求返回的最后一个视频的时间戳
 }
 
+type VideoInfoData struct {
+	WebSite      string              `json:"webSite"`
+	AuthorName   string              `json:"authorName"`
+	Title        string              `json:"title"`
+	Uuid         string              `json:"uuid"`
+	CreateTime   baseStruct.DateTime `json:"createTime"`
+	Upload       int64               `json:"uploadTime" gorm:"-"`
+	UploadTime   baseStruct.DateTime `json:"upload"`
+	VideoDesc    string              `json:"videoDesc"`
+	CoverUrl     string              `json:"coverUrl"`
+	Duration     int                 `json:"duration"`
+	AuthorWebUid string              `json:"authorWebUid"`
+	Avatar       string              `json:"avatar"`
+	MaxDuration  int                 `json:"viewDuration"`
+}
+
 func videoUpdateList(gtx *gin.Context) {
 	requestBody := videoUpdateListRequestBody{}
 	_ = gtx.ShouldBindQuery(&requestBody)
@@ -63,21 +81,25 @@ func videoUpdateList(gtx *gin.Context) {
 		requestBody.MinDuration = requestBody.MinDuration - 10
 		requestBody.MaxDuration = requestBody.MaxDuration + 10
 	}
+	timestamp := ""
+	if requestBody.LastRequestTime == 0 {
+		timestamp = time.Now().Format("2006-01-02 15:04:05")
+	} else {
+		timestamp = time.Unix(requestBody.LastRequestTime, 0).Format("2006-01-02 15:04:05")
+	}
 	user := ctxGetUser(gtx)
-	result := make([]map[string]interface{}, 0)
+	result := make([]*VideoInfoData, 0)
 	sql := `select *
-from (select w.web_name                                      as webSite,
+from (select w.web_name,
              a.author_name,
              v.title,
              v.uuid,
              v.create_time,
              v.upload_time,
-             CAST(UNIX_TIMESTAMP(v.upload_time) AS UNSIGNED) as upload,
-             v.video_desc                                    as videoDesc,
-             v.cover_url                                     as coverUrl,
+             v.video_desc,
+             v.cover_url,
              v.duration,
-             a.author_name                                   as authorName,
-             a.author_web_uid                                as authorWebUid,
+             a.author_web_uid,
              a.avatar,
              (SELECT MAX(vh.duration)
               FROM video_history vh
@@ -96,8 +118,10 @@ from (select w.web_name                                      as webSite,
 where vi.max_duration is null
 limit 30`
 	models.GormDB.Raw(sql, requestBody.MinDuration, requestBody.MaxDuration,
-		requestBody.LastRequestTime, user.ID).Scan(&result)
-	// and v.upload_time >= CURDATE() - INTERVAL 30 DAY
+		timestamp, user.ID).Scan(&result)
+	for _, info := range result {
+		info.Upload = info.UploadTime.Unix()
+	}
 	response := BaseResponse{
 		Code: 0,
 		Data: result,
