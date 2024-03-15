@@ -18,5 +18,10 @@ type FollowInfo struct {
 type VideoCollection interface {
 	GetWebSiteName() models.WebSite
 	GetVideoList(chan<- models.Video, chan<- TaskClose)
-	GetSelfName(string) any
+	GetSelfInfo(string) AccountInfo
+}
+
+type AccountInfo interface {
+	AccountName() string
+	GetAuthorModel() models.Author
 }

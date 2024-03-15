@@ -2,10 +2,12 @@ package bilibili
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
 	"videoDynamicAcquisition/cookies"
+	"videoDynamicAcquisition/models"
 )
 
 // api文档 https://github.com/SocialSisterYi/bilibili-API-collect/blob/f9ee5c3b99335af6bef0d9d902101c565b3bea00/docs/user/info.md
@@ -164,6 +166,19 @@ func (ai *AuthorInfoResponse) getCode() int {
 func (ai *AuthorInfoResponse) bindJSON(body []byte) error {
 	return json.Unmarshal(body, ai)
 }
+func (ai *AuthorInfoResponse) AccountName() string {
+	return ai.Data.Name
+}
+func (ai *AuthorInfoResponse) GetAuthorModel() models.Author {
+	return models.Author{
+		WebSiteId:    webSiteId,
+		AuthorWebUid: strconv.Itoa(ai.Data.Mid),
+		AuthorName:   ai.Data.Name,
+		Avatar:       ai.Data.Face,
+		AuthorDesc:   ai.Data.Sign,
+		CreateTime:   time.Now(),
+	}
+}
 
 const authorInfoUrl = "https://api.bilibili.com/x/space/wbi/acc/info"
 
@@ -199,14 +214,14 @@ func (a authorInfo) getResponse(mid string) *AuthorInfoResponse {
 
 }
 
-func getSelfInfo(mid, cookiesContext string) (AuthorInfoResponse, error) {
+func getSelfInfo(mid, cookiesContext string) (*AuthorInfoResponse, error) {
 	ai := authorInfo{
 		userCookie: cookies.NewTemporaryUserCookie(webSiteName, cookiesContext),
 	}
 
 	response := ai.getResponse(mid)
 	if response == nil {
-		return AuthorInfoResponse{}, nil
+		return nil, errors.New("请求失败")
 	}
-	return *response, nil
+	return response, nil
 }

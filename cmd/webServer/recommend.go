@@ -104,3 +104,15 @@ limit 30`
 	}
 	gtx.JSONP(200, response)
 }
+
+func supportWebSiteLst(gtx *gin.Context) {
+	var result []string
+	for _, info := range spiderManager.collection {
+		result = append(result, info.GetWebSiteName().WebName)
+	}
+	gtx.JSONP(200, BaseResponse{
+		Code: 0,
+		Msg:  "ok",
+		Data: result,
+	})
+}

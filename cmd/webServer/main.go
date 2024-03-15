@@ -77,7 +77,7 @@ func checkToken(ctx *gin.Context) {
 func checkUser(ctx *gin.Context) {
 	cookies, err := ctx.Cookie("info")
 	if err != nil {
-		ctx.JSONP(403, map[string]string{"msg": "需登录"})
+		ctx.JSONP(403, logoutResponse)
 		ctx.Abort()
 		return
 	}
@@ -85,7 +85,7 @@ func checkUser(ctx *gin.Context) {
 	err = utils.DecryptToken(cookies, config.AesKey, config.AesIv, &userCookies)
 	if err != nil {
 		utils.ErrorLog.Printf("解压用户cookies失败:%s", err.Error())
-		ctx.JSONP(411, map[string]string{"msg": "token错误1"})
+		ctx.JSONP(411, logoutResponse)
 		ctx.Abort()
 		return
 	}
@@ -102,7 +102,7 @@ func checkUser(ctx *gin.Context) {
 	//	return
 	//}
 	if (time.Now().Unix() - userCookies.LoginTime) > ExpirationTime {
-		ctx.JSONP(411, map[string]string{"msg": "登录过期"})
+		ctx.JSONP(411, logoutResponse)
 		ctx.Abort()
 		return
 	}
@@ -180,18 +180,22 @@ func main() {
 	server := gin.Default()
 	server.POST("register", registerUser)
 	server.POST("login", userLogin)
+	server.GET("supportWebSite", supportWebSiteLst)
 
 	userApi := server.Group("user", checkUser)
 	userApi.POST("resetPassword", resetUserPassword)
 	userApi.POST("recommendVideo", bilibiliRecommendVideoSave)
 	userApi.POST("uploadStaticFile", deployWebSIteHtmlFile)
+	userApi.GET("manageCookies", getUserManageCookiesWebSite)
+	userApi.GET("manageAccount", getUserFollowAuthor)
+	userApi.POST("uploadAccountCookies", uploadWebCookies)
 
 	proxyPath := server.Group("proxy", checkToken)
 	proxyPath.POST(baseStruct.AuthorVideoList, getAuthorAllVideo)
 	proxyPath.POST(baseStruct.VideoDetail, getVideoDetailApi)
 	proxyPath.GET("getTaskStatus", getTaskStatus)
 
-	video := userApi.Group("video", checkDBInit)
+	video := server.Group("video", checkUser)
 	video.GET("getFollowList", getAuthorFollowList)
 	video.GET("migrateFollowAuthor", migrateFollowAuthor)
 	video.GET("list", videoUpdateList)
@@ -204,3 +208,15 @@ type BaseResponse struct {
 	Code int64       `json:"code"`
 	Data interface{} `json:"data"`
 }
+
+var successResponse = BaseResponse{
+	Msg: "ok",
+}
+var logoutResponse = BaseResponse{
+	Msg:  "logout",
+	Code: 403,
+}
+
+/*
+{"msg":"ok","code":0,"data":null}
+*/

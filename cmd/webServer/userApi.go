@@ -5,6 +5,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/mail"
 	"strings"
+	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
@@ -255,7 +257,7 @@ from user_web_site_account ua
          inner join web_site w on w.id = a.web_site_id
          inner join follow f on f.user_id = ua.author_id
          inner join author ab on ab.id = f.author_id
-where ua.user_id = ?`
+where ua.user_id = ? limit 10`
 	result := make([]UserFollowAuthor, 0)
 	err := models.GormDB.Raw(sql, user.ID).Scan(&result).Error
 	if err != nil {
@@ -281,9 +283,49 @@ func uploadWebCookies(ctx *gin.Context) {
 		ctx.JSON(400, gin.H{"error": "Invalid request body"})
 		return
 	}
+	var webSpider baseStruct.VideoCollection
 	for _, spider := range spiderManager.collection {
 		if spider.GetWebSiteName().WebName == body.WebName {
-			spider.GetSelfName(body.Cookies)
+			webSpider = spider
+			break
 		}
 	}
+	if webSpider == nil {
+		ctx.JSON(503, gin.H{"error": "尚未支持的网站"})
+		return
+	}
+	accountInfo := webSpider.GetSelfInfo(body.Cookies)
+	if accountInfo == nil {
+		ctx.JSON(400, gin.H{"error": "cookies无效"})
+		return
+	}
+	accountName := accountInfo.AccountName()
+	a := models.Author{}
+	err = models.GormDB.Model(&models.Author{}).Where("author_name=? and web_site.web_name=?", accountName, body.WebName).Joins(
+		"web_site on web_site.id=author.web_site_id",
+	).Scan(&a).Error
+	if err != nil {
+		ctx.JSON(500, gin.H{"error": "数据库查询失败"})
+		return
+	}
+	if a.Id == 0 {
+		a = accountInfo.GetAuthorModel()
+		err = models.GormDB.Create(&a).Error
+		if err != nil {
+			ctx.JSON(500, gin.H{"error": "数据库查询失败"})
+			return
+		}
+	}
+	user := ctxGetUser(ctx)
+	userBindAccount := models.UserWebSiteAccount{}
+	models.GormDB.Model(&models.UserWebSiteAccount{}).Where("user_id=? and author_id=?", user.ID, a.Id).Scan(&userBindAccount)
+	if userBindAccount.ID == 0 {
+		userBindAccount = models.UserWebSiteAccount{
+			UserId:   user.ID,
+			AuthorId: a.Id,
+		}
+		models.GormDB.Create(&userBindAccount)
+	}
+	cookies.AddUserCookies(body.WebName, a.AuthorName, body.Cookies, a.Id)
+	ctx.JSON(200, successResponse)
 }
