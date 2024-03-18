@@ -280,7 +280,7 @@ func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies c
 		viewAt = data.Data.Cursor.ViewAt
 		var pushTime time.Time
 		for _, info := range data.Data.List {
-			if info.ViewAt < lastHistoryTimestamp || maxNumber == 0 {
+			if info.ViewAt <= lastHistoryTimestamp || maxNumber == 0 {
 				utils.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", userCookies.GetUserName(), newestTimestamp)
 				spiderAccount = false
 				break

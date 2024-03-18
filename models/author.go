@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"gorm.io/gorm"
 	"time"
 )
@@ -128,4 +129,12 @@ func GetAuthorId(authorName string) (int64, error) {
 		return 0, tx.Error
 	}
 	return a.Id, nil
+}
+
+type AuthorNotExist struct {
+	authorName string
+}
+
+func (a AuthorNotExist) Error() string {
+	return fmt.Sprintf("作者%s不存在", a.authorName)
 }

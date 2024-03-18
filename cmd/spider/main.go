@@ -84,6 +84,7 @@ func init() {
 			continue
 		}
 	}
+	cookies.DataSource = models.WebSiteCookies{}
 	cookies.FlushAllCookies()
 	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), false, databaseLog.WriterObject)

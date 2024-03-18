@@ -1,8 +1,7 @@
 package cookies
 
 import (
-	"os"
-	"path"
+	"strconv"
 	"strings"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
@@ -13,6 +12,8 @@ const (
 	cookiesFileFolder = "baseCookies"
 	blankUserName     = "空用户"
 )
+
+var DataSource baseStruct.CookiesFlush = privateReadLocalFile{}
 
 func printLog(args ...string) {
 	if utils.ErrorLog == nil {
@@ -82,21 +83,9 @@ func (c *UserCookie) setCookies(cookiesContext string) {
 }
 
 func (c *UserCookie) saveCookies() {
-	// 将cookies保存到本地文件夹中
-	if c.fileName == blankUserName {
-		return
-	}
-	webSitePath := path.Join(baseStruct.RootPath, cookiesFileFolder, c.webSiteName)
-	err := os.MkdirAll(webSitePath, 0666)
+	err := DataSource.UpdateUserCookies(c.webSiteName, c.fileName, c.cookies, strconv.FormatInt(c.dbPrimaryKeyId, 10))
 	if err != nil {
-		utils.ErrorLog.Printf("创建文件夹出错,%s", err.Error())
-		return
-	}
-	filePath := path.Join(webSitePath, c.fileName)
-	printLog(c.webSiteName, "网站保存用户", c.fileName, "Cookies文件。文件地址是：", filePath)
-	err = os.WriteFile(filePath, []byte(c.cookies), 0666)
-	if err != nil {
-		utils.ErrorLog.Printf(err.Error())
+		utils.ErrorLog.Printf("更新%scookies文件失败", c.fileName)
 	}
 }
 
@@ -105,17 +94,8 @@ func (c *UserCookie) readFile() {
 	if c.fileName == blankUserName {
 		return
 	}
-	filePath := path.Join(baseStruct.RootPath, cookiesFileFolder, c.webSiteName, c.fileName)
-	printLog(c.webSiteName, "网站读取用户", c.fileName, "Cookies文件。文件地址是：", filePath)
-	f, err := os.ReadFile(filePath)
 
-	if err != nil {
-		printLog(err.Error())
-		c.cookies = ""
-		c.cookiesFail = false
-		return
-	}
-	cookies := strings.TrimSpace(string(f))
+	cookies := DataSource.GetUserCookies(c.webSiteName, c.fileName)
 	if !c.cookiesFail {
 		c.cookiesFail = c.cookies != cookies
 	}
@@ -155,23 +135,13 @@ type WebSiteCookiesManager struct {
 }
 
 func (wcm *WebSiteCookiesManager) FlushCookies() {
-	files, err := os.ReadDir(path.Join(baseStruct.RootPath, cookiesFileFolder, wcm.webSiteName))
-	if err != nil {
-		if utils.ErrorLog != nil {
-			utils.ErrorLog.Printf("读取%scookies文件夹失败", wcm.webSiteName)
-		} else {
-			println("读取", wcm.webSiteName, "网站cookies文件夹失败")
-			println(err.Error())
-		}
-		return
-	}
-	for _, file := range files {
-		c, ok := wcm.cookiesMap[file.Name()]
+	for _, userInfo := range DataSource.UserList(wcm.webSiteName) {
+		c, ok := wcm.cookiesMap[userInfo.UserName]
 		if !ok {
-			c = &UserCookie{fileName: file.Name(), webSiteName: wcm.webSiteName}
-			wcm.cookiesMap[file.Name()] = c
+			c = &UserCookie{fileName: userInfo.UserName, webSiteName: wcm.webSiteName, cookies: userInfo.Content}
+			wcm.cookiesMap[userInfo.UserName] = c
 		}
-		c.FlushCookies()
+
 	}
 }
 
@@ -181,29 +151,16 @@ func FlushAllCookies() {
 	if rootCookiesMap == nil {
 		rootCookiesMap = make(map[string]WebSiteCookiesManager)
 	}
-	// 遍历文件夹下的所有cookies文件，刷新cookies
-	files, err := os.ReadDir(path.Join(baseStruct.RootPath, cookiesFileFolder))
-	if err != nil {
-		println("读取cookies文件夹失败")
-		println(err.Error())
-		if utils.ErrorLog != nil {
-			utils.ErrorLog.Println("读取cookies文件夹失败")
-		} else {
-			println("读取cookies文件夹失败")
-		}
-		return
-	}
-	for _, file := range files {
-		c, ok := rootCookiesMap[file.Name()]
+	for _, webSiteName := range DataSource.WebSiteList() {
+		w, ok := rootCookiesMap[webSiteName]
 		if !ok {
-			c = WebSiteCookiesManager{
+			w = WebSiteCookiesManager{
 				cookiesMap:  make(map[string]*UserCookie),
-				webSiteName: file.Name(),
+				webSiteName: webSiteName,
 			}
-			rootCookiesMap[file.Name()] = c
+			rootCookiesMap[webSiteName] = w
 		}
-		println("读取", file.Name(), "cookies文件")
-		c.FlushCookies()
+		w.FlushCookies()
 	}
 }
 

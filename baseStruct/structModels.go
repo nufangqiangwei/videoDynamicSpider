@@ -36,3 +36,16 @@ func (t DateTime) MarshalJSON() ([]byte, error) {
 func (t DateTime) Unix() int64 {
 	return time.Time(t).Unix()
 }
+
+type CacheUserCookies struct {
+	UserName string `gorm:"userName"`
+	Content  string `gorm:"content"`
+}
+
+// CookiesFlush 读取cookies接口
+type CookiesFlush interface {
+	WebSiteList() []string
+	UserList(webName string) []CacheUserCookies
+	GetUserCookies(webSiteName, userName string) string
+	UpdateUserCookies(webSiteName, authorName, cookiesContent, userId string) error
+}

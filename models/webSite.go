@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // WebSite 网站列表，网站信息
 type WebSite struct {
@@ -27,4 +30,12 @@ func (w *WebSite) GetOrCreate() error {
 
 	cacheWebSite[w.WebName] = *w
 	return nil
+}
+
+type WebSiteNotExist struct {
+	webSiteName string
+}
+
+func (w WebSiteNotExist) Error() string {
+	return fmt.Sprintf("网站%s不存在", w.webSiteName)
 }
