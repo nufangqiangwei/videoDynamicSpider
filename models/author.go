@@ -138,3 +138,6 @@ type AuthorNotExist struct {
 func (a AuthorNotExist) Error() string {
 	return fmt.Sprintf("作者%s不存在", a.authorName)
 }
+func NewAuthorNotExist(authorName string) AuthorNotExist {
+	return AuthorNotExist{authorName: authorName}
+}

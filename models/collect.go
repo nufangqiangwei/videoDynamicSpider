@@ -3,7 +3,7 @@ package models
 import (
 	"strings"
 	"time"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 type Collect struct {
@@ -39,7 +39,7 @@ func (ci CollectVideo) Save() {
 		if strings.Contains(tx.Error.Error(), "UNIQUE constraint failed") || strings.Contains(tx.Error.Error(), "Duplicate entry") {
 			return
 		}
-		utils.ErrorLog.Printf("CollectVideo Save error %v\n", tx.Error)
+		log.ErrorLog.Printf("CollectVideo Save error %v\n", tx.Error)
 	}
 }
 

@@ -6,12 +6,12 @@ import (
 	"os"
 	"testing"
 	"videoDynamicAcquisition/baseStruct"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 func TestMain(m *testing.M) {
 	baseStruct.RootPath = "E:\\GoCode\\videoDynamicAcquisition"
-	utils.InitLog(baseStruct.RootPath)
+	log.InitLog(baseStruct.RootPath)
 	biliCookiesManager.FlushCookies()
 	os.Exit(m.Run())
 }

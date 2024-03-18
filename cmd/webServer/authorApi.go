@@ -4,8 +4,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/cookies"
+	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
-	"videoDynamicAcquisition/utils"
 )
 
 func getAuthorFollowList(gtx *gin.Context) {
@@ -40,7 +40,7 @@ func migrateFollowAuthor(gtx *gin.Context) {
 	err = bilibili.RelationAuthor(bilibili.FollowAuthor, requestBody.AuthorUid, *user)
 	if err != nil {
 		gtx.JSONP(400, map[string]string{"msg": "关注失败"})
-		utils.ErrorLog.Printf("子账号添加关注失败,%s", err.Error())
+		log.ErrorLog.Printf("子账号添加关注失败,%s", err.Error())
 		return
 	}
 }
@@ -77,13 +77,13 @@ func followAuthor(gtx *gin.Context) {
 	err = bilibili.RelationAuthor(bilibili.FollowAuthor, requestBody.AuthorUid, *targetUser)
 	if err != nil {
 		gtx.JSONP(400, map[string]string{"msg": "关注失败"})
-		utils.ErrorLog.Printf("子账号添加关注失败,%s", err.Error())
+		log.ErrorLog.Printf("子账号添加关注失败,%s", err.Error())
 		return
 	}
 	err = bilibili.RelationAuthor(bilibili.UnFollowAuthor, requestBody.AuthorUid, *sourceUser)
 	if err != nil {
 		gtx.JSONP(400, map[string]string{"msg": "取关失败"})
-		utils.ErrorLog.Printf("主账号取关失败,%s", err.Error())
+		log.ErrorLog.Printf("主账号取关失败,%s", err.Error())
 		return
 	}
 

@@ -10,6 +10,7 @@ import (
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/cookies"
+	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
@@ -48,22 +49,22 @@ func (s BiliSpider) GetWebSiteName() models.WebSite {
 	}
 }
 
-func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- baseStruct.TaskClose) {
-	userEndBaseLine := make([]baseStruct.UserBaseLine, 0)
+func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- models.TaskClose) {
+	userEndBaseLine := make([]models.UserBaseLine, 0)
 	for userName, userCookies := range cookies.GetWebSiteUser(webSiteName) {
 		if userCookies == nil {
-			utils.ErrorLog.Printf("%s用户未初始化cookies", userName)
+			log.ErrorLog.Printf("%s用户未初始化cookies", userName)
 			continue
 		}
 		userEndBaseLine = append(userEndBaseLine, getUserFollowAuthorVideo(result, *userCookies))
 	}
-	closeChan <- baseStruct.TaskClose{
+	closeChan <- models.TaskClose{
 		WebSite: webSiteName,
 		Code:    0,
 		Data:    userEndBaseLine,
 	}
 }
-func getUserFollowAuthorVideo(result chan<- models.Video, userCookies cookies.UserCookie) baseStruct.UserBaseLine {
+func getUserFollowAuthorVideo(result chan<- models.Video, userCookies cookies.UserCookie) models.UserBaseLine {
 	var (
 		videoBaseLine, startBaseLine, requestNumber, dynamicBaseLine, updateNumber int
 		err                                                                        error
@@ -79,7 +80,7 @@ func getUserFollowAuthorVideo(result chan<- models.Video, userCookies cookies.Us
 	if dynamicBaseLine == 0 {
 		updateNumber = defaultUpdateNumber
 	}
-	utils.Info.Printf("%s用户开始获取关注用户视频%d", userCookies.GetUserName(), dynamicBaseLine)
+	log.Info.Printf("%s用户开始获取关注用户视频%d", userCookies.GetUserName(), dynamicBaseLine)
 	var pushTime time.Time
 	breakFlag := true
 	baseLine = ""
@@ -99,14 +100,14 @@ func getUserFollowAuthorVideo(result chan<- models.Video, userCookies cookies.Us
 					Baseline = strconv.Itoa(a)
 					videoBaseLine = a
 				} else {
-					utils.ErrorLog.Print("未知的Baseline: ", info.IdStr)
-					utils.ErrorLog.Println("更新基线：", baseLine)
+					log.ErrorLog.Print("未知的Baseline: ", info.IdStr)
+					log.ErrorLog.Println("更新基线：", baseLine)
 					continue
 				}
 			} else {
 				videoBaseLine, err = strconv.Atoi(Baseline)
 				if err != nil {
-					utils.ErrorLog.Println("视频的IDStr错误")
+					log.ErrorLog.Println("视频的IDStr错误")
 					continue
 				}
 			}
@@ -160,7 +161,7 @@ func getUserFollowAuthorVideo(result chan<- models.Video, userCookies cookies.Us
 	if startBaseLine > 0 {
 		dynamicBaseLineMap[userCookies.GetUserName()] = startBaseLine
 	}
-	return baseStruct.UserBaseLine{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.Itoa(startBaseLine)}
+	return models.UserBaseLine{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.Itoa(startBaseLine)}
 }
 
 func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]string {
@@ -220,14 +221,14 @@ func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageInd
 
 }
 
-func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, VideoHistoryCloseChan chan<- baseStruct.TaskClose) {
-	userEndBaseLine := make([]baseStruct.UserBaseLine, 0)
+func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, VideoHistoryCloseChan chan<- models.TaskClose) {
+	userEndBaseLine := make([]models.UserBaseLine, 0)
 	if historyRequestSave == nil {
 		historyRequestSave = make(map[string]utils.WriteFile)
 	}
 	for userName, userCookies := range cookies.GetWebSiteUser(webSiteName) {
 		if userCookies == nil {
-			utils.ErrorLog.Printf("%s用户未初始化cookies", userName)
+			log.ErrorLog.Printf("%s用户未初始化cookies", userName)
 			continue
 		}
 		_, ok := historyRequestSave[userName]
@@ -239,13 +240,13 @@ func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, Vi
 		}
 		userEndBaseLine = append(userEndBaseLine, getUserViewVideoHistory(VideoHistoryChan, *userCookies))
 	}
-	VideoHistoryCloseChan <- baseStruct.TaskClose{
+	VideoHistoryCloseChan <- models.TaskClose{
 		WebSite: webSiteName,
 		Code:    0,
 		Data:    userEndBaseLine,
 	}
 }
-func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies cookies.UserCookie) baseStruct.UserBaseLine {
+func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies cookies.UserCookie) models.UserBaseLine {
 	var (
 		maxNumber                                     = 100
 		newestTimestamp, lastHistoryTimestamp, viewAt int64
@@ -262,7 +263,7 @@ func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies c
 	for spiderAccount {
 		data := history.getResponse(0, viewAt, "archive")
 		if data == nil {
-			utils.Info.Printf("b站%s账号爬取历史记录请求异常退出: ", userCookies.GetUserName())
+			log.Info.Printf("b站%s账号爬取历史记录请求异常退出: ", userCookies.GetUserName())
 			spiderAccount = false
 			continue
 		}
@@ -273,7 +274,7 @@ func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies c
 			newestTimestamp = data.Data.List[0].ViewAt
 		}
 		if data.Data.Cursor.Max == 0 || data.Data.Cursor.ViewAt == 0 {
-			utils.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", userCookies.GetUserName(), newestTimestamp)
+			log.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", userCookies.GetUserName(), newestTimestamp)
 			spiderAccount = false
 			continue
 		}
@@ -281,7 +282,7 @@ func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies c
 		var pushTime time.Time
 		for _, info := range data.Data.List {
 			if info.ViewAt <= lastHistoryTimestamp || maxNumber == 0 {
-				utils.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", userCookies.GetUserName(), newestTimestamp)
+				log.Info.Printf("b站%s账号爬取历史完成，爬取到%d时间", userCookies.GetUserName(), newestTimestamp)
 				spiderAccount = false
 				break
 			}
@@ -317,10 +318,10 @@ func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies c
 			case "番剧":
 			case "综艺":
 			case "live":
-				utils.Info.Printf("未处理的历史记录 %v\n", info)
+				log.Info.Printf("未处理的历史记录 %v\n", info)
 				continue
 			default:
-				utils.Info.Printf("未知类型的历史记录 %v\n", info)
+				log.Info.Printf("未知类型的历史记录 %v\n", info)
 				continue
 			}
 
@@ -336,7 +337,7 @@ func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies c
 	if newestTimestamp > 0 {
 		historyBaseLineMap[userCookies.GetUserName()] = newestTimestamp
 	}
-	return baseStruct.UserBaseLine{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.FormatInt(newestTimestamp, 10)}
+	return models.UserBaseLine{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.FormatInt(newestTimestamp, 10)}
 }
 
 func SaveVideoHistoryList() {
@@ -356,7 +357,7 @@ func SaveVideoHistoryList() {
 	}
 	//defer os.WriteFile(path.Join(baseStruct.RootPath, "bilbilHistoryFile", "bilbilHistoryBaseLine"), []byte(strconv.FormatInt(newestTimestamp, 10)), 0644)
 	lastHistoryTimestamp, _ = strconv.ParseInt(string(a), 10, 64)
-	utils.Info.Println("lastHistoryTimestamp: ", lastHistoryTimestamp)
+	log.Info.Println("lastHistoryTimestamp: ", lastHistoryTimestamp)
 	business = ""
 	fileIndex := 1
 	file := utils.WriteFile{
@@ -373,7 +374,7 @@ func SaveVideoHistoryList() {
 	for {
 		data := history.getResponse(0, viewAt, business)
 		if data == nil {
-			utils.Info.Println("退出: ", newestTimestamp)
+			log.Info.Println("退出: ", newestTimestamp)
 			os.WriteFile(path.Join(baseStruct.RootPath, "bilbilHistoryFile", "bilbilHistoryBaseLine"), []byte(strconv.FormatInt(newestTimestamp, 10)), 0644)
 			return
 		}
@@ -384,7 +385,7 @@ func SaveVideoHistoryList() {
 		}
 		if data.Data.Cursor.Max == 0 || data.Data.Cursor.ViewAt == 0 {
 			os.WriteFile(path.Join(baseStruct.RootPath, "bilbilHistoryFile", "bilbilHistoryBaseLine"), []byte(strconv.FormatInt(newestTimestamp, 10)), 0644)
-			utils.Info.Println("退出: ", newestTimestamp)
+			log.Info.Println("退出: ", newestTimestamp)
 			return
 		}
 
@@ -393,7 +394,7 @@ func SaveVideoHistoryList() {
 		for _, info := range data.Data.List {
 			if info.ViewAt < lastHistoryTimestamp || maxNumber == 0 {
 				os.WriteFile(path.Join(baseStruct.RootPath, "bilbilHistoryFile", "bilbilHistoryBaseLine"), []byte(strconv.FormatInt(newestTimestamp, 10)), 0644)
-				utils.Info.Println("退出: ", newestTimestamp)
+				log.Info.Println("退出: ", newestTimestamp)
 				return
 			}
 
@@ -435,7 +436,7 @@ func (s BiliSpider) GetCollectList() NewCollect {
 					collectInfo = models.Collect{}
 					err = models.GormDB.Where("`type`=? and bv_id=?", 1, info.Id).Find(&collectInfo).Error
 					if err != nil {
-						utils.ErrorLog.Printf("GetCollectList查询Collect表出错")
+						log.ErrorLog.Printf("GetCollectList查询Collect表出错")
 						continue
 					}
 					if collectInfo.Id == 0 {
@@ -465,7 +466,7 @@ func (s BiliSpider) GetCollectList() NewCollect {
 					collectInfo = models.Collect{}
 					err = models.GormDB.Where("`type`=? and bv_id=?", 2, info.Id).Find(&collectInfo).Error
 					if err != nil {
-						utils.ErrorLog.Printf("GetCollectList查询Collect表出错")
+						log.ErrorLog.Printf("GetCollectList查询Collect表出错")
 						continue
 					}
 					if info.Mid == 0 {
@@ -565,14 +566,14 @@ func (s BiliSpider) GetFollowingList(resultChan chan<- baseStruct.FollowInfo, cl
 	for fileName, userCookies := range cookies.GetWebSiteUser(webSiteName) {
 		userId = userCookies.GetDBPrimaryKeyId()
 		if userId == 0 {
-			utils.ErrorLog.Printf("%s用户不存在,请手动添加", fileName)
+			log.ErrorLog.Printf("%s用户不存在,请手动添加", fileName)
 			continue
 		}
 		f.pageNumber = 1
 		f.userCookies = *userCookies
 		maxPage = 1
 		total = 0
-		utils.Info.Printf("%s用户的id是:%d", fileName, userId)
+		log.Info.Printf("%s用户的id是:%d", fileName, userId)
 		for {
 			response := f.getResponse(0)
 			if response == nil {
@@ -610,7 +611,7 @@ func (s BiliSpider) GetFollowingList(resultChan chan<- baseStruct.FollowInfo, cl
 	return
 }
 
-func (s BiliSpider) GetSelfInfo(cookiesContext string) baseStruct.AccountInfo {
+func (s BiliSpider) GetSelfInfo(cookiesContext string) models.AccountInfo {
 	userCookies := cookies.NewTemporaryUserCookie(webSiteName, cookiesContext)
 	data, err := getSelfInfo(userCookies.GetCookiesKeyValue(selfUserMid), cookiesContext)
 	if err != nil {

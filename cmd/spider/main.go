@@ -14,6 +14,7 @@ import (
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/cookies"
+	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
@@ -29,12 +30,12 @@ const (
 )
 
 var (
-	videoCollection []baseStruct.VideoCollection
+	videoCollection []models.VideoCollection
 	wheel           *timeWheel.TimeWheel
 	spider          *Spider
 	config          *utils.Config
-	wheelLog        utils.LogInputFile
-	databaseLog     utils.LogInputFile
+	wheelLog        log.LogInputFile
+	databaseLog     log.LogInputFile
 )
 
 type Spider struct {
@@ -65,6 +66,8 @@ func init() {
 		return
 	}
 	time.Local = location
+
+	// 读取配置文件
 	err = readConfig()
 	if err != nil {
 		os.Exit(2)
@@ -73,7 +76,9 @@ func init() {
 	if config.DataPath != "" {
 		baseStruct.RootPath = config.DataPath
 	}
-	logBlockList := utils.InitLog(path.Join(baseStruct.RootPath, "log"), "TimeWheel", "database")
+
+	// 初始化日志
+	logBlockList := log.InitLog(path.Join(baseStruct.RootPath, "log"), "TimeWheel", "database")
 	for _, logBlock := range logBlockList {
 		if logBlock.FileName == "TimeWheel" {
 			wheelLog = logBlock
@@ -84,17 +89,23 @@ func init() {
 			continue
 		}
 	}
-	cookies.DataSource = models.WebSiteCookies{}
-	cookies.FlushAllCookies()
+
+	// 初始化数据库，连接到数据库
 	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), false, databaseLog.WriterObject)
+
+	// 初始化加载cookies模块
+	cookies.DataSource = models.WebSiteCookies{}
+	cookies.FlushAllCookies()
 	initWebSiteSpider()
+
+	// 初始化定时器
 	wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
 		IsRun: false,
 		Log:   wheelLog.WriterObject,
 	})
 	rand.Seed(time.Now().UnixNano())
-	utils.Info.Println("初始化完成：", time.Now().Format("2006.01.02 15:04:05"))
+	log.Info.Println("初始化完成：", time.Now().Format("2006.01.02 15:04:05"))
 }
 
 func initWebSiteSpider() {
@@ -112,7 +123,7 @@ func initWebSiteSpider() {
 	cookies.RangeCookiesMap(func(webSiteName, userName string, userCookie *cookies.UserCookie) {
 		userId, err := models.GetAuthorId(userName)
 		if err != nil {
-			utils.ErrorLog.Printf("获取%s用户id失败：%s\n", userName, err.Error())
+			log.ErrorLog.Printf("获取%s用户id失败：%s\n", userName, err.Error())
 			return
 		}
 		userCookie.SetDBPrimaryKeyId(userId)
@@ -129,7 +140,7 @@ func initWebSiteSpider() {
 				if rowData.KeyName == "dynamic_baseline" {
 					intLatestBaseline, err = strconv.Atoi(rowData.Values)
 					if err != nil {
-						utils.ErrorLog.Printf("转换%s的dynamic_baseline失败：%s\n", userName, err.Error())
+						log.ErrorLog.Printf("转换%s的dynamic_baseline失败：%s\n", userName, err.Error())
 						continue
 					}
 					dynamicBaseLine[userName] = intLatestBaseline
@@ -137,7 +148,7 @@ func initWebSiteSpider() {
 				if rowData.KeyName == "history_baseline" {
 					lastHistoryTimestamp, err = strconv.ParseInt(rowData.Values, 10, 64)
 					if err != nil {
-						utils.ErrorLog.Printf("转换%s的history_baseline失败：%s\n", userName, err.Error())
+						log.ErrorLog.Printf("转换%s的history_baseline失败：%s\n", userName, err.Error())
 						continue
 					}
 					historyBaseLine[userName] = lastHistoryTimestamp
@@ -149,7 +160,7 @@ func initWebSiteSpider() {
 }
 
 func main() {
-	videoCollection = []baseStruct.VideoCollection{
+	videoCollection = []models.VideoCollection{
 		bilibili.Spider,
 	}
 	spider = &Spider{
@@ -216,7 +227,7 @@ func (s *Spider) getDynamic(interface{}) {
 			if ok {
 				_, err := wheel.AppendOnceFunc(s.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(defaultTicket, sixTime, twentyTime)})
 				if err != nil {
-					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+					log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				}
 				return
 			}
@@ -225,14 +236,14 @@ func (s *Spider) getDynamic(interface{}) {
 	}()
 
 	videoResultChan := make(chan models.Video)
-	closeChan := make(chan baseStruct.TaskClose)
+	closeChan := make(chan models.TaskClose)
 	runWebSite := make([]string, 0)
 
 	for _, v := range videoCollection {
 		webSite := models.WebSite{}
 		models.GormDB.Where("web_name=?", v.GetWebSiteName().WebName).First(&webSite)
 		if webSite.Id == 0 {
-			utils.ErrorLog.Printf("%s站点在数据库中找不到对应的数据。", v.GetWebSiteName().WebName)
+			log.ErrorLog.Printf("%s站点在数据库中找不到对应的数据。", v.GetWebSiteName().WebName)
 			continue
 		}
 		go v.GetVideoList(videoResultChan, closeChan)
@@ -241,7 +252,7 @@ func (s *Spider) getDynamic(interface{}) {
 
 	var (
 		videoInfo models.Video
-		closeInfo baseStruct.TaskClose
+		closeInfo models.TaskClose
 		err       error
 	)
 	for {
@@ -260,7 +271,7 @@ func (s *Spider) getDynamic(interface{}) {
 				for _, info := range closeInfo.Data {
 					err = models.SaveSpiderParamByUserId(info.UserId, "dynamic_baseline", info.EndBaseLine)
 					if err != nil {
-						utils.ErrorLog.Printf("保存dynamic_baseline失败：%s\n", err.Error())
+						log.ErrorLog.Printf("保存dynamic_baseline失败：%s\n", err.Error())
 					}
 				}
 			}
@@ -272,10 +283,10 @@ func (s *Spider) getDynamic(interface{}) {
 	close(closeChan)
 	close(videoResultChan)
 	nextRunTime := arrangeRunTime(defaultTicket, sixTime, twentyTime)
-	utils.Info.Printf("%d秒后再次抓取动态", nextRunTime)
+	log.Info.Printf("%d秒后再次抓取动态", nextRunTime)
 	_, err = wheel.AppendOnceFunc(s.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: nextRunTime})
 	if err != nil {
-		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+		log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 		return
 	}
 }
@@ -285,14 +296,14 @@ func getHistory(interface{}) {
 	defer func() {
 		panicErr := recover()
 		if panicErr != nil {
-			utils.ErrorLog.Println(string(debug.Stack()))
+			log.ErrorLog.Println(string(debug.Stack()))
 			_, ok := panicErr.(utils.DBFileLock)
 			if ok {
-				utils.ErrorLog.Println("执行报错，重新添加历史数据爬取")
+				log.ErrorLog.Println("执行报错，重新添加历史数据爬取")
 				var err error
 				_, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: oneTicket})
 				if err != nil {
-					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+					log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				}
 				return
 			}
@@ -302,7 +313,7 @@ func getHistory(interface{}) {
 
 	var err error
 	VideoHistoryChan := make(chan models.Video)
-	VideoHistoryCloseChan := make(chan baseStruct.TaskClose)
+	VideoHistoryCloseChan := make(chan models.TaskClose)
 	go bilibili.Spider.GetVideoHistoryList(VideoHistoryChan, VideoHistoryCloseChan)
 	for {
 		select {
@@ -313,13 +324,13 @@ func getHistory(interface{}) {
 				for _, info := range closeInfo.Data {
 					err = models.SaveSpiderParamByUserId(info.UserId, "history_baseline", info.EndBaseLine)
 					if err != nil {
-						utils.ErrorLog.Printf("保存dynamic_baseline失败：%s\n", err.Error())
+						log.ErrorLog.Printf("保存dynamic_baseline失败：%s\n", err.Error())
 					}
 				}
 			}
 			_, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
 			if err != nil {
-				utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+				log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				return
 			}
 			return
@@ -337,7 +348,7 @@ func updateCollectList(interface{}) {
 			if ok {
 				_, err := wheel.AppendOnceFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
 				if err != nil {
-					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+					log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				}
 				return
 			}
@@ -350,7 +361,7 @@ func updateCollectList(interface{}) {
 	}
 	err := web.GetOrCreate()
 	if err != nil {
-		utils.ErrorLog.Printf("获取网站信息失败：%s\n", err.Error())
+		log.ErrorLog.Printf("获取网站信息失败：%s\n", err.Error())
 		return
 	}
 	newCollectList := bilibili.Spider.GetCollectList()
@@ -415,7 +426,7 @@ func updateCollectList(interface{}) {
 				}
 				err = author.GetOrCreate()
 				if err != nil {
-					utils.ErrorLog.Printf("获取作者信息失败：%s\n", err.Error())
+					log.ErrorLog.Printf("获取作者信息失败：%s\n", err.Error())
 					continue
 				}
 				vi := models.Video{
@@ -455,7 +466,7 @@ func updateCollectList(interface{}) {
 
 	_, err = wheel.AppendOnceFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + rand.Int63n(100)})
 	if err != nil {
-		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+		log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 		return
 	}
 }
@@ -469,7 +480,7 @@ func updateCollectVideoList(interface{}) {
 			if ok {
 				_, err := wheel.AppendOnceFunc(updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(twelveTicket, sixTime, twentyTime)})
 				if err != nil {
-					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+					log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				}
 				return
 			}
@@ -540,7 +551,7 @@ func updateCollectVideoList(interface{}) {
 
 	_, err := wheel.AppendOnceFunc(updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(twelveTicket, sixTime, twentyTime)})
 	if err != nil {
-		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+		log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 		return
 	}
 }
@@ -559,7 +570,7 @@ func updateFollowInfo(interface{}) {
 			if ok {
 				_, err := wheel.AppendOnceFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
 				if err != nil {
-					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+					log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				}
 				return
 			}
@@ -572,7 +583,7 @@ func updateFollowInfo(interface{}) {
 	}
 	err := web.GetOrCreate()
 	if err != nil {
-		utils.ErrorLog.Printf("获取网站信息失败：%s\n", err.Error())
+		log.ErrorLog.Printf("获取网站信息失败：%s\n", err.Error())
 		return
 	}
 	resultChan := make(chan baseStruct.FollowInfo)
@@ -614,7 +625,7 @@ func updateFollowInfo(interface{}) {
 				}
 				err = author.UpdateOrCreate()
 				if err != nil {
-					utils.ErrorLog.Printf("更新作者信息失败：%s\n", err.Error())
+					log.ErrorLog.Printf("更新作者信息失败：%s\n", err.Error())
 					continue
 				}
 				f := models.Follow{
@@ -653,7 +664,7 @@ func updateFollowInfo(interface{}) {
 
 	_, err = wheel.AppendOnceFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + rand.Int63n(100)})
 	if err != nil {
-		utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+		log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 		return
 	}
 }
@@ -706,7 +717,7 @@ func updateAuthorVideoList(interface{}) {
 			if ok {
 				_, err := wheel.AppendOnceFunc(updateAuthorVideoList, nil, "updateAuthorVideoSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(twelveTicket, sixTime, twentyTime)})
 				if err != nil {
-					utils.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+					log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
 				}
 				return
 			}
@@ -719,7 +730,7 @@ func updateAuthorVideoList(interface{}) {
 	}
 	err := web.GetOrCreate()
 	if err != nil {
-		utils.ErrorLog.Printf("获取网站信息失败：%s\n", err.Error())
+		log.ErrorLog.Printf("获取网站信息失败：%s\n", err.Error())
 		return
 	}
 	authorList := models.GetCrawlAuthorList(web.Id)

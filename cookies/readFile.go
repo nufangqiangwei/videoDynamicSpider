@@ -5,7 +5,7 @@ import (
 	"path"
 	"strings"
 	"videoDynamicAcquisition/baseStruct"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 // 实现 baseStruct.CookiesFlush 接口
@@ -18,8 +18,8 @@ func (wsc privateReadLocalFile) WebSiteList() []string {
 	if err != nil {
 		println("读取cookies文件夹失败")
 		println(err.Error())
-		if utils.ErrorLog != nil {
-			utils.ErrorLog.Println("读取cookies文件夹失败")
+		if log.ErrorLog != nil {
+			log.ErrorLog.Println("读取cookies文件夹失败")
 		} else {
 			println("读取cookies文件夹失败")
 		}
@@ -34,8 +34,8 @@ func (wsc privateReadLocalFile) UserList(webName string) []baseStruct.CacheUserC
 	result := make([]baseStruct.CacheUserCookies, 0)
 	files, err := os.ReadDir(path.Join(baseStruct.RootPath, cookiesFileFolder, webName))
 	if err != nil {
-		if utils.ErrorLog != nil {
-			utils.ErrorLog.Printf("读取%scookies文件夹失败", webName)
+		if log.ErrorLog != nil {
+			log.ErrorLog.Printf("读取%scookies文件夹失败", webName)
 		} else {
 			println("读取", webName, "网站cookies文件夹失败")
 			println(err.Error())
@@ -45,8 +45,8 @@ func (wsc privateReadLocalFile) UserList(webName string) []baseStruct.CacheUserC
 	for _, file := range files {
 		fileContent, err := os.ReadFile(path.Join(baseStruct.RootPath, cookiesFileFolder, webName, file.Name()))
 		if err != nil {
-			if utils.ErrorLog != nil {
-				utils.ErrorLog.Printf("读取%scookies文件夹失败", webName)
+			if log.ErrorLog != nil {
+				log.ErrorLog.Printf("读取%scookies文件夹失败", webName)
 			} else {
 				println("读取", webName, "网站cookies文件夹失败")
 				println(err.Error())
@@ -60,8 +60,8 @@ func (wsc privateReadLocalFile) UserList(webName string) []baseStruct.CacheUserC
 func (wsc privateReadLocalFile) GetUserCookies(webSiteName, userName string) string {
 	fileContent, err := os.ReadFile(path.Join(baseStruct.RootPath, cookiesFileFolder, webSiteName, userName))
 	if err != nil {
-		if utils.ErrorLog != nil {
-			utils.ErrorLog.Printf("读取%scookies文件失败", userName)
+		if log.ErrorLog != nil {
+			log.ErrorLog.Printf("读取%scookies文件失败", userName)
 		} else {
 			println("读取", userName, "cookies文件失败")
 			println(err.Error())
@@ -78,14 +78,14 @@ func (wsc privateReadLocalFile) UpdateUserCookies(webSiteName, authorName, cooki
 	webSitePath := path.Join(baseStruct.RootPath, cookiesFileFolder, webSiteName)
 	err := os.MkdirAll(webSitePath, 0666)
 	if err != nil {
-		utils.ErrorLog.Printf("创建文件夹出错,%s", err.Error())
+		log.ErrorLog.Printf("创建文件夹出错,%s", err.Error())
 		return nil
 	}
 	filePath := path.Join(webSitePath, authorName)
-	printLog(webSiteName, "网站保存用户", authorName, "Cookies文件。文件地址是：", filePath)
+	log.ErrorLog.Println(webSiteName, "网站保存用户", authorName, "Cookies文件。文件地址是：", filePath)
 	err = os.WriteFile(filePath, []byte(cookiesContent), 0666)
 	if err != nil {
-		utils.ErrorLog.Printf(err.Error())
+		log.ErrorLog.Printf(err.Error())
 	}
 	return err
 }

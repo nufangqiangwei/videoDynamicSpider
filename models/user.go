@@ -47,6 +47,9 @@ func (u UserNotExist) Error() string {
 	return fmt.Sprintf("用户 %s 不存在", u.userName)
 }
 
+func NewUserNotExist(userName string) UserNotExist {
+	return UserNotExist{userName: userName}
+}
 func AddUser(user User, transaction *gorm.DB) error {
 	var (
 		err error

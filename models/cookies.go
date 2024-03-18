@@ -23,17 +23,17 @@ type WebSiteCookies struct {
 
 func (wsc WebSiteCookies) WebSiteList() []string {
 	result := make([]string, 0)
-	GormDB.Model(&UserCookies{}).Joins("web_site on web_site.id=web_site_id").Where("spider=?", wsc.Spider).Group("web_site.web_name").Pluck("web_site.web_name", &result)
+	GormDB.Model(&UserCookies{}).Joins("inner join web_site on web_site.id=web_site_id").Where("spider=?", wsc.Spider).Group("web_site.web_name").Pluck("web_site.web_name", &result)
 	return result
 }
 func (wsc WebSiteCookies) UserList(webName string) []baseStruct.CacheUserCookies {
 	result := make([]baseStruct.CacheUserCookies, 0)
-	GormDB.Model(&UserCookies{}).Joins("web_site on web_site.id=web_site_id and web_site.web_name=?", webName).Joins("author on author.id=author_id").Where("spider=?", wsc.Spider).Select("author.author_name as userName,content").Scan(&result)
+	GormDB.Model(&UserCookies{}).Joins("inner join web_site on web_site.id=web_site_id and web_site.web_name=?", webName).Joins("inner join author on author.id=author_id").Where("spider=?", wsc.Spider).Select("author.author_name as user_name,content").Scan(&result)
 	return result
 }
 func (wsc WebSiteCookies) GetUserCookies(webSiteName, userName string) string {
 	var result UserCookies
-	GormDB.Model(&UserCookies{}).Joins("web_site on web_site.id=web_site_id and web_site.web_name=?", webSiteName).Joins("author on author.id=author_id and author.author_name=?", userName).Where("spider=?", wsc.Spider).First(&result)
+	GormDB.Model(&UserCookies{}).Joins("inner join web_site on web_site.id=web_site_id and web_site.web_name=?", webSiteName).Joins("inner join author on author.id=author_id and author.author_name=?", userName).Where("spider=?", wsc.Spider).First(&result)
 	return ""
 }
 func (wsc WebSiteCookies) UpdateUserCookies(webSiteName, authorName, cookiesContent, userId string) error {
@@ -42,7 +42,7 @@ func (wsc WebSiteCookies) UpdateUserCookies(webSiteName, authorName, cookiesCont
 		result UserCookies
 		tx     *gorm.DB
 	)
-	tx = GormDB.Model(&UserCookies{}).Joins("web_site on web_site.id=web_site_id and web_site.web_name=?", webSiteName).Joins("author on author.id=author_id and author.author_name=?", authorName).First(&result)
+	tx = GormDB.Model(&UserCookies{}).Joins("inner join web_site on web_site.id=web_site_id and web_site.web_name=?", webSiteName).Joins("inner join author on author.id=author_id and author.author_name=?", authorName).First(&result)
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -54,7 +54,7 @@ func (wsc WebSiteCookies) UpdateUserCookies(webSiteName, authorName, cookiesCont
 			return tx.Error
 		}
 		if webSite.Id == 0 {
-			return WebSiteNotExist{webSiteName: webSiteName}
+			return NewWebSiteNotExist(webSiteName)
 		}
 		var author Author
 		tx = GormDB.Model(&Author{}).Where("author_name=?", authorName).First(&author)
@@ -62,7 +62,7 @@ func (wsc WebSiteCookies) UpdateUserCookies(webSiteName, authorName, cookiesCont
 			return tx.Error
 		}
 		if author.Id == 0 {
-			return AuthorNotExist{authorName: authorName}
+			return NewAuthorNotExist(authorName)
 		}
 		var user User
 		tx = GormDB.Model(&User{}).Where("id=?", userId).First(&user)
@@ -70,11 +70,11 @@ func (wsc WebSiteCookies) UpdateUserCookies(webSiteName, authorName, cookiesCont
 			return tx.Error
 		}
 		if user.ID == 0 {
-			return UserNotExist{userName: userId}
+			return NewUserNotExist(userId)
 		}
 		tx = GormDB.Create(&UserCookies{WebSiteId: webSite.Id, UserId: user.ID, AuthorId: author.Id, Content: cookiesContent, Spider: wsc.Spider})
 		return tx.Error
 	}
-	tx = GormDB.Model(&UserCookies{}).Joins("web_site on web_site.id=web_site_id and web_site.web_name=?", webSiteName).Joins("author on author.id=author_id and author.author_name=?", authorName).Where("spider=?", wsc.Spider).Update("content", cookiesContent)
+	tx = GormDB.Model(&UserCookies{}).Joins("inner join web_site on web_site.id=web_site_id and web_site.web_name=?", webSiteName).Joins("inner join author on author.id=author_id and author.author_name=?", authorName).Where("spider=?", wsc.Spider).Update("content", cookiesContent)
 	return tx.Error
 }

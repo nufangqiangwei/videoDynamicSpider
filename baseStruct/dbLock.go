@@ -6,7 +6,7 @@ import (
 	"os"
 	"path"
 	"sync"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 var dbFileLock sync.Mutex
@@ -37,8 +37,8 @@ func BackUserDb() {
 	defer destination.Close()
 	fineSize, err := io.Copy(destination, source)
 	if err != nil {
-		utils.ErrorLog.Println(err)
+		log.ErrorLog.Println(err)
 		return
 	}
-	utils.Info.Println("备份数据库成功，备份大小：", fineSize)
+	log.Info.Println("备份数据库成功，备份大小：", fineSize)
 }

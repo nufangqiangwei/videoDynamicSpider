@@ -39,3 +39,7 @@ type WebSiteNotExist struct {
 func (w WebSiteNotExist) Error() string {
 	return fmt.Sprintf("网站%s不存在", w.webSiteName)
 }
+
+func NewWebSiteNotExist(webSiteName string) WebSiteNotExist {
+	return WebSiteNotExist{webSiteName: webSiteName}
+}

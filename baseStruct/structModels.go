@@ -3,7 +3,6 @@ package baseStruct
 import (
 	"fmt"
 	"time"
-	"videoDynamicAcquisition/models"
 )
 
 type FollowInfo struct {
@@ -14,17 +13,6 @@ type FollowInfo struct {
 	Avatar     string
 	AuthorDesc string
 	FollowTime *time.Time
-}
-
-type VideoCollection interface {
-	GetWebSiteName() models.WebSite
-	GetVideoList(chan<- models.Video, chan<- TaskClose)
-	GetSelfInfo(string) AccountInfo
-}
-
-type AccountInfo interface {
-	AccountName() string
-	GetAuthorModel() models.Author
 }
 
 type DateTime time.Time
@@ -38,8 +26,8 @@ func (t DateTime) Unix() int64 {
 }
 
 type CacheUserCookies struct {
-	UserName string `gorm:"userName"`
-	Content  string `gorm:"content"`
+	UserName string `json:"userName"`
+	Content  string `json:"content"`
 }
 
 // CookiesFlush 读取cookies接口

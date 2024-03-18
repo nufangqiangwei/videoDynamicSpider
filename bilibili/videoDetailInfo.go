@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"videoDynamicAcquisition/cookies"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 // https://socialsisteryi.github.io/bilibili-API-collect/docs/video/info.html
@@ -479,7 +479,7 @@ func (receiver videoDetail) getResponse(bvid string) *VideoDetailResponse {
 	}
 	response, err := http.DefaultClient.Do(receiver.getRequest(bvid))
 	if err != nil {
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println(err.Error())
 		return nil
 	}
 	result := new(VideoDetailResponse)
@@ -498,7 +498,7 @@ func GetVideoDetailByByte(bvid string) ([]byte, string) {
 	}
 	response, err := http.DefaultClient.Do(videoDetail{userCookie: userCookie}.getRequest(bvid))
 	if err != nil {
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println(err.Error())
 		return nil, response.Request.URL.String()
 	}
 	defer response.Body.Close()

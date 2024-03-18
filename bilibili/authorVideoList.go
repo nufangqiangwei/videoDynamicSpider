@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"videoDynamicAcquisition/cookies"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 /*
@@ -168,7 +168,7 @@ func (v *videoListPage) getResponse(mid string, pageIndex int) *VideoListPageRes
 	response, err := http.DefaultClient.Do(v.getRequest(mid, pageIndex))
 
 	if err != nil {
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println(err.Error())
 		return nil
 	}
 	responseBody := new(VideoListPageResponse)

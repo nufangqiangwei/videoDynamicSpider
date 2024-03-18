@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 	"videoDynamicAcquisition/cookies"
+	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
-	"videoDynamicAcquisition/utils"
 )
 
 // https://github.com/SocialSisterYi/bilibili-API-collect/blob/d6d17871459370883f4fd105161df3ce8db31b9d/docs/user/relation.md
@@ -86,7 +86,7 @@ func (f *followings) getRequest() *http.Request {
 
 func (f *followings) getResponse(retriesNumber int) *followingsResponse {
 	if retriesNumber > 2 {
-		utils.ErrorLog.Println("重试次数过多")
+		log.ErrorLog.Println("重试次数过多")
 		return nil
 	}
 	f.userCookies.FlushCookies()
@@ -95,8 +95,8 @@ func (f *followings) getResponse(retriesNumber int) *followingsResponse {
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
-		utils.ErrorLog.Println("请求失败")
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println("请求失败")
+		log.ErrorLog.Println(err.Error())
 		return nil
 	}
 	result := new(followingsResponse)
@@ -116,7 +116,7 @@ func (f *followings) getFollowings(webSiteId int64) (result []models.Author) {
 		response = &followingsResponse{}
 	}
 	followingNumber := response.Data.Total
-	utils.Info.Println("关注总数", followingNumber)
+	log.Info.Println("关注总数", followingNumber)
 	for f.pageNumber = 1; f.pageNumber <= followingNumber/50+1; f.pageNumber++ {
 		for _, info := range response.Data.List {
 			result = append(result, models.Author{

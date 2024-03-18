@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 	"videoDynamicAcquisition/cookies"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 const (
@@ -24,41 +24,41 @@ func responseCodeCheck(response *http.Response, apiResponseStruct responseCheck,
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	if response.StatusCode != 200 {
-		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
-		utils.ErrorLog.Println(string(body))
+		log.ErrorLog.Println("响应状态码错误", response.StatusCode)
+		log.ErrorLog.Println(string(body))
 		return errors.New(fmt.Sprintf("响应状态码错误:%d", response.StatusCode))
 	}
 	if err != nil {
-		utils.ErrorLog.Println("读取响应失败")
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println("读取响应失败")
+		log.ErrorLog.Println(err.Error())
 		return errors.New("读取响应失败")
 	}
 	err = apiResponseStruct.bindJSON(body)
 	if err != nil {
-		utils.ErrorLog.Println("json失败")
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println("json失败")
+		log.ErrorLog.Println(err.Error())
 		return errors.New("json失败")
 	}
 	code := apiResponseStruct.getCode()
 	if code == -101 {
 		// cookies失效
-		utils.ErrorLog.Printf("%s:cookies失效", user.GetUserName())
+		log.ErrorLog.Printf("%s:cookies失效", user.GetUserName())
 		user.InvalidCookies()
 		if user.GetStatus() {
 			time.Sleep(time.Second * 10)
 			return errors.New(fmt.Sprintf("%s:cookies失效", user.GetUserName()))
 		} else {
-			utils.ErrorLog.Printf("%s:cookies失效，请更新cookies文件2", user.GetUserName())
+			log.ErrorLog.Printf("%s:cookies失效，请更新cookies文件2", user.GetUserName())
 			return errors.New(fmt.Sprintf("%s:cookies失效，请更新cookies文件", user.GetUserName()))
 		}
 	}
 	if code == -352 {
-		utils.ErrorLog.Printf("%s用户。352错误，拒绝访问", user.GetUserName())
+		log.ErrorLog.Printf("%s用户。352错误，拒绝访问", user.GetUserName())
 		return errors.New("352错误，拒绝访问")
 	}
 	if code != 0 {
-		utils.ErrorLog.Printf("%s用户。响应状态码错误%d", user.GetUserName(), code)
-		utils.ErrorLog.Println(string(body))
+		log.ErrorLog.Printf("%s用户。响应状态码错误%d", user.GetUserName(), code)
+		log.ErrorLog.Println(string(body))
 		return errors.New("响应状态码错误")
 	}
 	return nil

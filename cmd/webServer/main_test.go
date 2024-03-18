@@ -14,8 +14,8 @@ import (
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
+	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
-	"videoDynamicAcquisition/utils"
 )
 
 func TestUUID(t *testing.T) {
@@ -79,7 +79,7 @@ func TestIntoFileData(t *testing.T) {
 		return nil
 	})
 	responseStruct := new(bilibili.VideoListPageResponse)
-	utils.InitLog(baseStruct.RootPath)
+	log.InitLog(baseStruct.RootPath)
 	models.InitDB("spider:spider@tcp(192.168.1.25:3306)/videoSpider?charset=utf8mb4&parseTime=True&loc=Local", false, nil)
 	testIndex := 0
 	nowTime := time.Now()
@@ -223,8 +223,8 @@ func TestModelQueryBindStruct(t *testing.T) {
 		println(err.Error())
 		os.Exit(4)
 	}
-	logBlockList := utils.InitLog(baseStruct.RootPath, "database")
-	var databaseLog utils.LogInputFile
+	logBlockList := log.InitLog(baseStruct.RootPath, "database")
+	var databaseLog log.LogInputFile
 	for _, logBlock := range logBlockList {
 		if logBlock.FileName == "database" {
 			databaseLog = logBlock

@@ -5,8 +5,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/mail"
 	"strings"
-	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/cookies"
+	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
@@ -75,7 +75,7 @@ func registerUser(ctx *gin.Context) {
 			ctx.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
-		utils.ErrorLog.Printf("注册用户失败:%s", err.Error())
+		log.ErrorLog.Printf("注册用户失败:%s", err.Error())
 		ctx.JSON(500, gin.H{"error": "数据库异常"})
 		return
 	}
@@ -83,7 +83,7 @@ func registerUser(ctx *gin.Context) {
 	cookies := generateUserCookies(user)
 	if cookies == "" {
 		transaction.Rollback()
-		utils.ErrorLog.Println("生成cookies失败:")
+		log.ErrorLog.Println("生成cookies失败:")
 		ctx.JSON(500, gin.H{"error": "Internal Server Error"})
 		return
 	}
@@ -107,7 +107,7 @@ func generateUserCookies(user models.User) string {
 	}
 	err := models.UserLoginCache(user.ID, timeNow, ExpirationTime)
 	if err != nil {
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println(err.Error())
 		return ""
 	}
 	return utils.EncryptToken(token.String(), config.AesKey, config.AesIv)
@@ -283,7 +283,7 @@ func uploadWebCookies(ctx *gin.Context) {
 		ctx.JSON(400, gin.H{"error": "Invalid request body"})
 		return
 	}
-	var webSpider baseStruct.VideoCollection
+	var webSpider models.VideoCollection
 	for _, spider := range spiderManager.collection {
 		if spider.GetWebSiteName().WebName == body.WebName {
 			webSpider = spider

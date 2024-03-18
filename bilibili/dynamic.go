@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/cookies"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 type videoInfoTypeEnum struct {
@@ -264,25 +264,25 @@ func (b *dynamicVideo) getRequest(mid int, offset string) *http.Request {
 }
 
 func (b *dynamicVideo) getUpdateVideoNumber(updateBaseline string) int {
-	utils.Info.Println("获取更新视频数量")
+	log.Info.Println("获取更新视频数量")
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all/update?type=video&update_baseline="+updateBaseline, nil)
 	request.Header.Add("Cookie", b.userCookie.GetCookies())
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println(err.Error())
 		return 0
 	}
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	if response.StatusCode != 200 {
-		utils.ErrorLog.Println("响应状态码错误", response.StatusCode)
-		utils.ErrorLog.Println(string(body))
+		log.ErrorLog.Println("响应状态码错误", response.StatusCode)
+		log.ErrorLog.Println(string(body))
 		return 0
 	}
 	updateResponse := new(updateVideoNumberResponse)
 	err = json.Unmarshal(body, updateResponse)
 	if err != nil {
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println(err.Error())
 		return 0
 	}
 	return updateResponse.Data.UpdateNum
@@ -299,7 +299,7 @@ func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (d
 
 	response, err := http.DefaultClient.Do(b.getRequest(mid, offset))
 	if err != nil {
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println(err.Error())
 		return
 	}
 	dynamicResponseBody = &dynamicResponse{}
@@ -314,8 +314,8 @@ func saveDynamicResponse(data []byte, mid int, offset string) {
 	fileName := fmt.Sprintf("%s\\%d\\bilibili-%s.json", baseStruct.RootPath, mid, offset)
 	err := os.WriteFile(fileName, data, 0666)
 	if err != nil {
-		utils.ErrorLog.Println("写文件失败")
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println("写文件失败")
+		log.ErrorLog.Println(err.Error())
 	}
 }
 

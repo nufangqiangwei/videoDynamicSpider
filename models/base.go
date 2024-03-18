@@ -7,11 +7,9 @@ import (
 	"gorm.io/gorm/schema"
 	"log"
 	"time"
-	"videoDynamicAcquisition/utils"
 )
 
 var (
-	dbLock *utils.Flock
 	GormDB *gorm.DB
 )
 
@@ -22,10 +20,7 @@ func InitDB(dsn string, createModel bool, log *log.Logger) {
 		Logger logger.Interface
 	)
 	if log != nil {
-		Logger = logger.New(log, logger.Config{
-			SlowThreshold: 200 * time.Millisecond,
-			LogLevel:      logger.Warn,
-		})
+		Logger = logger.New(log, logger.Config{})
 	}
 
 	GormDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
@@ -64,14 +59,6 @@ func timeCheck(t time.Time) interface{} {
 
 type BaseModel interface {
 	CreateTale() string
-}
-
-func CreateDbLock(dbPath string) {
-	if dbLock == nil {
-		dbLock = utils.NewFlock(dbPath)
-	} else {
-		println("dbLock已经存在")
-	}
 }
 
 type CustomTime struct {

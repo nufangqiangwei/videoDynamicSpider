@@ -4,7 +4,7 @@ import (
 	"errors"
 	"gorm.io/gorm"
 	"time"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 // Video 视频信息
@@ -33,8 +33,8 @@ type Video struct {
 func (v *Video) GetByUid(uid string) {
 	tx := GormDB.Where("uuid = ?", uid).First(v)
 	if tx.Error != nil && !errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-		utils.ErrorLog.Println("获取视频错误: ")
-		utils.ErrorLog.Println(tx.Error.Error())
+		log.ErrorLog.Println("获取视频错误: ")
+		log.ErrorLog.Println(tx.Error.Error())
 	}
 }
 

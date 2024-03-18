@@ -1,8 +1,10 @@
 package models
 
 import (
+	"errors"
+	"github.com/go-sql-driver/mysql"
 	"time"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 type VideoHistory struct {
@@ -16,7 +18,16 @@ type VideoHistory struct {
 
 func (vh VideoHistory) Save() {
 	tx := GormDB.Create(&vh)
-	if tx.Error != nil && !utils.IsMysqlUniqueErr(tx.Error) {
-		utils.ErrorLog.Println("VideoHistory插入数据错误", tx.Error.Error())
+	if tx.Error != nil && !IsMysqlUniqueErr(tx.Error) {
+		log.ErrorLog.Println("VideoHistory插入数据错误", tx.Error.Error())
 	}
+}
+
+func IsMysqlUniqueErr(err error) bool {
+	var mysqlErr *mysql.MySQLError
+	mysqlErr = new(mysql.MySQLError)
+	if errors.As(err, &mysqlErr) {
+		return mysqlErr.Number == 1062
+	}
+	return false
 }

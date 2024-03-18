@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"videoDynamicAcquisition/cookies"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 // https://github.com/SocialSisterYi/bilibili-API-collect/blob/ffa25ba78dc8f4ed8624f11e3b6f404cb799674f/docs/fav/list.md api文档
@@ -205,7 +205,7 @@ func getCollectList(mid string, pageIndex int, userCookie cookies.UserCookie) *c
 	request.Header.Add("Cookie", userCookie.GetCookies())
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		utils.ErrorLog.Println("请求错误", err.Error())
+		log.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
 	result := new(collectListResponse)
@@ -229,7 +229,7 @@ func subscriptionList(mid string, pageIndex int, userCookie cookies.UserCookie) 
 	request.Header.Add("Cookie", userCookie.GetCookies())
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		utils.ErrorLog.Println("请求错误", err.Error())
+		log.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
 	result := new(subscriptionListResponse)
@@ -253,7 +253,7 @@ func GetCollectVideoList(id int64, userName string) *CollectAllVideoListResponse
 	request.Header.Add("Cookie", userCookie.GetCookies())
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		utils.ErrorLog.Println("请求错误", err.Error())
+		log.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
 	result := new(CollectAllVideoListResponse)
@@ -282,7 +282,7 @@ func getCollectVideoInfo(collectId int64, page int, userCookie cookies.UserCooki
 	request.Header.Add("Cookie", userCookie.GetCookies())
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		utils.ErrorLog.Println("请求错误", err.Error())
+		log.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
 	result := new(collectVideoDetailResponse)
@@ -306,7 +306,7 @@ func getSeasonVideoInfo(collectId int64, page int) *seasonAllVideoDetailResponse
 	//request.Header.Add("Cookie", biliCookiesManager.GetUser(DefaultCookies).UserCookie)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		utils.ErrorLog.Println("请求错误", err.Error())
+		log.ErrorLog.Println("请求错误", err.Error())
 		return nil
 	}
 	result := new(seasonAllVideoDetailResponse)

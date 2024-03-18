@@ -14,6 +14,7 @@ import (
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
+	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
@@ -53,7 +54,7 @@ func readPath() {
 	// 检查importingPath目录下的文件是否有上次异常退出残留下来的文件
 	importingFileList, err := os.ReadDir(importingPath)
 	if err != nil {
-		utils.ErrorLog.Printf("读取目录失败：%s\n", err.Error())
+		log.ErrorLog.Printf("读取目录失败：%s\n", err.Error())
 	} else {
 		for _, importingFile := range importingFileList {
 			if strings.HasSuffix(importingFile.Name(), "tar.gz") {
@@ -72,7 +73,7 @@ func readPath() {
 	// 读取waitImportPath目录下的文件
 	waitImportFileList, err := os.ReadDir(waitImportPath)
 	if err != nil {
-		utils.ErrorLog.Printf("读取目录失败：%s\n", err.Error())
+		log.ErrorLog.Printf("读取目录失败：%s\n", err.Error())
 		waitImportFileList = make([]os.DirEntry, 0)
 	}
 	for _, waitImportFile := range waitImportFileList {
@@ -84,7 +85,7 @@ func readPath() {
 			// 将这个文件移动到importingPath目录下
 			err = os.Rename(path.Join(waitImportPath, waitImportFile.Name()), path.Join(importingPath, waitImportFile.Name()))
 			if err != nil {
-				utils.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
+				log.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
 				continue
 			}
 			time.Sleep(time.Microsecond * 500)
@@ -95,7 +96,7 @@ func readPath() {
 			//	importFileData(fileName)
 			//})
 			if err != nil {
-				utils.ErrorLog.Printf("协程池添加失败：%s，文件名%s\n", err.Error(), waitImportFile.Name())
+				log.ErrorLog.Printf("协程池添加失败：%s，文件名%s\n", err.Error(), waitImportFile.Name())
 			}
 		}
 	}
@@ -106,11 +107,11 @@ func readPath() {
 func importFileData(fileName string) {
 	// 文件是 cmd/webServer/main.go这个tarFolderFile函数打包出来的文件，文件名格式{taskType}_{taskId}.tar.gz
 	// 内部包含三种文件 requestParams请求参数 errRequestParams出现错误的请求参数  {taskId}.json结果集，100M一个文件
-	utils.Info.Println("importFileData函数开始解析", fileName)
+	log.Info.Println("importFileData函数开始解析", fileName)
 	// 解析文件名，获取taskType和taskId
 	fileNameList := strings.Split(fileName, "_")
 	if len(fileNameList) != 2 {
-		utils.ErrorLog.Printf("文件名格式错误：%s\n", fileName)
+		log.ErrorLog.Printf("文件名格式错误：%s\n", fileName)
 		moveFile(importingPath, errorImportPrefix, fileName)
 		return
 	}
@@ -130,7 +131,7 @@ func importFileData(fileName string) {
 		moveFile(importingPath, finishImportPath, fileName)
 	}
 	aa.endOffWorker()
-	utils.Info.Println("importFileData函数 ", fileName, "解析完成")
+	log.Info.Println("importFileData函数 ", fileName, "解析完成")
 }
 
 // tar.gz文件解压
@@ -138,13 +139,13 @@ func gzFileUnzip(fileNamePath, taskId string, handler taskWorker) error {
 	defer handler.endOffWorker()
 	tarFile, err := os.Open(fileNamePath)
 	if err != nil {
-		utils.ErrorLog.Printf("打开%s文件失败：%s\n", fileNamePath, err.Error())
+		log.ErrorLog.Printf("打开%s文件失败：%s\n", fileNamePath, err.Error())
 		return err
 	}
 	defer tarFile.Close()
 	gzRead, err := gzip.NewReader(tarFile)
 	if err != nil {
-		utils.ErrorLog.Printf("解压%s文件失败：%s\n", fileNamePath, err.Error())
+		log.ErrorLog.Printf("解压%s文件失败：%s\n", fileNamePath, err.Error())
 		return err
 	}
 	defer gzRead.Close()
@@ -178,7 +179,7 @@ func gzFileUnzip(fileNamePath, taskId string, handler taskWorker) error {
 						break
 					}
 					if err != nil {
-						utils.ErrorLog.Printf("读取%s文件行失败：%s\n", fileNamePath, err.Error())
+						log.ErrorLog.Printf("读取%s文件行失败：%s\n", fileNamePath, err.Error())
 						continue
 					}
 
@@ -201,7 +202,7 @@ func gzFileUnzip(fileNamePath, taskId string, handler taskWorker) error {
 func moveFile(sourcePath, targetPath, fileName string) {
 	err := os.Rename(path.Join(sourcePath, fileName), path.Join(targetPath, fileName))
 	if err != nil {
-		utils.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
+		log.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
 	}
 }
 
@@ -284,7 +285,7 @@ func (avl *biliAuthorVideoList) responseHandle(data []byte) error {
 	response := bilibili.VideoListPageResponse{}
 	err := json.Unmarshal(data, &response)
 	if err != nil {
-		utils.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
+		log.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
 		errorRequestSaveFile.WriteLine(data)
 		return err
 	}
@@ -317,7 +318,7 @@ func (avl *biliAuthorVideoList) saveAuthorVideoList(response bilibili.VideoListP
 			Where("author_web_uid = ?", authorMid).
 			Find(&avl.authorId).Error
 		if err != nil {
-			utils.ErrorLog.Printf("查询作者id失败：%s\n", err.Error())
+			log.ErrorLog.Printf("查询作者id失败：%s\n", err.Error())
 			return err
 		}
 	}
@@ -329,7 +330,7 @@ func (avl *biliAuthorVideoList) saveAuthorVideoList(response bilibili.VideoListP
 			Where("a.author_id = ?", avl.authorId).
 			Find(&authorVideoUUIDList).Error
 		if err != nil {
-			utils.ErrorLog.Printf("查询作者视频信息失败：%s\n", err.Error())
+			log.ErrorLog.Printf("查询作者视频信息失败：%s\n", err.Error())
 			return err
 		}
 		for _, videoUuid := range authorVideoUUIDList {
@@ -365,7 +366,7 @@ func (avl *biliAuthorVideoList) saveAuthorVideoList(response bilibili.VideoListP
 	}
 	err = models.GormDB.Create(insertVideo).Error
 	if err != nil {
-		utils.ErrorLog.Printf("保存视频信息失败：%s\n", err.Error())
+		log.ErrorLog.Printf("保存视频信息失败：%s\n", err.Error())
 	}
 	return err
 }
@@ -395,7 +396,7 @@ func (vd *biliVideoDetail) responseHandle(data []byte) error {
 	response := bilibili.VideoDetailResponse{}
 	err := json.Unmarshal(data, &response)
 	if err != nil {
-		utils.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
+		log.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
 		errorRequestSaveFile.WriteLine(data)
 		return errors.New("json错误")
 	}
@@ -434,7 +435,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 		}
 		err = models.GormDB.Create(&video).Error
 		if err != nil {
-			utils.ErrorLog.Printf("保存视频信息失败：%s\n", err.Error())
+			log.ErrorLog.Printf("保存视频信息失败：%s\n", err.Error())
 			return err
 		}
 		models.CreateVideoToRedis(video.Uuid, video.Id)
@@ -460,7 +461,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 	}).Error
 
 	if err != nil {
-		utils.ErrorLog.Printf("更新视频信息失败：%s\n", err.Error())
+		log.ErrorLog.Printf("更新视频信息失败：%s\n", err.Error())
 		return err
 	}
 	// 更新作者和协作者信息
@@ -472,7 +473,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 		}
 		err = models.GormDB.Where("id in ?", authorIdList).Find(&DatabaseAuthorInfo).Error
 		if err != nil {
-			utils.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
+			log.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
 			return err
 		}
 		// models.VideoAuthor 和 response.Data.View.Staff 两边信息做对比，models.VideoAuthor缺少的就添加，models.Author缺少的就添加
@@ -504,7 +505,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 					}
 					err = models.GormDB.Create(&author).Error
 					if err != nil {
-						utils.ErrorLog.Printf("保存作者信息失败：%s\n", err.Error())
+						log.ErrorLog.Printf("保存作者信息失败：%s\n", err.Error())
 						return err
 					}
 					models.CreateVideoAuthorToRedis(author.AuthorWebUid, author.Id)
@@ -517,7 +518,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 				}
 				err = models.GormDB.Create(&va).Error
 				if err != nil {
-					utils.ErrorLog.Printf("保存视频作者信息失败：%s\n", err.Error())
+					log.ErrorLog.Printf("保存视频作者信息失败：%s\n", err.Error())
 					return err
 
 				}
@@ -545,7 +546,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 			}
 			err = models.GormDB.Create(&AuthorInfo).Error
 			if err != nil {
-				utils.ErrorLog.Printf("保存作者信息失败：%s\n", err.Error())
+				log.ErrorLog.Printf("保存作者信息失败：%s\n", err.Error())
 				return err
 			}
 			models.CreateVideoAuthorToRedis(AuthorInfo.AuthorWebUid, AuthorInfo.Id)
@@ -555,7 +556,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 				// 协作者发生变化
 				err = models.GormDB.Model(&video).Association("Authors").Replace(&AuthorInfo)
 				if err != nil {
-					utils.ErrorLog.Printf("更新视频作者信息失败：%s\n", err.Error())
+					log.ErrorLog.Printf("更新视频作者信息失败：%s\n", err.Error())
 					return err
 				}
 			}
@@ -567,7 +568,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 				Contribute: "UP主",
 			}).Error
 			if err != nil {
-				utils.ErrorLog.Printf("保存视频作者信息失败：%s\n", err.Error())
+				log.ErrorLog.Printf("保存视频作者信息失败：%s\n", err.Error())
 				return err
 			}
 		}

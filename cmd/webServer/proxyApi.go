@@ -18,6 +18,7 @@ import (
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
+	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -104,7 +105,7 @@ func getVideoDetailApi(ctx *gin.Context) {
 func getAuthorVideoList(videoUid []string, folderName, taskId string) {
 	defer func() {
 		if err := recover(); err != nil {
-			utils.ErrorLog.Printf("getVideoDetailList panic %s", err)
+			log.ErrorLog.Printf("getVideoDetailList panic %s", err)
 			os.WriteFile(path.Join(baseStruct.RootPath, folderName, taskId, "funcError"), []byte(err.(error).Error()), fs.ModePerm)
 		}
 	}()
@@ -113,7 +114,7 @@ func getAuthorVideoList(videoUid []string, folderName, taskId string) {
 		FileNamePrefix: folderName,
 	}
 	defer file.Close()
-	utils.Info.Println("开始运行")
+	log.Info.Println("开始运行")
 	// 请求出错的id写入到文件中，文件名 errRequestParams
 	errRequestParams, _ := os.Open(path.Join(baseStruct.RootPath, folderName, taskId, "errRequestParams"))
 	defer errRequestParams.Close()
@@ -127,7 +128,7 @@ func getAuthorVideoList(videoUid []string, folderName, taskId string) {
 			pageIndex++
 			file.Write(writeRequestUrl(requestUrl, response))
 			if err != nil {
-				utils.ErrorLog.Println(err.Error())
+				log.ErrorLog.Println(err.Error())
 				errRequestParams.Write([]byte(i + "\n"))
 				pageIndex = maxPage + 1
 				continue
@@ -136,8 +137,8 @@ func getAuthorVideoList(videoUid []string, folderName, taskId string) {
 				responseBody := new(bilibili.VideoListPageResponse)
 				err = json.Unmarshal(response, responseBody)
 				if err != nil {
-					utils.ErrorLog.Println("解析响应失败")
-					utils.ErrorLog.Println(err.Error())
+					log.ErrorLog.Println("解析响应失败")
+					log.ErrorLog.Println(err.Error())
 					continue
 				}
 				if responseBody.Code != 0 {
@@ -150,7 +151,7 @@ func getAuthorVideoList(videoUid []string, folderName, taskId string) {
 
 			time.Sleep(time.Second * 3)
 		}
-		utils.Info.Printf("%s 爬取完成", i)
+		log.Info.Printf("%s 爬取完成", i)
 	}
 	file.Close()
 	tarFolderFile(folderName, taskId)
@@ -159,7 +160,7 @@ func getAuthorVideoList(videoUid []string, folderName, taskId string) {
 func getVideoDetailList(videoUid []string, folderName, taskId string) {
 	defer func() {
 		if err := recover(); err != nil {
-			utils.ErrorLog.Printf("getVideoDetailList panic %s", err)
+			log.ErrorLog.Printf("getVideoDetailList panic %s", err)
 		}
 	}()
 	file := utils.WriteFile{
@@ -167,7 +168,7 @@ func getVideoDetailList(videoUid []string, folderName, taskId string) {
 		FileNamePrefix: folderName,
 	}
 	defer file.Close()
-	utils.Info.Println("开始爬取视频详情")
+	log.Info.Println("开始爬取视频详情")
 	// 请求出错的id写入到文件中，文件名 errRequestParams
 	errRequestParams, _ := os.Open(path.Join(baseStruct.RootPath, folderName, taskId, "errRequestParams"))
 	defer errRequestParams.Close()
@@ -183,7 +184,7 @@ func getVideoDetailList(videoUid []string, folderName, taskId string) {
 			errRequestParams.Write([]byte{10})
 		}
 		time.Sleep(time.Second * 4)
-		utils.Info.Printf("%s 爬取完成", i)
+		log.Info.Printf("%s 爬取完成", i)
 	}
 	file.Close()
 	tarFolderFile(folderName, taskId)
@@ -256,7 +257,7 @@ func tarFolderFile(folderName, taskId string) {
 	// 创建目标文件
 	file, err := os.Create(targetFile)
 	if err != nil {
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println(err.Error())
 		return
 	}
 	defer file.Close()
@@ -312,7 +313,7 @@ func tarFolderFile(folderName, taskId string) {
 	})
 
 	if err != nil {
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println(err.Error())
 		return
 	}
 	perm := os.FileMode(0644) // 设置文件权限为 644 其他用户只有读权限
@@ -338,7 +339,7 @@ func deleteAfterDayFile(folderPath string) {
 	// 获取文件夹中的文件列表
 	files, err := ioutil.ReadDir(folderPath)
 	if err != nil {
-		utils.ErrorLog.Println(err.Error())
+		log.ErrorLog.Println(err.Error())
 		return
 	}
 	// 遍历文件列表

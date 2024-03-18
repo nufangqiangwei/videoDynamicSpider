@@ -9,6 +9,7 @@ import (
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
+	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
@@ -30,7 +31,7 @@ func (c Check) String() string {
 	data := make([]byte, 0)
 	data, err := json.Marshal(&c)
 	if err != nil {
-		utils.ErrorLog.Printf("Check模块json失败:%s", err.Error())
+		log.ErrorLog.Printf("Check模块json失败:%s", err.Error())
 	}
 	return string(data)
 }
@@ -55,7 +56,7 @@ func checkToken(ctx *gin.Context) {
 	jwt := Check{}
 	err := utils.DecryptToken(token, config.AesKey, config.AesIv, &jwt)
 	if err != nil {
-		utils.ErrorLog.Printf("解压token失败：%s", err.Error())
+		log.ErrorLog.Printf("解压token失败：%s", err.Error())
 		ctx.JSONP(403, map[string]string{"msg": "token错误"})
 		ctx.Abort()
 		return
@@ -84,7 +85,7 @@ func checkUser(ctx *gin.Context) {
 	userCookies := Check{}
 	err = utils.DecryptToken(cookies, config.AesKey, config.AesIv, &userCookies)
 	if err != nil {
-		utils.ErrorLog.Printf("解压用户cookies失败:%s", err.Error())
+		log.ErrorLog.Printf("解压用户cookies失败:%s", err.Error())
 		ctx.JSONP(411, logoutResponse)
 		ctx.Abort()
 		return
@@ -146,12 +147,12 @@ var (
 )
 
 type SpiderManager struct {
-	collection []baseStruct.VideoCollection
+	collection []models.VideoCollection
 }
 
 func main() {
 	spiderManager = SpiderManager{
-		collection: []baseStruct.VideoCollection{
+		collection: []models.VideoCollection{
 			bilibili.Spider,
 		},
 	}
@@ -164,8 +165,8 @@ func main() {
 		println("aes key or iv error")
 		os.Exit(4)
 	}
-	logBlockList := utils.InitLog(baseStruct.RootPath, "database")
-	var databaseLog utils.LogInputFile
+	logBlockList := log.InitLog(baseStruct.RootPath, "database")
+	var databaseLog log.LogInputFile
 	for _, logBlock := range logBlockList {
 		if logBlock.FileName == "database" {
 			databaseLog = logBlock

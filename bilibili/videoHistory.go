@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"videoDynamicAcquisition/cookies"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 // HistoryResponse https://github.com/SocialSisterYi/bilibili-API-collect/blob/ffa25ba78dc8f4ed8624f11e3b6f404cb799674f/docs/history%26toview/history.md
@@ -89,7 +89,7 @@ func (h *historyRequest) getResponse(max int, viewAt int64, business string) *Hi
 	request := h.getRequest(max, viewAt, business)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		utils.ErrorLog.Printf("获取历史记录错误:%s", err.Error())
+		log.ErrorLog.Printf("获取历史记录错误:%s", err.Error())
 		return nil
 	}
 	result := new(HistoryResponse)

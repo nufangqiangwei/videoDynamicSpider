@@ -3,7 +3,7 @@ package models
 import (
 	"gorm.io/gorm"
 	"time"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 const (
@@ -95,7 +95,7 @@ func GetDynamicBaseline(userName string) string {
 func SaveDynamicBaseline(baseline, userName string) {
 	err := saveSpiderParamByUserName(userName, "dynamic_baseline", baseline)
 	if err != nil {
-		utils.ErrorLog.Printf("保存dynamic_baseline失败:%s", err.Error())
+		log.ErrorLog.Printf("保存dynamic_baseline失败:%s", err.Error())
 	}
 }
 
@@ -109,6 +109,6 @@ func GetHistoryBaseLine(userName string) string {
 func SaveHistoryBaseLine(baseline, userName string) {
 	err := saveSpiderParamByUserName(userName, "history_baseline", baseline)
 	if err != nil {
-		utils.ErrorLog.Printf("保存dynamic_baseline失败:%s", err.Error())
+		log.ErrorLog.Printf("保存dynamic_baseline失败:%s", err.Error())
 	}
 }

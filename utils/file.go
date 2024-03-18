@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"time"
+	"videoDynamicAcquisition/log"
 )
 
 type WriteFile struct {
@@ -33,16 +34,16 @@ func (wf *WriteFile) checkFileSize() {
 		filePath := append(wf.FolderPrefix, wf.getFileName(true))
 		f, err := os.OpenFile(path.Join(filePath...), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			ErrorLog.Printf("打开新文件失败%s", err.Error())
+			log.ErrorLog.Printf("打开新文件失败%s", err.Error())
 			panic(err)
 		}
-		Info.Println(path.Join(filePath...))
+		log.Info.Println(path.Join(filePath...))
 		wf.file = f
 	}
 	for {
 		fi, err := wf.file.Stat()
 		if err != nil {
-			ErrorLog.Printf("获取文件信息失败%s", err.Error())
+			log.ErrorLog.Printf("获取文件信息失败%s", err.Error())
 			panic(err)
 		}
 		if fi.Size() >= maxFileSize {
@@ -50,7 +51,7 @@ func (wf *WriteFile) checkFileSize() {
 			filePath := append(wf.FolderPrefix, wf.getFileName(true))
 			f, err := os.OpenFile(path.Join(filePath...), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
-				ErrorLog.Printf("打开新文件失败%s", err.Error())
+				log.ErrorLog.Printf("打开新文件失败%s", err.Error())
 				panic(err)
 			}
 			wf.file = f

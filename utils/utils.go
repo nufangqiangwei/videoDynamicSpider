@@ -3,12 +3,11 @@ package utils
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"errors"
-	"github.com/go-sql-driver/mysql"
 	"io"
 	"math/rand"
 	"os"
 	"time"
+	"videoDynamicAcquisition/log"
 )
 
 const maxFileSize = 100 * 1024 * 1024 // 100M
@@ -72,15 +71,6 @@ func ArrayDifference[T string | int64](slice1, slice2 []T) []T {
 //	return false
 //}
 
-func IsMysqlUniqueErr(err error) bool {
-	var mysqlErr *mysql.MySQLError
-	mysqlErr = new(mysql.MySQLError)
-	if errors.As(err, &mysqlErr) {
-		return mysqlErr.Number == 1062
-	}
-	return false
-}
-
 type DBFileLock struct {
 	S string
 }
@@ -90,7 +80,7 @@ func GetFileMd5(filePath string) (string, error) {
 	// 打开文件
 	file, err := os.Open(filePath)
 	if err != nil {
-		ErrorLog.Printf("无法打开文件:%s, 错误信息：%s", filePath, err.Error())
+		log.ErrorLog.Printf("无法打开文件:%s, 错误信息：%s", filePath, err.Error())
 		return "", err
 	}
 	defer file.Close()
@@ -98,7 +88,7 @@ func GetFileMd5(filePath string) (string, error) {
 	hash := md5.New()
 	// 将文件内容拷贝到哈希对象中
 	if _, err := io.Copy(hash, file); err != nil {
-		ErrorLog.Printf("无法拷贝文件内容:%s, 错误信息：%s", filePath, err.Error())
+		log.ErrorLog.Printf("无法拷贝文件内容:%s, 错误信息：%s", filePath, err.Error())
 		return "", err
 	}
 	// 计算MD5值

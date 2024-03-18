@@ -16,6 +16,7 @@ import (
 	"time"
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
+	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
@@ -51,7 +52,7 @@ func readPath(interface{}) {
 	// 检查importingPath目录下的文件是否有上次异常退出残留下来的文件
 	importingFileList, err := os.ReadDir(importingPath)
 	if err != nil {
-		utils.ErrorLog.Printf("读取目录失败：%s\n", err.Error())
+		log.ErrorLog.Printf("读取目录失败：%s\n", err.Error())
 	} else {
 		for _, importingFile := range importingFileList {
 			if strings.HasSuffix(importingFile.Name(), "tar.gz") {
@@ -59,7 +60,7 @@ func readPath(interface{}) {
 					importFileData(importingFile.Name())
 				})
 				if err != nil {
-					utils.ErrorLog.Printf("协程池添加失败：%s，文件名%s\n", err.Error(), importingFile.Name())
+					log.ErrorLog.Printf("协程池添加失败：%s，文件名%s\n", err.Error(), importingFile.Name())
 				}
 			}
 		}
@@ -67,7 +68,7 @@ func readPath(interface{}) {
 	// 读取waitImportPath目录下的文件
 	waitImportFileList, err := os.ReadDir(waitImportPath)
 	if err != nil {
-		utils.ErrorLog.Printf("读取目录失败：%s\n", err.Error())
+		log.ErrorLog.Printf("读取目录失败：%s\n", err.Error())
 		waitImportFileList = make([]os.DirEntry, 0)
 	}
 	for _, waitImportFile := range waitImportFileList {
@@ -79,7 +80,7 @@ func readPath(interface{}) {
 			// 将这个文件移动到importingPath目录下
 			err = os.Rename(path.Join(waitImportPath, waitImportFile.Name()), path.Join(importingPath, waitImportFile.Name()))
 			if err != nil {
-				utils.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
+				log.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
 				continue
 			}
 			// 开始导入数据
@@ -87,7 +88,7 @@ func readPath(interface{}) {
 				importFileData(waitImportFile.Name())
 			})
 			if err != nil {
-				utils.ErrorLog.Printf("协程池添加失败：%s，文件名%s\n", err.Error(), waitImportFile.Name())
+				log.ErrorLog.Printf("协程池添加失败：%s，文件名%s\n", err.Error(), waitImportFile.Name())
 			}
 		}
 	}
@@ -98,12 +99,12 @@ func readPath(interface{}) {
 func importFileData(fileName string) {
 	// 文件是 cmd/webServer/main.go这个tarFolderFile函数打包出来的文件，文件名格式{taskType}_{taskId}.tar.gz
 	// 内部包含三种文件 requestParams请求参数 errRequestParams出现错误的请求参数  {taskId}.json结果集，100M一个文件
-	utils.Info.Println("importFileData函数开始解析", fileName)
+	log.Info.Println("importFileData函数开始解析", fileName)
 	defer moveFile(importingPath, finishImportPath, fileName)
 	// 解析文件名，获取taskType和taskId
 	fileNameList := strings.Split(fileName, "_")
 	if len(fileNameList) != 2 {
-		utils.ErrorLog.Printf("文件名格式错误：%s\n", fileName)
+		log.ErrorLog.Printf("文件名格式错误：%s\n", fileName)
 		moveFile(importingPath, errorImportPrefix, fileName)
 		return
 	}
@@ -121,7 +122,7 @@ func importFileData(fileName string) {
 		moveFile(importingPath, errorImportPrefix, fileName)
 	}
 	aa.endOffWorker()
-	utils.Info.Println("importFileData函数 ", fileName, "解析完成")
+	log.Info.Println("importFileData函数 ", fileName, "解析完成")
 }
 
 // tar.gz文件解压
@@ -129,13 +130,13 @@ func gzFileUnzip(fileNamePath, taskId string, handler taskWorker) error {
 	defer handler.endOffWorker()
 	tarFile, err := os.Open(fileNamePath)
 	if err != nil {
-		utils.ErrorLog.Printf("打开%s文件失败：%s\n", fileNamePath, err.Error())
+		log.ErrorLog.Printf("打开%s文件失败：%s\n", fileNamePath, err.Error())
 		return err
 	}
 	defer tarFile.Close()
 	gzRead, err := gzip.NewReader(tarFile)
 	if err != nil {
-		utils.ErrorLog.Printf("解压%s文件失败：%s\n", fileNamePath, err.Error())
+		log.ErrorLog.Printf("解压%s文件失败：%s\n", fileNamePath, err.Error())
 		return err
 	}
 	defer gzRead.Close()
@@ -169,7 +170,7 @@ func gzFileUnzip(fileNamePath, taskId string, handler taskWorker) error {
 						break
 					}
 					if err != nil {
-						utils.ErrorLog.Printf("读取%s文件行失败：%s\n", fileNamePath, err.Error())
+						log.ErrorLog.Printf("读取%s文件行失败：%s\n", fileNamePath, err.Error())
 						continue
 					}
 					err = handler.responseHandle(byteData)
@@ -188,7 +189,7 @@ func gzFileUnzip(fileNamePath, taskId string, handler taskWorker) error {
 func moveFile(sourcePath, targetPath, fileName string) {
 	err := os.Rename(path.Join(sourcePath, fileName), path.Join(targetPath, fileName))
 	if err != nil {
-		utils.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
+		log.ErrorLog.Printf("移动文件失败：%s\n", err.Error())
 	}
 }
 
@@ -224,7 +225,7 @@ func (avl *biliAuthorVideoList) responseHandle(data []byte) error {
 	response := bilibili.VideoListPageResponse{}
 	err := json.Unmarshal(data, &response)
 	if err != nil {
-		utils.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
+		log.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
 		errorRequestSaveFile.WriteLine(data)
 		return err
 	}
@@ -257,7 +258,7 @@ func (avl *biliAuthorVideoList) saveAuthorVideoList(response bilibili.VideoListP
 			Where("author_web_uid = ?", authorMid).
 			Find(&avl.authorId).Error
 		if err != nil {
-			utils.ErrorLog.Printf("查询作者id失败：%s\n", err.Error())
+			log.ErrorLog.Printf("查询作者id失败：%s\n", err.Error())
 			return err
 		}
 	}
@@ -269,7 +270,7 @@ func (avl *biliAuthorVideoList) saveAuthorVideoList(response bilibili.VideoListP
 			Where("a.author_id = ?", avl.authorId).
 			Find(&authorVideoUUIDList).Error
 		if err != nil {
-			utils.ErrorLog.Printf("查询作者视频信息失败：%s\n", err.Error())
+			log.ErrorLog.Printf("查询作者视频信息失败：%s\n", err.Error())
 			return err
 		}
 		for _, videoUuid := range authorVideoUUIDList {
@@ -305,7 +306,7 @@ func (avl *biliAuthorVideoList) saveAuthorVideoList(response bilibili.VideoListP
 	}
 	err = models.GormDB.Create(insertVideo).Error
 	if err != nil {
-		utils.ErrorLog.Printf("保存视频信息失败：%s\n", err.Error())
+		log.ErrorLog.Printf("保存视频信息失败：%s\n", err.Error())
 	}
 	return err
 }
@@ -334,7 +335,7 @@ func (vd *biliVideoDetail) responseHandle(data []byte) error {
 	}{}
 	err := json.Unmarshal(data, &response)
 	if err != nil {
-		utils.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
+		log.ErrorLog.Printf("解析响应失败：%s\n", err.Error())
 		return err
 	}
 	println(response.Url)
@@ -355,7 +356,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 	tx = models.GormDB.Where("uuid = ?", response.Data.View.Bvid).Preload("Authors").Preload("Tag").
 		Limit(1).Find(&video)
 	if tx.Error != nil {
-		utils.ErrorLog.Printf("获取视频信息失败：%s\n", tx.Error.Error())
+		log.ErrorLog.Printf("获取视频信息失败：%s\n", tx.Error.Error())
 		return tx.Error
 	}
 	if video.Id == 0 {
@@ -373,7 +374,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 		}
 		err = models.GormDB.Create(&video).Error
 		if err != nil {
-			utils.ErrorLog.Printf("保存视频信息失败：%s\n", err.Error())
+			log.ErrorLog.Printf("保存视频信息失败：%s\n", err.Error())
 			return err
 		}
 	}
@@ -392,7 +393,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 		"Evaluation": response.Data.View.Stat.Evaluation,
 	}).Error
 	if err != nil {
-		utils.ErrorLog.Printf("更新视频信息失败：%s\n", err.Error())
+		log.ErrorLog.Printf("更新视频信息失败：%s\n", err.Error())
 		return err
 	}
 	// 更新作者和协作者信息
@@ -404,7 +405,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 		}
 		err = models.GormDB.Where("id in ?", authorIdList).Find(&DatabaseAuthorInfo).Error
 		if err != nil {
-			utils.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
+			log.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
 			return err
 		}
 		// models.VideoAuthor 和 response.Data.View.Staff 两边信息做对比，models.VideoAuthor缺少的就添加，models.Author缺少的就添加
@@ -421,7 +422,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 				author := models.Author{}
 				err = models.GormDB.Where("author_web_uid = ?", strconv.Itoa(b.Mid)).Find(&author).Error
 				if err != nil {
-					utils.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
+					log.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
 					return err
 				}
 				if author.Id == 0 {
@@ -435,7 +436,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 					}
 					err = models.GormDB.Create(&author).Error
 					if err != nil {
-						utils.ErrorLog.Printf("保存作者信息失败：%s\n", err.Error())
+						log.ErrorLog.Printf("保存作者信息失败：%s\n", err.Error())
 						return err
 					}
 				}
@@ -447,7 +448,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 				}
 				err = models.GormDB.Create(&va).Error
 				if err != nil {
-					utils.ErrorLog.Printf("保存视频作者信息失败：%s\n", err.Error())
+					log.ErrorLog.Printf("保存视频作者信息失败：%s\n", err.Error())
 					return err
 
 				}
@@ -459,7 +460,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 		AuthorInfo := models.Author{}
 		err = models.GormDB.Where("author_web_uid=?", author.Mid).Find(&AuthorInfo).Error
 		if err != nil {
-			utils.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
+			log.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
 			return err
 		}
 		if AuthorInfo.Id == 0 {
@@ -474,7 +475,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 			}
 			err = models.GormDB.Create(&AuthorInfo).Error
 			if err != nil {
-				utils.ErrorLog.Printf("保存作者信息失败：%s\n", err.Error())
+				log.ErrorLog.Printf("保存作者信息失败：%s\n", err.Error())
 				return err
 			}
 		}
@@ -483,7 +484,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 				// 协作者发生变化
 				err = models.GormDB.Model(&video).Association("Authors").Replace(&AuthorInfo)
 				if err != nil {
-					utils.ErrorLog.Printf("更新视频作者信息失败：%s\n", err.Error())
+					log.ErrorLog.Printf("更新视频作者信息失败：%s\n", err.Error())
 					return err
 				}
 			}
@@ -495,7 +496,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 				Contribute: "UP主",
 			}).Error
 			if err != nil {
-				utils.ErrorLog.Printf("保存视频作者信息失败：%s\n", err.Error())
+				log.ErrorLog.Printf("保存视频作者信息失败：%s\n", err.Error())
 				return err
 			}
 		}
@@ -583,13 +584,13 @@ func importHistoryResponse() {
 	folderPath := "\\\\mijicn\\Download\\bilbilSpider\\bilbilHistoryFile"
 	importingFileList, err := os.ReadDir(folderPath)
 	if err != nil {
-		utils.ErrorLog.Printf("读取文件夹失败：%s\n", err.Error())
+		log.ErrorLog.Printf("读取文件夹失败：%s\n", err.Error())
 		return
 	}
 	for _, file := range importingFileList {
 		f, err := os.Open(path.Join(folderPath, file.Name()))
 		if err != nil {
-			utils.ErrorLog.Printf("打开文件失败：%s\n", err.Error())
+			log.ErrorLog.Printf("打开文件失败：%s\n", err.Error())
 			continue
 		}
 		jsonFile := utils.NewReaderJSONFile(f)
@@ -599,13 +600,13 @@ func importHistoryResponse() {
 				break
 			}
 			if err != nil {
-				utils.ErrorLog.Printf("读取%s文件行失败：%s\n", file.Name(), err.Error())
+				log.ErrorLog.Printf("读取%s文件行失败：%s\n", file.Name(), err.Error())
 				continue
 			}
 			response := bilibili.HistoryResponse{}
 			err = response.BingJSON(byteData)
 			if err != nil {
-				utils.ErrorLog.Printf("解析%s文件json行失败：%s\n", file.Name(), err.Error())
+				log.ErrorLog.Printf("解析%s文件json行失败：%s\n", file.Name(), err.Error())
 				continue
 			}
 			for _, info := range response.Data.List {
@@ -642,10 +643,10 @@ func importHistoryResponse() {
 				case "番剧":
 				case "综艺":
 				case "live":
-					utils.Info.Printf("未处理的历史记录 %v\n", info)
+					log.Info.Printf("未处理的历史记录 %v\n", info)
 					continue
 				default:
-					utils.Info.Printf("未知类型的历史记录 %v\n", info)
+					log.Info.Printf("未知类型的历史记录 %v\n", info)
 					continue
 				}
 			}

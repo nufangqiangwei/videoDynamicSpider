@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 	"videoDynamicAcquisition/baseStruct"
-	"videoDynamicAcquisition/utils"
+	"videoDynamicAcquisition/log"
 )
 
 const (
@@ -14,14 +14,6 @@ const (
 )
 
 var DataSource baseStruct.CookiesFlush = privateReadLocalFile{}
-
-func printLog(args ...string) {
-	if utils.ErrorLog == nil {
-		println(args)
-	} else {
-		utils.ErrorLog.Println(args)
-	}
-}
 
 type UserCookie struct {
 	cookies              string
@@ -59,18 +51,18 @@ func (c *UserCookie) FlushCookies() {
 	if !c.cookiesFail || c.cookies == "" || c.lastFlushCookiesTime.Add(time.Hour*24).Before(time.Now()) {
 		// 如果cookies失效并且上次刷新时间超过24小时，重新刷新cookies
 		if !c.cookiesFail {
-			utils.Info.Printf("%scookies标注为失效", c.fileName)
+			log.Info.Printf("%scookies标注为失效", c.fileName)
 		} else if c.cookies == "" {
-			utils.Info.Printf("%scookies未加载", c.fileName)
+			log.Info.Printf("%scookies未加载", c.fileName)
 		} else {
-			utils.Info.Printf("%scookies距离上次加载已过24小时。上次加载时间%s", c.fileName, c.lastFlushCookiesTime.Format("2006.01.02 15:04:05"))
+			log.Info.Printf("%scookies距离上次加载已过24小时。上次加载时间%s", c.fileName, c.lastFlushCookiesTime.Format("2006.01.02 15:04:05"))
 		}
 		c.lastFlushCookiesTime = time.Now()
 		c.readFile()
 		if !c.cookiesFail {
 			// cookies刷新失败
-			if utils.ErrorLog != nil {
-				utils.ErrorLog.Printf("cookies失效，请更新%scookies文件", c.fileName)
+			if log.ErrorLog != nil {
+				log.ErrorLog.Printf("cookies失效，请更新%scookies文件", c.fileName)
 			} else {
 				println("cookies失效，请更新", c.fileName, "cookies文件")
 			}
@@ -85,7 +77,7 @@ func (c *UserCookie) setCookies(cookiesContext string) {
 func (c *UserCookie) saveCookies() {
 	err := DataSource.UpdateUserCookies(c.webSiteName, c.fileName, c.cookies, strconv.FormatInt(c.dbPrimaryKeyId, 10))
 	if err != nil {
-		utils.ErrorLog.Printf("更新%scookies文件失败", c.fileName)
+		log.ErrorLog.Printf("更新%scookies文件失败", c.fileName)
 	}
 }
 
@@ -137,6 +129,7 @@ type WebSiteCookiesManager struct {
 func (wcm *WebSiteCookiesManager) FlushCookies() {
 	for _, userInfo := range DataSource.UserList(wcm.webSiteName) {
 		c, ok := wcm.cookiesMap[userInfo.UserName]
+		log.Info.Printf("加载%s网站%s用户cookies,cookies", wcm.webSiteName, userInfo.UserName)
 		if !ok {
 			c = &UserCookie{fileName: userInfo.UserName, webSiteName: wcm.webSiteName, cookies: userInfo.Content}
 			wcm.cookiesMap[userInfo.UserName] = c

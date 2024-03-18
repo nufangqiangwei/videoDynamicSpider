@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path"
 	"time"
+	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
 	"videoDynamicAcquisition/utils"
 )
@@ -18,7 +19,7 @@ func runToDoTask(interface{}) {
 	var proxyTasks []models.ProxySpiderTask
 	err := models.GormDB.Where("status = ?", 1).Find(&proxyTasks).Error
 	if err != nil {
-		utils.ErrorLog.Println("分配代理任务中，查询当前运作的代理错误:", err)
+		log.ErrorLog.Println("分配代理任务中，查询当前运作的代理错误:", err)
 		return
 	}
 	// 如果没有可用的代理任务，结束本次循环
@@ -185,7 +186,7 @@ func checkProxyTaskStatus(interface{}) {
 	var proxyTasks []models.ProxySpiderTask
 	err := models.GormDB.Where("status = ?", 1).Find(&proxyTasks).Error
 	if err != nil {
-		utils.ErrorLog.Println("查询当前正在进行的代理任务是否已经完成错误:", err)
+		log.ErrorLog.Println("查询当前正在进行的代理任务是否已经完成错误:", err)
 		return
 	}
 	for _, proxyTask := range proxyTasks {
@@ -193,23 +194,23 @@ func checkProxyTaskStatus(interface{}) {
 		url := fmt.Sprintf("%s/getTaskStatus?taskId=%s&taskType=%s", proxyTask.SpiderIp, proxyTask.TaskId, proxyTask.TaskType)
 		resp, err := http.Get(url)
 		if err != nil {
-			utils.ErrorLog.Println("查询代理任务是否已经完成错误:", err)
+			log.ErrorLog.Println("查询代理任务是否已经完成错误:", err)
 			continue
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			utils.ErrorLog.Println("查询代理任务是否已经完成错误:unexpected response status:", resp.StatusCode)
+			log.ErrorLog.Println("查询代理任务是否已经完成错误:unexpected response status:", resp.StatusCode)
 			continue
 		}
 		responseBody, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			utils.ErrorLog.Println("查询代理任务是否已经完成错误:", err)
+			log.ErrorLog.Println("查询代理任务是否已经完成错误:", err)
 			continue
 		}
 		responseData := proxyTaskStatusResponse{}
 		err = json.Unmarshal(responseBody, &responseData)
 		if err != nil {
-			utils.ErrorLog.Println("查询代理任务是否已经完成错误:", err)
+			log.ErrorLog.Println("查询代理任务是否已经完成错误:", err)
 			continue
 		}
 		if responseData.Status == 1 {
@@ -220,7 +221,7 @@ func checkProxyTaskStatus(interface{}) {
 				"result_file_md5": responseData.Md5,
 			}).Error
 			if err != nil {
-				utils.ErrorLog.Println("更新ProxySpiderTask表中的数据错误:", err)
+				log.ErrorLog.Println("更新ProxySpiderTask表中的数据错误:", err)
 				continue
 			}
 		}
@@ -239,7 +240,7 @@ func downloadProxyTaskDataFile(interface{}) {
 				"status": 3,
 			}).Error
 			if err != nil {
-				utils.ErrorLog.Println("更新ProxySpiderTask表中的数据错误:", err)
+				log.ErrorLog.Println("更新ProxySpiderTask表中的数据错误:", err)
 				continue
 			}
 		}
@@ -254,23 +255,23 @@ func downloadTaskDataFile(taskId, taskType, ip string) error {
 	url := fmt.Sprintf("%s/downloadTaskDataFile/%s/%s", ip, taskType, fileName)
 	resp, err := http.Get(url)
 	if err != nil {
-		utils.ErrorLog.Println(url, "下载任务文件错误:", err)
+		log.ErrorLog.Println(url, "下载任务文件错误:", err)
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		utils.ErrorLog.Println(url, "下载任务文件响应码错误:", resp.StatusCode)
+		log.ErrorLog.Println(url, "下载任务文件响应码错误:", resp.StatusCode)
 		return errors.New("响应码错误")
 	}
 	responseBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		utils.ErrorLog.Println(url, "下载任务文件错误:", err)
+		log.ErrorLog.Println(url, "下载任务文件错误:", err)
 		return err
 	}
 	// 将文件保存到本地
 	err = ioutil.WriteFile(path.Join(config.ProxyDataRootPath, utils.WaitImportPrefix, fileName), responseBody, 0666)
 	if err != nil {
-		utils.ErrorLog.Println(url, "将文件保存到本地错误:", err)
+		log.ErrorLog.Println(url, "将文件保存到本地错误:", err)
 		return err
 	}
 	// 更新ProxySpiderTask表中的数据
@@ -278,7 +279,7 @@ func downloadTaskDataFile(taskId, taskType, ip string) error {
 		"status": 3,
 	}).Error
 	if err != nil {
-		utils.ErrorLog.Println(url, "更新ProxySpiderTask表中的数据错误:", err)
+		log.ErrorLog.Println(url, "更新ProxySpiderTask表中的数据错误:", err)
 		return err
 	}
 	return nil
