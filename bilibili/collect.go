@@ -311,7 +311,7 @@ func getSeasonVideoInfo(collectId int64, page int) *seasonAllVideoDetailResponse
 	}
 	result := new(seasonAllVideoDetailResponse)
 	defaultUser := cookies.NewDefaultUserCookie(webSiteName)
-	err = responseCodeCheck(response, result, &defaultUser)
+	err = responseCodeCheck(response, result, defaultUser)
 	if err != nil {
 		return nil
 	}

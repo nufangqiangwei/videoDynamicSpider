@@ -217,7 +217,7 @@ func (a authorInfo) getResponse(mid string) *AuthorInfoResponse {
 func getSelfInfo(mid, cookiesContext string) (*AuthorInfoResponse, error) {
 	defaultUser := cookies.NewTemporaryUserCookie(webSiteName, cookiesContext)
 	ai := authorInfo{
-		userCookie: &defaultUser,
+		userCookie: defaultUser,
 	}
 
 	response := ai.getResponse(mid)

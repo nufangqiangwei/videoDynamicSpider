@@ -182,7 +182,7 @@ func (v *videoListPage) getResponse(mid string, pageIndex int) *VideoListPageRes
 func GetAuthorAllVideoListByByte(uid string, pageIndex int) ([]byte, error, string) {
 	defaultUser := cookies.NewDefaultUserCookie("bilibili")
 	v := videoListPage{
-		userCookie: &defaultUser,
+		userCookie: defaultUser,
 	}
 	response, err := http.DefaultClient.Do(v.getRequest(uid, pageIndex))
 
