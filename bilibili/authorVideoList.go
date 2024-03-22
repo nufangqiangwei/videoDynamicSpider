@@ -142,7 +142,7 @@ type VideoList struct {
 	VtDisplay     string `json:"vt_display"`
 }
 type videoListPage struct {
-	userCookie cookies.UserCookie
+	userCookie *cookies.UserCookie
 }
 
 func (v *videoListPage) getRequest(mid string, pageIndex int) *http.Request {
@@ -180,8 +180,9 @@ func (v *videoListPage) getResponse(mid string, pageIndex int) *VideoListPageRes
 }
 
 func GetAuthorAllVideoListByByte(uid string, pageIndex int) ([]byte, error, string) {
+	defaultUser := cookies.NewDefaultUserCookie("bilibili")
 	v := videoListPage{
-		userCookie: cookies.NewDefaultUserCookie("bilibili"),
+		userCookie: &defaultUser,
 	}
 	response, err := http.DefaultClient.Do(v.getRequest(uid, pageIndex))
 

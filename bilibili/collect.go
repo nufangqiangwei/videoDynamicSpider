@@ -194,7 +194,7 @@ type CollectVideoDetailInfo struct {
 }
 
 // https://api.bilibili.com/x/v3/fav/folder/created/list-all?up_mid=10932398 获取收藏夹列表
-func getCollectList(mid string, pageIndex int, userCookie cookies.UserCookie) *collectListResponse {
+func getCollectList(mid string, pageIndex int, userCookie *cookies.UserCookie) *collectListResponse {
 	userCookie.FlushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/v3/fav/folder/created/list-all", nil)
 	q := request.URL.Query()
@@ -217,7 +217,7 @@ func getCollectList(mid string, pageIndex int, userCookie cookies.UserCookie) *c
 }
 
 // https://api.bilibili.com/x/v3/fav/folder/collected/list?pn=1&ps=20&up_mid=10932398&platform=web 获取收藏和订阅列表
-func subscriptionList(mid string, pageIndex int, userCookie cookies.UserCookie) *subscriptionListResponse {
+func subscriptionList(mid string, pageIndex int, userCookie *cookies.UserCookie) *subscriptionListResponse {
 	userCookie.FlushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/v3/fav/folder/collected/list", nil)
 	q := request.URL.Query()
@@ -257,7 +257,7 @@ func GetCollectVideoList(id int64, userName string) *CollectAllVideoListResponse
 		return nil
 	}
 	result := new(CollectAllVideoListResponse)
-	err = responseCodeCheck(response, result, *userCookie)
+	err = responseCodeCheck(response, result, userCookie)
 	if err != nil {
 		return nil
 	}
@@ -266,7 +266,7 @@ func GetCollectVideoList(id int64, userName string) *CollectAllVideoListResponse
 
 // 只能获取个人收藏夹的视频列表
 // https://api.bilibili.com/x/v3/fav/resource/list?media_id=55899098&pn=1&ps=20&keyword=&order=mtime&type=0&tid=0&platform=web
-func getCollectVideoInfo(collectId int64, page int, userCookie cookies.UserCookie) *collectVideoDetailResponse {
+func getCollectVideoInfo(collectId int64, page int, userCookie *cookies.UserCookie) *collectVideoDetailResponse {
 	userCookie.FlushCookies()
 	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/v3/fav/resource/list", nil)
 	q := request.URL.Query()
@@ -310,7 +310,8 @@ func getSeasonVideoInfo(collectId int64, page int) *seasonAllVideoDetailResponse
 		return nil
 	}
 	result := new(seasonAllVideoDetailResponse)
-	err = responseCodeCheck(response, result, cookies.NewDefaultUserCookie(webSiteName))
+	defaultUser := cookies.NewDefaultUserCookie(webSiteName)
+	err = responseCodeCheck(response, result, &defaultUser)
 	if err != nil {
 		return nil
 	}

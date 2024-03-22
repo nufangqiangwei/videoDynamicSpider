@@ -65,7 +65,7 @@ type FollowingUP struct {
 
 type followings struct {
 	pageNumber  int
-	userCookies cookies.UserCookie
+	userCookies *cookies.UserCookie
 }
 
 func (f *followings) getRequest() *http.Request {

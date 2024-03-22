@@ -183,7 +183,7 @@ func (ai *AuthorInfoResponse) GetAuthorModel() models.Author {
 const authorInfoUrl = "https://api.bilibili.com/x/space/wbi/acc/info"
 
 type authorInfo struct {
-	userCookie cookies.UserCookie
+	userCookie *cookies.UserCookie
 }
 
 func (a authorInfo) getRequest(mid string) *http.Request {
@@ -215,8 +215,9 @@ func (a authorInfo) getResponse(mid string) *AuthorInfoResponse {
 }
 
 func getSelfInfo(mid, cookiesContext string) (*AuthorInfoResponse, error) {
+	defaultUser := cookies.NewTemporaryUserCookie(webSiteName, cookiesContext)
 	ai := authorInfo{
-		userCookie: cookies.NewTemporaryUserCookie(webSiteName, cookiesContext),
+		userCookie: &defaultUser,
 	}
 
 	response := ai.getResponse(mid)

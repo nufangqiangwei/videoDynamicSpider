@@ -240,12 +240,6 @@ func (s *Spider) getDynamic(interface{}) {
 	runWebSite := make([]string, 0)
 
 	for _, v := range videoCollection {
-		webSite := models.WebSite{}
-		models.GormDB.Where("web_name=?", v.GetWebSiteName().WebName).First(&webSite)
-		if webSite.Id == 0 {
-			log.ErrorLog.Printf("%s站点在数据库中找不到对应的数据。", v.GetWebSiteName().WebName)
-			continue
-		}
 		go v.GetVideoList(videoResultChan, closeChan)
 		runWebSite = append(runWebSite, v.GetWebSiteName().WebName)
 	}

@@ -56,7 +56,7 @@ func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- mo
 			log.ErrorLog.Printf("%s用户未初始化cookies", userName)
 			continue
 		}
-		userEndBaseLine = append(userEndBaseLine, getUserFollowAuthorVideo(result, *userCookies))
+		userEndBaseLine = append(userEndBaseLine, getUserFollowAuthorVideo(result, userCookies))
 	}
 	closeChan <- models.TaskClose{
 		WebSite: webSiteName,
@@ -64,7 +64,7 @@ func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- mo
 		Data:    userEndBaseLine,
 	}
 }
-func getUserFollowAuthorVideo(result chan<- models.Video, userCookies cookies.UserCookie) models.UserBaseLine {
+func getUserFollowAuthorVideo(result chan<- models.Video, userCookies *cookies.UserCookie) models.UserBaseLine {
 	var (
 		videoBaseLine, startBaseLine, requestNumber, dynamicBaseLine, updateNumber int
 		err                                                                        error
@@ -80,7 +80,7 @@ func getUserFollowAuthorVideo(result chan<- models.Video, userCookies cookies.Us
 	if dynamicBaseLine == 0 {
 		updateNumber = defaultUpdateNumber
 	}
-	log.Info.Printf("%s用户开始获取关注用户视频%d", userCookies.GetUserName(), dynamicBaseLine)
+	//log.Info.Printf("%s用户开始获取关注用户视频%d", userCookies.GetUserName(), dynamicBaseLine)
 	var pushTime time.Time
 	breakFlag := true
 	baseLine = ""
@@ -171,8 +171,9 @@ func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]s
 		ok      bool
 		_offset string
 	)
+	defaultUser := cookies.NewDefaultUserCookie(webSiteName)
 	dynamicVideoObject := dynamicVideo{
-		userCookie: cookies.NewDefaultUserCookie(webSiteName),
+		userCookie: &defaultUser,
 	}
 	for {
 		response := dynamicVideoObject.getResponse(0, author, offset)
@@ -203,8 +204,9 @@ func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]s
 
 func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageIndex int) map[int]VideoListPageResponse {
 	result := make(map[int]VideoListPageResponse)
+	defaultUser := cookies.NewDefaultUserCookie(webSiteName)
 	video := videoListPage{
-		userCookie: cookies.NewDefaultUserCookie(webSiteName),
+		userCookie: &defaultUser,
 	}
 	for {
 		response := video.getResponse(author, startPageIndex)
@@ -238,7 +240,7 @@ func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, Vi
 				FileNamePrefix: userName,
 			}
 		}
-		userEndBaseLine = append(userEndBaseLine, getUserViewVideoHistory(VideoHistoryChan, *userCookies))
+		userEndBaseLine = append(userEndBaseLine, getUserViewVideoHistory(VideoHistoryChan, userCookies))
 	}
 	VideoHistoryCloseChan <- models.TaskClose{
 		WebSite: webSiteName,
@@ -246,7 +248,7 @@ func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, Vi
 		Data:    userEndBaseLine,
 	}
 }
-func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies cookies.UserCookie) models.UserBaseLine {
+func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies *cookies.UserCookie) models.UserBaseLine {
 	var (
 		maxNumber                                     = 100
 		newestTimestamp, lastHistoryTimestamp, viewAt int64
@@ -430,7 +432,7 @@ func (s BiliSpider) GetCollectList() NewCollect {
 	for _, userCookies := range cookies.GetWebSiteUser(webSiteName) {
 		mid := userCookies.GetCookiesKeyValue("DedeUserID")
 		for {
-			a := getCollectList(mid, PageIndex, *userCookies)
+			a := getCollectList(mid, PageIndex, userCookies)
 			if a != nil {
 				for _, info := range a.Data.List {
 					collectInfo = models.Collect{}
@@ -460,7 +462,7 @@ func (s BiliSpider) GetCollectList() NewCollect {
 		time.Sleep(time.Second)
 		PageIndex = 1
 		for {
-			b := subscriptionList(mid, PageIndex, *userCookies)
+			b := subscriptionList(mid, PageIndex, userCookies)
 			if b != nil {
 				for _, info := range b.Data.List {
 					collectInfo = models.Collect{}
@@ -510,7 +512,7 @@ func (s BiliSpider) GetCollectAllVideo(collectId int64, maxPage int) []CollectVi
 	)
 	for _, userCookies := range cookies.GetWebSiteUser(webSiteName) {
 		for {
-			response = getCollectVideoInfo(collectId, page, *userCookies)
+			response = getCollectVideoInfo(collectId, page, userCookies)
 			if videoNumber == 0 {
 				videoNumber = response.Data.Info.MediaCount
 				if maxPage == 0 {
@@ -570,7 +572,7 @@ func (s BiliSpider) GetFollowingList(resultChan chan<- baseStruct.FollowInfo, cl
 			continue
 		}
 		f.pageNumber = 1
-		f.userCookies = *userCookies
+		f.userCookies = userCookies
 		maxPage = 1
 		total = 0
 		log.Info.Printf("%s用户的id是:%d", fileName, userId)

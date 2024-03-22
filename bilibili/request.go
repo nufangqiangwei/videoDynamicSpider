@@ -20,7 +20,7 @@ type responseCheck interface {
 	bindJSON([]byte) error
 }
 
-func responseCodeCheck(response *http.Response, apiResponseStruct responseCheck, user cookies.UserCookie) error {
+func responseCodeCheck(response *http.Response, apiResponseStruct responseCheck, user *cookies.UserCookie) error {
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	if response.StatusCode != 200 {

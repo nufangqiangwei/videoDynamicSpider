@@ -459,7 +459,7 @@ func (vd *VideoDetailResponse) BindJSON(data []byte) error {
 }
 
 type videoDetail struct {
-	userCookie cookies.UserCookie
+	userCookie *cookies.UserCookie
 }
 
 func (receiver videoDetail) getRequest(byid string) *http.Request {
@@ -491,9 +491,9 @@ func (receiver videoDetail) getResponse(bvid string) *VideoDetailResponse {
 }
 
 func GetVideoDetailByByte(bvid string) ([]byte, string) {
-	var userCookie cookies.UserCookie
+	var userCookie *cookies.UserCookie
 	for _, c := range cookies.GetWebSiteUser(webSiteName) {
-		userCookie = *c
+		userCookie = c
 		break
 	}
 	response, err := http.DefaultClient.Do(videoDetail{userCookie: userCookie}.getRequest(bvid))

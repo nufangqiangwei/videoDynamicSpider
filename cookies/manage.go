@@ -48,9 +48,9 @@ func (c *UserCookie) GetCookies() string {
 }
 
 func (c *UserCookie) FlushCookies() {
-	if !c.cookiesFail || c.cookies == "" || c.lastFlushCookiesTime.Add(time.Hour*24).Before(time.Now()) {
+	if c.cookiesFail || c.cookies == "" || c.lastFlushCookiesTime.Add(time.Hour*24).Before(time.Now()) {
 		// 如果cookies失效并且上次刷新时间超过24小时，重新刷新cookies
-		if !c.cookiesFail {
+		if c.cookiesFail {
 			log.Info.Printf("%scookies标注为失效", c.fileName)
 		} else if c.cookies == "" {
 			log.Info.Printf("%scookies未加载", c.fileName)
@@ -59,7 +59,7 @@ func (c *UserCookie) FlushCookies() {
 		}
 		c.lastFlushCookiesTime = time.Now()
 		c.readFile()
-		if !c.cookiesFail {
+		if c.cookiesFail {
 			// cookies刷新失败
 			if log.ErrorLog != nil {
 				log.ErrorLog.Printf("cookies失效，请更新%scookies文件", c.fileName)
@@ -77,7 +77,7 @@ func (c *UserCookie) setCookies(cookiesContext string) {
 func (c *UserCookie) saveCookies() {
 	err := DataSource.UpdateUserCookies(c.webSiteName, c.fileName, c.cookies, strconv.FormatInt(c.dbPrimaryKeyId, 10))
 	if err != nil {
-		log.ErrorLog.Printf("更新%scookies文件失败", c.fileName)
+		log.ErrorLog.Printf("持久化%scookies文件失败", c.fileName)
 	}
 }
 
@@ -88,10 +88,10 @@ func (c *UserCookie) readFile() {
 	}
 
 	cookies := DataSource.GetUserCookies(c.webSiteName, c.fileName)
-	if !c.cookiesFail {
-		c.cookiesFail = c.cookies != cookies
+	if c.cookiesFail {
+		c.cookiesFail = c.cookies == cookies
 	}
-	c.cookies = cookies
+	c.setCookies(cookies)
 }
 
 func (c *UserCookie) GetCookiesKeyValue(keyName string) string {
@@ -106,15 +106,15 @@ func (c *UserCookie) GetCookiesKeyValue(keyName string) string {
 	return ""
 }
 
-func NewDefaultUserCookie(webSiteName string) UserCookie {
-	return UserCookie{
+func NewDefaultUserCookie(webSiteName string) *UserCookie {
+	return &UserCookie{
 		fileName:    blankUserName,
 		webSiteName: webSiteName,
 	}
 }
 
-func NewTemporaryUserCookie(webSiteName, cookiesText string) UserCookie {
-	return UserCookie{
+func NewTemporaryUserCookie(webSiteName, cookiesText string) *UserCookie {
+	return &UserCookie{
 		cookies:     cookiesText,
 		fileName:    blankUserName,
 		webSiteName: webSiteName,
@@ -131,23 +131,23 @@ func (wcm *WebSiteCookiesManager) FlushCookies() {
 		c, ok := wcm.cookiesMap[userInfo.UserName]
 		log.Info.Printf("加载%s网站%s用户cookies,cookies", wcm.webSiteName, userInfo.UserName)
 		if !ok {
-			c = &UserCookie{fileName: userInfo.UserName, webSiteName: wcm.webSiteName, cookies: userInfo.Content}
+			c = &UserCookie{fileName: userInfo.UserName, webSiteName: wcm.webSiteName, cookies: userInfo.Content, lastFlushCookiesTime: time.Now()}
 			wcm.cookiesMap[userInfo.UserName] = c
 		}
 
 	}
 }
 
-var rootCookiesMap map[string]WebSiteCookiesManager
+var rootCookiesMap map[string]*WebSiteCookiesManager
 
 func FlushAllCookies() {
 	if rootCookiesMap == nil {
-		rootCookiesMap = make(map[string]WebSiteCookiesManager)
+		rootCookiesMap = make(map[string]*WebSiteCookiesManager)
 	}
 	for _, webSiteName := range DataSource.WebSiteList() {
 		w, ok := rootCookiesMap[webSiteName]
 		if !ok {
-			w = WebSiteCookiesManager{
+			w = &WebSiteCookiesManager{
 				cookiesMap:  make(map[string]*UserCookie),
 				webSiteName: webSiteName,
 			}
@@ -160,7 +160,7 @@ func FlushAllCookies() {
 func GetUser(weiSiteName, userName string) *UserCookie {
 	w, ok := rootCookiesMap[weiSiteName]
 	if !ok {
-		w = WebSiteCookiesManager{
+		w = &WebSiteCookiesManager{
 			cookiesMap:  make(map[string]*UserCookie),
 			webSiteName: weiSiteName,
 		}
@@ -209,7 +209,7 @@ func UpdateUserCookies(weiSiteName, userName, cookiesContent string) {
 
 func AddUserCookies(weiSiteName, userName, cookiesContent string, dbPrimaryKeyId int64) {
 	user := GetUser(weiSiteName, userName)
-	user.cookies = cookiesContent
+	user.setCookies(cookiesContent)
 	user.dbPrimaryKeyId = dbPrimaryKeyId
 	user.saveCookies()
 }

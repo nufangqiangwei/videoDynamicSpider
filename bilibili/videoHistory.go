@@ -62,7 +62,7 @@ type HistoryResponse struct {
 }
 
 type historyRequest struct {
-	userCookie cookies.UserCookie
+	userCookie *cookies.UserCookie
 }
 
 func (h *historyRequest) getRequest(max int, viewAt int64, business string) *http.Request {

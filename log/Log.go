@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const defaultLogName = "videoSpider"
+
 var (
 	Info     *log.Logger
 	Warning  *log.Logger
@@ -31,11 +33,11 @@ func InitLog(logPath string, outPutFile ...string) []LogInputFile {
 		rootPath    string
 	)
 	if !strings.HasSuffix(logPath, ".log") {
-		lofFilePath = path.Join(logPath, "videoSpider.log")
+		lofFilePath = path.Join(logPath, fmt.Sprintf("%s.log", defaultLogName))
 		rootPath = logPath
 	} else {
 		rootPath, _ = path.Split(logPath)
-		lofFilePath = path.Join(rootPath, "videoSpider.log")
+		lofFilePath = path.Join(rootPath, fmt.Sprintf("%s.log", defaultLogName))
 	}
 
 	println("日志文件路径：", lofFilePath)

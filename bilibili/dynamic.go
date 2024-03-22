@@ -233,7 +233,7 @@ type dynamicVideoInfo struct {
 }
 
 type dynamicVideo struct {
-	userCookie cookies.UserCookie
+	userCookie *cookies.UserCookie
 }
 
 // getRequest 设置请求头

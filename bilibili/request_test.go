@@ -6,13 +6,16 @@ import (
 	"os"
 	"testing"
 	"videoDynamicAcquisition/baseStruct"
+	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/log"
+	"videoDynamicAcquisition/models"
 )
 
 func TestMain(m *testing.M) {
 	baseStruct.RootPath = "E:\\GoCode\\videoDynamicAcquisition"
 	log.InitLog(baseStruct.RootPath)
-	biliCookiesManager.FlushCookies()
+	cookies.DataSource = models.WebSiteCookies{}
+	cookies.FlushAllCookies()
 	os.Exit(m.Run())
 }
 
@@ -22,7 +25,7 @@ func TestHistory(t *testing.T) {
 }
 
 func TestDynamic(t *testing.T) {
-	dynamicVideoObject = dynamicVideo{}
+	dynamicVideoObject := dynamicVideo{}
 	response := dynamicVideoObject.getResponse(0, 0, "")
 	if response == nil {
 		println("获取失败")
@@ -51,7 +54,7 @@ func TestJSONDynamic(t *testing.T) {
 }
 
 func TestRelationAuthor(t *testing.T) {
-	err := RelationAuthor(FollowAuthor, "3493118584293963", "DefaultCookies")
+	err := RelationAuthor(FollowAuthor, "3493118584293963", cookies.UserCookie{})
 	if err != nil {
 		println(err.Error())
 		return
