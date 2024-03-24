@@ -24,6 +24,7 @@ type Video struct {
 	CoverUrl          string          `gorm:"size:255"`
 	UploadTime        *time.Time      `gorm:"default:null;index:upload_time"`
 	CreateTime        time.Time       `gorm:"default:CURRENT_TIMESTAMP(3)"`
+	Baid              int64           `json:"aid"`
 	StructAuthor      []Author        `gorm:"-"`
 	StructTag         []Tag           `gorm:"-"`
 	StructCollectList []Collect       `gorm:"-"`

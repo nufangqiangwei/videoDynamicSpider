@@ -27,13 +27,13 @@ const (
 var (
 	Spider             = BiliSpider{}
 	wbiSignObj         = wbiSign{}
-	dynamicBaseLineMap map[string]int
+	dynamicBaseLineMap map[string]int64
 	historyBaseLineMap map[string]int64
 	webSiteId          int64
 	historyRequestSave map[string]utils.WriteFile
 )
 
-func (s BiliSpider) Init(dynamicBaseLine map[string]int, historyBaseLine map[string]int64, webSiteTableId int64) {
+func (s BiliSpider) Init(dynamicBaseLine map[string]int64, historyBaseLine map[string]int64, webSiteTableId int64) {
 	dynamicBaseLineMap = dynamicBaseLine
 	historyBaseLineMap = historyBaseLine
 	fmt.Printf("bilibili初始化成功,\n网站ID:%d,\n动态基线:%v,\n历史基线:%v,\n", webSiteTableId, dynamicBaseLine, historyBaseLine)
@@ -66,10 +66,10 @@ func (s BiliSpider) GetVideoList(result chan<- models.Video, closeChan chan<- mo
 }
 func getUserFollowAuthorVideo(result chan<- models.Video, userCookies *cookies.UserCookie) models.UserBaseLine {
 	var (
-		videoBaseLine, startBaseLine, requestNumber, dynamicBaseLine, updateNumber int
-		err                                                                        error
-		baseLine, Baseline                                                         string
-		ok                                                                         bool
+		updateNumber                      int
+		baseLine                          string
+		ok                                bool
+		dynamicBaseLine, stopVideoPutTime int64
 	)
 	dynamicVideoObject := dynamicVideo{userCookie: userCookies}
 	dynamicBaseLine, ok = dynamicBaseLineMap[userCookies.GetUserName()]
@@ -84,42 +84,31 @@ func getUserFollowAuthorVideo(result chan<- models.Video, userCookies *cookies.U
 	var pushTime time.Time
 	breakFlag := true
 	baseLine = ""
-	startBaseLine = 0
-	requestNumber = 0
 	for breakFlag {
 		response := dynamicVideoObject.getResponse(0, 0, baseLine)
 		if response == nil {
 			breakFlag = false
 			continue
 		}
-		for infoIndex, info := range response.Data.Items {
-			Baseline, ok = info.IdStr.(string)
-			if !ok {
-				a, ok := info.IdStr.(int)
-				if ok {
-					Baseline = strconv.Itoa(a)
-					videoBaseLine = a
-				} else {
-					log.ErrorLog.Print("未知的Baseline: ", info.IdStr)
-					log.ErrorLog.Println("更新基线：", baseLine)
-					continue
-				}
-			} else {
-				videoBaseLine, err = strconv.Atoi(Baseline)
-				if err != nil {
-					log.ErrorLog.Println("视频的IDStr错误")
-					continue
-				}
+		for _, info := range response.Data.Items {
+			switch info.IdStr.(type) {
+			case string:
+				baseLine = info.IdStr.(string)
+			case int:
+				a := info.IdStr.(int)
+				baseLine = strconv.Itoa(a)
+			default:
+				log.ErrorLog.Print("未知的Baseline: ", info.IdStr)
+				log.ErrorLog.Println("更新基线：", baseLine)
+				continue
 			}
 
-			if videoBaseLine <= dynamicBaseLine {
+			if dynamicBaseLine <= info.Modules.ModuleAuthor.PubTs {
 				breakFlag = false
+				stopVideoPutTime = info.Modules.ModuleAuthor.PubTs
 				break
 			}
 
-			if requestNumber == 0 && infoIndex == 0 {
-				startBaseLine = videoBaseLine
-			}
 			pushTime = time.Unix(info.Modules.ModuleAuthor.PubTs, 0)
 			result <- models.Video{
 				WebSiteId:  webSiteId,
@@ -147,21 +136,17 @@ func getUserFollowAuthorVideo(result chan<- models.Video, userCookies *cookies.U
 				updateNumber--
 				if updateNumber == 0 {
 					breakFlag = false
+					stopVideoPutTime = info.Modules.ModuleAuthor.PubTs
 					break
 				}
 			}
-
 		}
-		baseLine = response.Data.Offset
-		requestNumber++
 		if breakFlag {
 			time.Sleep(time.Second * 5)
 		}
 	}
-	if startBaseLine > 0 {
-		dynamicBaseLineMap[userCookies.GetUserName()] = startBaseLine
-	}
-	return models.UserBaseLine{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.Itoa(startBaseLine)}
+	dynamicBaseLineMap[userCookies.GetUserName()] = stopVideoPutTime
+	return models.UserBaseLine{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.FormatInt(stopVideoPutTime, 10)}
 }
 
 func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]string {
@@ -173,7 +158,7 @@ func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]s
 	)
 	defaultUser := cookies.NewDefaultUserCookie(webSiteName)
 	dynamicVideoObject := dynamicVideo{
-		userCookie: &defaultUser,
+		userCookie: defaultUser,
 	}
 	for {
 		response := dynamicVideoObject.getResponse(0, author, offset)
@@ -206,7 +191,7 @@ func (s BiliSpider) GetAuthorVideoList(author string, startPageIndex, endPageInd
 	result := make(map[int]VideoListPageResponse)
 	defaultUser := cookies.NewDefaultUserCookie(webSiteName)
 	video := videoListPage{
-		userCookie: &defaultUser,
+		userCookie: defaultUser,
 	}
 	for {
 		response := video.getResponse(author, startPageIndex)

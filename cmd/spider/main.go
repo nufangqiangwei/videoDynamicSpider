@@ -115,10 +115,10 @@ func initWebSiteSpider() {
 		panic(fmt.Sprintf("%s站点在数据库中找不到对应的数据。", bilibili.Spider.GetWebSiteName().WebName))
 	}
 	var (
-		dynamicBaseLine map[string]int
+		dynamicBaseLine map[string]int64
 		historyBaseLine map[string]int64
 	)
-	dynamicBaseLine = make(map[string]int)
+	dynamicBaseLine = make(map[string]int64)
 	historyBaseLine = make(map[string]int64)
 	cookies.RangeCookiesMap(func(webSiteName, userName string, userCookie *cookies.UserCookie) {
 		userId, err := models.GetAuthorId(userName)
@@ -130,28 +130,22 @@ func initWebSiteSpider() {
 
 		if webSiteName == bilibili.Spider.GetWebSiteName().WebName {
 			var (
-				result               []models.BiliSpiderHistory
-				err                  error
-				intLatestBaseline    int
-				lastHistoryTimestamp int64
+				result            []models.BiliSpiderHistory
+				err               error
+				intLatestBaseline int64
 			)
 			models.GormDB.Model(&models.BiliSpiderHistory{}).Where("author_id = ?", userId).Find(&result)
 			for _, rowData := range result {
+				intLatestBaseline, err = strconv.ParseInt(rowData.Values, 10, 64)
+				if err != nil {
+					log.ErrorLog.Printf("转换%s的history_baseline失败：%s\n", userName, err.Error())
+					continue
+				}
 				if rowData.KeyName == "dynamic_baseline" {
-					intLatestBaseline, err = strconv.Atoi(rowData.Values)
-					if err != nil {
-						log.ErrorLog.Printf("转换%s的dynamic_baseline失败：%s\n", userName, err.Error())
-						continue
-					}
 					dynamicBaseLine[userName] = intLatestBaseline
 				}
 				if rowData.KeyName == "history_baseline" {
-					lastHistoryTimestamp, err = strconv.ParseInt(rowData.Values, 10, 64)
-					if err != nil {
-						log.ErrorLog.Printf("转换%s的history_baseline失败：%s\n", userName, err.Error())
-						continue
-					}
-					historyBaseLine[userName] = lastHistoryTimestamp
+					historyBaseLine[userName] = intLatestBaseline
 				}
 			}
 		}
