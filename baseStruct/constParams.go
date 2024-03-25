@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 )
 
-var RootPath = ""
+var RootPath = "E:\\GoCode\\videoDynamicAcquisition"
 
 func init() {
 	ex, err := os.Executable()

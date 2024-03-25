@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"path"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
+	"videoDynamicAcquisition/proxy"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -30,12 +32,13 @@ const (
 )
 
 var (
-	videoCollection []models.VideoCollection
-	wheel           *timeWheel.TimeWheel
-	spider          *Spider
-	config          *utils.Config
-	wheelLog        log.LogInputFile
-	databaseLog     log.LogInputFile
+	videoCollection         []models.VideoCollection
+	wheel                   *timeWheel.TimeWheel
+	spider                  *Spider
+	config                  *utils.Config
+	wheelLog                log.LogInputFile
+	databaseLog             log.LogInputFile
+	waitUpdateVideoInfoChan chan models.Video
 )
 
 type Spider struct {
@@ -99,6 +102,7 @@ func init() {
 	cookies.FlushAllCookies()
 	initWebSiteSpider()
 
+	waitUpdateVideoInfoChan = make(chan models.Video, 100)
 	// 初始化定时器
 	wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
 		IsRun: false,
@@ -217,13 +221,9 @@ func (s *Spider) getDynamic(interface{}) {
 	defer func() {
 		panicErr := recover()
 		if panicErr != nil {
-			_, ok := panicErr.(utils.DBFileLock)
-			if ok {
-				_, err := wheel.AppendOnceFunc(s.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(defaultTicket, sixTime, twentyTime)})
-				if err != nil {
-					log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-				}
-				return
+			err, ok := panicErr.(runtime.Error)
+			if ok && err.Error() == "invalid memory address or nil pointer dereference" {
+				log.ErrorLog.Printf("出现空指针错误：定时器时间是%s", wheel.PrintTime())
 			}
 			panic(panicErr)
 		}
@@ -255,12 +255,10 @@ func (s *Spider) getDynamic(interface{}) {
 					break
 				}
 			}
-			if closeInfo.WebSite == bilibili.Spider.GetWebSiteName().WebName {
-				for _, info := range closeInfo.Data {
-					err = models.SaveSpiderParamByUserId(info.UserId, "dynamic_baseline", info.EndBaseLine)
-					if err != nil {
-						log.ErrorLog.Printf("保存dynamic_baseline失败：%s\n", err.Error())
-					}
+			for _, info := range closeInfo.Data {
+				err = models.SaveSpiderParamByUserId(info.AuthorId, "dynamic_baseline", info.EndBaseLine)
+				if err != nil {
+					log.ErrorLog.Printf("保存dynamic_baseline失败：%s\n", err.Error())
 				}
 			}
 		}
@@ -310,7 +308,7 @@ func getHistory(interface{}) {
 		case closeInfo := <-VideoHistoryCloseChan:
 			if closeInfo.WebSite == bilibili.Spider.GetWebSiteName().WebName {
 				for _, info := range closeInfo.Data {
-					err = models.SaveSpiderParamByUserId(info.UserId, "history_baseline", info.EndBaseLine)
+					err = models.SaveSpiderParamByUserId(info.AuthorId, "history_baseline", info.EndBaseLine)
 					if err != nil {
 						log.ErrorLog.Printf("保存dynamic_baseline失败：%s\n", err.Error())
 					}
@@ -754,5 +752,27 @@ func updateAuthorVideoList(interface{}) {
 				vi.UpdateVideo()
 			}
 		}
+	}
+}
+
+// 待更新的视频信息
+func waitUpdateVideo(interface{}) {
+	for v := range waitUpdateVideoInfoChan {
+		go func() {
+			proxyCilent := proxy.GetMethodAvailableProxy()
+			if proxyCilent == nil {
+				// 找不到可用的代理
+				waitUpdateVideoInfoChan <- v
+				return
+			}
+			result := models.Video{}
+			err := proxyCilent.Request(proxy.VideoDetail.Path, map[string]interface{}{"bid": v.Uuid}, result)
+			if err != nil {
+				log.ErrorLog.Printf("%s代理获取%s视频详情失败%s", proxyCilent.GetIp(), v.Uuid, err.Error())
+				waitUpdateVideoInfoChan <- v
+				return
+			}
+			result.UpdateVideo()
+		}()
 	}
 }

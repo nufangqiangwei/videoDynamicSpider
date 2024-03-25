@@ -12,10 +12,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
+	"videoDynamicAcquisition/proxy"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -118,9 +118,9 @@ func importFileData(fileName string) {
 	taskType := fileNameList[0]
 	var aa taskWorker
 	switch taskType {
-	case baseStruct.VideoDetail:
+	case proxy.SyncVideoListDetail.Path:
 		aa = &biliVideoDetail{}
-	case baseStruct.AuthorVideoList:
+	case proxy.AuthorVideoList.Path:
 		aa = &biliAuthorVideoList{}
 	}
 	aa.initStruct(taskType)

@@ -87,6 +87,7 @@ func getUserFollowAuthorVideo(result chan<- models.Video, userCookies *cookies.U
 	for breakFlag {
 		response := dynamicVideoObject.getResponse(0, 0, baseLine)
 		if response == nil {
+			log.ErrorLog.Println("请求结果错误")
 			breakFlag = false
 			continue
 		}
@@ -103,7 +104,7 @@ func getUserFollowAuthorVideo(result chan<- models.Video, userCookies *cookies.U
 				continue
 			}
 
-			if dynamicBaseLine <= info.Modules.ModuleAuthor.PubTs {
+			if dynamicBaseLine >= info.Modules.ModuleAuthor.PubTs {
 				breakFlag = false
 				stopVideoPutTime = info.Modules.ModuleAuthor.PubTs
 				break
@@ -146,7 +147,7 @@ func getUserFollowAuthorVideo(result chan<- models.Video, userCookies *cookies.U
 		}
 	}
 	dynamicBaseLineMap[userCookies.GetUserName()] = stopVideoPutTime
-	return models.UserBaseLine{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.FormatInt(stopVideoPutTime, 10)}
+	return models.UserBaseLine{AuthorId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.FormatInt(stopVideoPutTime, 10)}
 }
 
 func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]string {
@@ -324,7 +325,7 @@ func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies *
 	if newestTimestamp > 0 {
 		historyBaseLineMap[userCookies.GetUserName()] = newestTimestamp
 	}
-	return models.UserBaseLine{UserId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.FormatInt(newestTimestamp, 10)}
+	return models.UserBaseLine{AuthorId: userCookies.GetDBPrimaryKeyId(), EndBaseLine: strconv.FormatInt(newestTimestamp, 10)}
 }
 
 func SaveVideoHistoryList() {

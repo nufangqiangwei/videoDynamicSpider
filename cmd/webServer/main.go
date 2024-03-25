@@ -11,6 +11,7 @@ import (
 	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
+	"videoDynamicAcquisition/proxy"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -54,7 +55,7 @@ func checkToken(ctx *gin.Context) {
 		return
 	}
 	jwt := Check{}
-	err := utils.DecryptToken(token, config.AesKey, config.AesIv, &jwt)
+	err := proxy.DecryptToken(token, config.AesKey, config.AesIv, &jwt)
 	if err != nil {
 		log.ErrorLog.Printf("解压token失败：%s", err.Error())
 		ctx.JSONP(403, map[string]string{"msg": "token错误"})
@@ -83,14 +84,14 @@ func checkUser(ctx *gin.Context) {
 		return
 	}
 	userCookies := Check{}
-	err = utils.DecryptToken(cookies, config.AesKey, config.AesIv, &userCookies)
+	err = proxy.DecryptToken(cookies, config.AesKey, config.AesIv, &userCookies)
 	if err != nil {
 		log.ErrorLog.Printf("解压用户cookies失败:%s", err.Error())
 		ctx.JSONP(411, logoutResponse)
 		ctx.Abort()
 		return
 	}
-	//loginTime, err := models.GetUserLastLoginTime(userCookies.UserId)
+	//loginTime, err := models.GetUserLastLoginTime(userCookies.AuthorId)
 	//if err != nil {
 	//	utils.ErrorLog.Printf("redis获取失败:%s", err.Error())
 	//	ctx.JSONP(403, map[string]string{"msg": "token错误2"})
@@ -144,6 +145,7 @@ func readConfig() error {
 
 var (
 	spiderManager = SpiderManager{}
+	config        *utils.Config
 )
 
 type SpiderManager struct {
@@ -185,16 +187,10 @@ func main() {
 
 	userApi := server.Group("user", checkUser)
 	userApi.POST("resetPassword", resetUserPassword)
-	userApi.POST("recommendVideo", bilibiliRecommendVideoSave)
 	userApi.POST("uploadStaticFile", deployWebSIteHtmlFile)
 	userApi.GET("manageCookies", getUserManageCookiesWebSite)
 	userApi.GET("manageAccount", getUserFollowAuthor)
 	userApi.POST("uploadAccountCookies", uploadWebCookies)
-
-	proxyPath := server.Group("proxy", checkToken)
-	proxyPath.POST(baseStruct.AuthorVideoList, getAuthorAllVideo)
-	proxyPath.POST(baseStruct.VideoDetail, getVideoDetailApi)
-	proxyPath.GET("getTaskStatus", getTaskStatus)
 
 	video := server.Group("video", checkUser)
 	video.GET("getFollowList", getAuthorFollowList)

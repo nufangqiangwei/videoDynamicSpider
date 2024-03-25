@@ -8,6 +8,7 @@ import (
 	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
+	"videoDynamicAcquisition/proxy"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -110,7 +111,7 @@ func generateUserCookies(user models.User) string {
 		log.ErrorLog.Println(err.Error())
 		return ""
 	}
-	return utils.EncryptToken(token.String(), config.AesKey, config.AesIv)
+	return proxy.EncryptToken(token.String(), config.AesKey, config.AesIv)
 }
 
 type userLoginRequestBody struct {

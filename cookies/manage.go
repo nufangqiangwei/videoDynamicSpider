@@ -31,8 +31,9 @@ func (c *UserCookie) GetDBPrimaryKeyId() int64 {
 	return c.dbPrimaryKeyId
 }
 
+// GetStatus 获取cookies是否有效
 func (c *UserCookie) GetStatus() bool {
-	return c.cookiesFail
+	return !c.cookiesFail
 }
 func (c *UserCookie) InvalidCookies() {
 	c.cookiesFail = true

@@ -18,6 +18,6 @@ type TaskClose struct {
 }
 
 type UserBaseLine struct {
-	UserId      int64
+	AuthorId    int64
 	EndBaseLine string
 }

@@ -19,6 +19,7 @@ import (
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/log"
+	"videoDynamicAcquisition/proxy"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -29,7 +30,6 @@ var (
 	prefixByte   = []byte{123, 34, 117, 114, 108, 34, 58, 34}
 	bracketsByte = []byte{125}
 	suffixByte   = []byte{34, 44, 34, 114, 101, 115, 112, 111, 110, 115, 101, 34, 58}
-	config       *utils.Config
 )
 
 func writeRequestUrl(url string, responseBody []byte) []byte {
@@ -58,7 +58,7 @@ func getAuthorAllVideo(ctx *gin.Context) {
 		ctx.JSONP(403, map[string]string{"msg": "获取请求参数失败", "taskId": ""})
 		return
 	}
-	folderName := baseStruct.AuthorVideoList
+	folderName := proxy.AuthorVideoList.Path
 	createFolder(false, folderName)
 
 	taskId := uuid.NewString()
@@ -84,7 +84,7 @@ func getVideoDetailApi(ctx *gin.Context) {
 		ctx.JSONP(403, map[string]string{"msg": "获取请求参数失败"})
 		return
 	}
-	folderName := baseStruct.VideoDetail
+	folderName := proxy.SyncVideoListDetail.Path
 	createFolder(false, folderName)
 	taskId := uuid.NewString()
 	err = createFolder(true, folderName, taskId)
@@ -330,8 +330,8 @@ func deleteFile() {
 	diff := noonTime.Sub(now)
 	time.Sleep(diff)
 	deleteAfterDayFile(config.ProxyDataRootPath)
-	deleteAfterDayFile(path.Join(baseStruct.RootPath, baseStruct.VideoDetail))
-	deleteAfterDayFile(path.Join(baseStruct.RootPath, baseStruct.AuthorVideoList))
+	deleteAfterDayFile(path.Join(baseStruct.RootPath, proxy.SyncVideoListDetail.Path))
+	deleteAfterDayFile(path.Join(baseStruct.RootPath, proxy.AuthorVideoList.Path))
 	deleteFile()
 }
 
@@ -376,7 +376,7 @@ func bilibiliRecommendVideoSave(ctx *gin.Context) {
 	requestIp := ctx.ClientIP()
 	timeNow := time.Now()
 	file := utils.WriteFile{
-		FolderPrefix:   []string{baseStruct.RootPath, baseStruct.RecommendVideo},
+		FolderPrefix:   []string{baseStruct.RootPath, proxy.RecommendVideo.Path},
 		FileNamePrefix: "RecommendVideo",
 		FileName: func(lastFileName string) string {
 			if lastFileName == "" {
@@ -391,4 +391,20 @@ func bilibiliRecommendVideoSave(ctx *gin.Context) {
 	file.Close()
 	ctx.JSONP(200, map[string]interface{}{"code": 0})
 	return
+}
+
+func getOneVideoInfo(ctx *gin.Context) {
+	bId := ctx.Query("bid")
+	if bId == "" {
+		ctx.JSONP(406, map[string]interface{}{"code": -1})
+		return
+	}
+	data, _ := bilibili.GetVideoDetailByByte(bId)
+	if data == nil {
+		log.ErrorLog.Println("获取视频详情失败")
+		ctx.JSONP(406, map[string]interface{}{"code": -1})
+		return
+	}
+	ctx.Data(200, "application/json", data)
+
 }

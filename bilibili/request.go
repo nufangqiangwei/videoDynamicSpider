@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
 	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/log"
 )
@@ -42,15 +41,8 @@ func responseCodeCheck(response *http.Response, apiResponseStruct responseCheck,
 	code := apiResponseStruct.getCode()
 	if code == -101 {
 		// cookies失效
-		log.ErrorLog.Printf("%s:cookies失效", user.GetUserName())
 		user.InvalidCookies()
-		if user.GetStatus() {
-			time.Sleep(time.Second * 10)
-			return errors.New(fmt.Sprintf("%s:cookies失效", user.GetUserName()))
-		} else {
-			log.ErrorLog.Printf("%s:cookies失效，请更新cookies文件2", user.GetUserName())
-			return errors.New(fmt.Sprintf("%s:cookies失效，请更新cookies文件", user.GetUserName()))
-		}
+		return errors.New(fmt.Sprintf("%s:cookies失效，请更新cookies文件", user.GetUserName()))
 	}
 	if code == -352 {
 		log.ErrorLog.Printf("%s用户。352错误，拒绝访问", user.GetUserName())

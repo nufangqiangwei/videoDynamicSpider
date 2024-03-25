@@ -2,6 +2,8 @@ package utils
 
 type ProxyInfo struct {
 	IP    string `json:"IP"`
+	Port  int    `json:"Port"`
+	SSL   bool   `json:"SSL"`
 	Token string `json:"Token"`
 }
 
