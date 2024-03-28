@@ -158,50 +158,51 @@ func initWebSiteSpider() {
 }
 
 func main() {
-	videoCollection = []models.VideoCollection{
-		bilibili.Spider,
-	}
-	spider = &Spider{
-		interval: defaultTicket,
-	}
-	var err error
-	_, err = wheel.AppendOnceFunc(spider.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
-	if err != nil {
-		return
-	}
-	_, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: 10})
-	if err != nil {
-		return
-	}
-	//_, err = wheel.AppendOnceFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + 120})
+	getAuthorFirstVideo(nil)
+	//videoCollection = []models.VideoCollection{
+	//	bilibili.Spider,
+	//}
+	//spider = &Spider{
+	//	interval: defaultTicket,
+	//}
+	//var err error
+	//_, err = wheel.AppendOnceFunc(spider.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
 	//if err != nil {
 	//	return
 	//}
-	_, err = wheel.AppendOnceFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
-	if err != nil {
-		return
-	}
-	//_, err = wheel.AppendCycleFunc(runToDoTask, nil, "pushTaskToProxy", timeWheel.Crontab{ExpiredTime: oneMinute})
+	//_, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: 10})
 	//if err != nil {
 	//	return
 	//}
-	//_, err = wheel.AppendCycleFunc(checkProxyTaskStatus, nil, "getTaskStatus", timeWheel.Crontab{ExpiredTime: oneMinute})
+	////_, err = wheel.AppendOnceFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + 120})
+	////if err != nil {
+	////	return
+	////}
+	//_, err = wheel.AppendOnceFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
 	//if err != nil {
 	//	return
 	//}
-	//_, err = wheel.AppendCycleFunc(loadProxyInfo, nil, "loadConfigProxyInfo", timeWheel.Crontab{ExpiredTime: defaultTicket})
-	//if err != nil {
-	//	return
-	//}
-	//_, err = wheel.AppendCycleFunc(downloadProxyTaskDataFile, nil, "downloadProxyTaskDataFile", timeWheel.Crontab{ExpiredTime: oneTicket})
-	//if err != nil {
-	//	return
-	//}
-	//_, err = wheel.AppendOnceFunc(readPath, nil, "importProxyFileData", timeWheel.Crontab{ExpiredTime: 60})
-	//if err != nil {
-	//	return
-	//}
-	wheel.Start()
+	////_, err = wheel.AppendCycleFunc(runToDoTask, nil, "pushTaskToProxy", timeWheel.Crontab{ExpiredTime: oneMinute})
+	////if err != nil {
+	////	return
+	////}
+	////_, err = wheel.AppendCycleFunc(checkProxyTaskStatus, nil, "getTaskStatus", timeWheel.Crontab{ExpiredTime: oneMinute})
+	////if err != nil {
+	////	return
+	////}
+	////_, err = wheel.AppendCycleFunc(loadProxyInfo, nil, "loadConfigProxyInfo", timeWheel.Crontab{ExpiredTime: defaultTicket})
+	////if err != nil {
+	////	return
+	////}
+	////_, err = wheel.AppendCycleFunc(downloadProxyTaskDataFile, nil, "downloadProxyTaskDataFile", timeWheel.Crontab{ExpiredTime: oneTicket})
+	////if err != nil {
+	////	return
+	////}
+	////_, err = wheel.AppendOnceFunc(readPath, nil, "importProxyFileData", timeWheel.Crontab{ExpiredTime: 60})
+	////if err != nil {
+	////	return
+	////}
+	//wheel.Start()
 }
 
 func arrangeRunTime(defaultValue, leftBorder, rightBorder int64) int64 {
@@ -774,5 +775,27 @@ func waitUpdateVideo(interface{}) {
 			}
 			result.UpdateVideo()
 		}()
+	}
+}
+
+//
+func getAuthorFirstVideo(interface{}) {
+	authorList := []models.Author{}
+	/* select a.* from author a inner join follow f on f.author_id = a.id inner join user_web_site_account ua on ua.author_id = f.user_id where ua.user_id = 11*/
+	err := models.GormDB.Model(&models.Author{}).Joins("inner join follow f on f.author_id = author.id ").Joins(
+		"inner join user_web_site_account ua on ua.author_id = f.user_id").Where("ua.user_id = 11").Limit(10).Find(&authorList).Error
+	if err != nil {
+		println(err.Error())
+	}
+	if len(authorList) == 0 {
+		return
+	}
+	for _, authorObject := range authorList {
+		println("作者：", authorObject.AuthorName)
+		response := bilibili.GetAuthorDynamic(authorObject.AuthorWebUid, "")
+		if response == nil {
+			continue
+		}
+		fmt.Printf("%v\n", response)
 	}
 }

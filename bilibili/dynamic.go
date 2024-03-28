@@ -46,7 +46,7 @@ type updateVideoNumberResponse struct {
 	} `json:"data"`
 }
 
-type dynamicResponse struct {
+type DynamicResponse struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Ttl     int    `json:"ttl"`
@@ -259,6 +259,9 @@ func (b *dynamicVideo) getRequest(mid int, offset string) *http.Request {
 	}
 
 	request.URL.RawQuery = q.Encode()
+	if b.userCookie == nil {
+		b.userCookie = getDefaultUser()
+	}
 	request.Header.Add("Cookie", b.userCookie.GetCookies())
 	return request
 }
@@ -288,7 +291,7 @@ func (b *dynamicVideo) getUpdateVideoNumber(updateBaseline string) int {
 	return updateResponse.Data.UpdateNum
 }
 
-func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (dynamicResponseBody *dynamicResponse) {
+func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (dynamicResponseBody *DynamicResponse) {
 	if retriesNumber > 3 {
 		return dynamicResponseBody
 	}
@@ -302,7 +305,7 @@ func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (d
 		log.ErrorLog.Println(err.Error())
 		return
 	}
-	dynamicResponseBody = &dynamicResponse{}
+	dynamicResponseBody = &DynamicResponse{}
 	err = responseCodeCheck(response, dynamicResponseBody, b.userCookie)
 	if err != nil {
 		return nil
@@ -328,9 +331,21 @@ func (u *updateVideoNumberResponse) bingJSON(body []byte) error {
 }
 
 // dynamicResponse实现responseCheck接口
-func (d *dynamicResponse) getCode() int {
+func (d *DynamicResponse) getCode() int {
 	return d.Code
 }
-func (d *dynamicResponse) bindJSON(body []byte) error {
+func (d *DynamicResponse) bindJSON(body []byte) error {
 	return json.Unmarshal(body, d)
+}
+
+func GetAuthorDynamic(uid string, offset string) *DynamicResponse {
+	b := dynamicVideo{
+		userCookie: getDefaultUser(),
+	}
+	auid, err := strconv.Atoi(uid)
+	if err != nil {
+		println(err.Error())
+		return nil
+	}
+	return b.getResponse(0, auid, offset)
 }

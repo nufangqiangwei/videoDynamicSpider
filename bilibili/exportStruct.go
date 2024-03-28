@@ -26,7 +26,7 @@ const (
 
 var (
 	Spider             = BiliSpider{}
-	wbiSignObj         = wbiSign{}
+	wbiSignObj         = wbiSign{lastUpdateTime: time.Now()}
 	dynamicBaseLineMap map[string]int64
 	historyBaseLineMap map[string]int64
 	webSiteId          int64

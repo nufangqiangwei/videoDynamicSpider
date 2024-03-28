@@ -151,6 +151,10 @@ func (v *videoListPage) getRequest(mid string, pageIndex int) *http.Request {
 	q.Add("mid", mid)
 	q.Add("ps", "50")
 	q.Add("platform", "web")
+	q.Add("dm_img_list", "[]")
+	q.Add("dm_img_str", "")
+	q.Add("dm_cover_img_str", "")
+	q.Add("dm_img_inter", "[]")
 	q.Add("pn", strconv.Itoa(pageIndex))
 
 	request.URL.RawQuery = wbiSignObj.getSing(q).Encode()
@@ -180,7 +184,7 @@ func (v *videoListPage) getResponse(mid string, pageIndex int) *VideoListPageRes
 }
 
 func GetAuthorAllVideoListByByte(uid string, pageIndex int) ([]byte, error, string) {
-	defaultUser := cookies.NewDefaultUserCookie("bilibili")
+	defaultUser := getUser()
 	v := videoListPage{
 		userCookie: defaultUser,
 	}
@@ -195,6 +199,13 @@ func GetAuthorAllVideoListByByte(uid string, pageIndex int) ([]byte, error, stri
 		return data, errors.New(fmt.Sprintf("StatusCode错误%d", response.StatusCode)), response.Request.URL.String()
 	}
 	return data, err, response.Request.URL.String()
+}
+func GetAuthorAllVideoList(uid string, pageIndex int) *VideoListPageResponse {
+	defaultUser := getUser()
+	v := videoListPage{
+		userCookie: defaultUser,
+	}
+	return v.getResponse(uid, pageIndex)
 }
 
 func (r *VideoListPageResponse) getCode() int {

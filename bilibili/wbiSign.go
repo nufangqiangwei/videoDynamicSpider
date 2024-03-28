@@ -4,7 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
-	"io"
+	"fmt"
 	"net/http"
 	"net/url"
 	"sort"
@@ -129,6 +129,13 @@ type navResponse struct {
 	} `json:"data"`
 }
 
+func (n *navResponse) getCode() int {
+	return n.Code
+}
+func (n *navResponse) bindJSON(data []byte) error {
+	return json.Unmarshal(data, n)
+}
+
 type wbiSign struct {
 	lastUpdateTime time.Time
 	WRid           string
@@ -183,23 +190,21 @@ func encWbi(params map[string]string, imgKey, subKey string) map[string]string {
 }
 
 func requestNavApi() (string, string) {
-	resp, err := http.Get("https://api.bilibili.com/x/web-interface/nav")
+	request, _ := http.NewRequest("GET", "https://api.bilibili.com/x/web-interface/nav", nil)
+	request.Header.Add("Cookie", getUser().GetCookies())
+
+	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
-		log.ErrorLog.Printf("Error: %s", err)
-		return "", ""
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.ErrorLog.Printf("Error: %s", err)
+		log.ErrorLog.Printf("获取Nav错误: %s", err)
 		return "", ""
 	}
 	responseBody := navResponse{}
-	err = json.Unmarshal(body, &responseBody)
+	err = responseCodeCheck(resp, &responseBody, getUser())
 	if err != nil {
-		log.ErrorLog.Printf("Error: %s", err)
+		log.ErrorLog.Printf("获取Nav错误: %s", err)
 		return "", ""
 	}
+	fmt.Printf("%v\n", responseBody)
 	imgURL := responseBody.Data.WbiImg.ImgUrl
 	subURL := responseBody.Data.WbiImg.SubUrl
 	imgKey := strings.Split(strings.Split(imgURL, "/")[len(strings.Split(imgURL, "/"))-1], ".")[0]
