@@ -295,7 +295,7 @@ func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies *
 						},
 					},
 					ViewHistory: []models.VideoHistory{
-						{ViewTime: pushTime, WebSiteId: webSiteId, WebUUID: info.History.Bvid, Duration: info.Duration},
+						{ViewTime: pushTime, WebSiteId: webSiteId, WebUUID: info.History.Bvid, Duration: info.Duration, AuthorId: userCookies.GetDBPrimaryKeyId()},
 					},
 				}
 			case "剧集":

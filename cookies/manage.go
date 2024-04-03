@@ -21,7 +21,7 @@ type UserCookie struct {
 	cookiesFail          bool
 	fileName             string
 	webSiteName          string
-	dbPrimaryKeyId       int64
+	dbPrimaryKeyId       int64 // 用户id
 }
 
 func (c *UserCookie) SetDBPrimaryKeyId(id int64) {

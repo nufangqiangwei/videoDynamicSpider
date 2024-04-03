@@ -12,29 +12,54 @@ import (
 	"videoDynamicAcquisition/log"
 )
 
-type videoInfoTypeEnum struct {
-	DYNAMIC_TYPE_NONE             string // 无效动态
-	DYNAMIC_TYPE_FORWARD          string // 动态转发
-	DYNAMIC_TYPE_AV               string // 投稿视频
-	DYNAMIC_TYPE_PGC              string // 剧集（番剧、电影、纪录片）
-	DYNAMIC_TYPE_COURSES          string //
-	DYNAMIC_TYPE_WORD             string // 纯文字动态
-	DYNAMIC_TYPE_DRAW             string // 带图动态
-	DYNAMIC_TYPE_ARTICLE          string // 投稿专栏
-	DYNAMIC_TYPE_MUSIC            string // 音乐
-	DYNAMIC_TYPE_COMMON_SQUARE    string // 装扮,剧集点评,普通分享
-	DYNAMIC_TYPE_COMMON_VERTICAL  string //
-	DYNAMIC_TYPE_LIVE             string // 直播间分享
-	DYNAMIC_TYPE_MEDIALIST        string // 收藏夹
-	DYNAMIC_TYPE_COURSES_SEASON   string // 课程
-	DYNAMIC_TYPE_COURSES_BATCH    string //
-	DYNAMIC_TYPE_AD               string //
-	DYNAMIC_TYPE_APPLET           string //
-	DYNAMIC_TYPE_SUBSCRIPTION     string //
-	DYNAMIC_TYPE_LIVE_RCMD        string // 直播开播
-	DYNAMIC_TYPE_BANNER           string //
-	DYNAMIC_TYPE_UGC_SEASON       string // 合集更新
-	DYNAMIC_TYPE_SUBSCRIPTION_NEW string //
+type VideoInfoTypeEnum struct {
+	DynamicTypeNone            string // 无效动态
+	DynamicTypeForward         string // 动态转发
+	DynamicTypeAv              string // 投稿视频
+	DynamicTypePgc             string // 剧集（番剧、电影、纪录片）
+	DynamicTypeCourses         string //
+	DynamicTypeWord            string // 纯文字动态
+	DynamicTypeDraw            string // 带图动态
+	DynamicTypeArticle         string // 投稿专栏
+	DynamicTypeMusic           string // 音乐
+	DynamicTypeCommonSquare    string // 装扮,剧集点评,普通分享
+	DynamicTypeCommonVertical  string //
+	DynamicTypeLive            string // 直播间分享
+	DynamicTypeMediaList       string // 收藏夹
+	DynamicTypeCoursesSeason   string // 课程
+	DynamicTypeCoursesBatch    string //
+	DynamicTypeAd              string //
+	DynamicTypeApplet          string //
+	DynamicTypeSubscription    string //
+	DynamicTypeLiveRcmd        string // 直播开播
+	DynamicTypeBanner          string //
+	DynamicTypeUgcSeason       string // 合集更新
+	DynamicTypeSubscriptionNew string //
+}
+
+var DynamicInfoType = VideoInfoTypeEnum{
+	DynamicTypeNone:            "DYNAMIC_TYPE_NONE",
+	DynamicTypeForward:         "DYNAMIC_TYPE_FORWARD",
+	DynamicTypeAv:              "DYNAMIC_TYPE_AV",
+	DynamicTypePgc:             "DYNAMIC_TYPE_PGC",
+	DynamicTypeCourses:         "DYNAMIC_TYPE_COURSES",
+	DynamicTypeWord:            "DYNAMIC_TYPE_WORD",
+	DynamicTypeDraw:            "DYNAMIC_TYPE_DRAW",
+	DynamicTypeArticle:         "DYNAMIC_TYPE_ARTICLE",
+	DynamicTypeMusic:           "DYNAMIC_TYPE_MUSIC",
+	DynamicTypeCommonSquare:    "DYNAMIC_TYPE_COMMON_SQUARE",
+	DynamicTypeCommonVertical:  "DYNAMIC_TYPE_COMMON_VERTICAL",
+	DynamicTypeLive:            "DYNAMIC_TYPE_LIVE",
+	DynamicTypeMediaList:       "DYNAMIC_TYPE_MEDIALIST",
+	DynamicTypeCoursesSeason:   "DYNAMIC_TYPE_COURSES_SEASON",
+	DynamicTypeCoursesBatch:    "DYNAMIC_TYPE_COURSES_BATCH",
+	DynamicTypeAd:              "DYNAMIC_TYPE_AD",
+	DynamicTypeApplet:          "DYNAMIC_TYPE_APPLET",
+	DynamicTypeSubscription:    "DYNAMIC_TYPE_SUBSCRIPTION",
+	DynamicTypeLiveRcmd:        "DYNAMIC_TYPE_LIVE_RCMD",
+	DynamicTypeBanner:          "DYNAMIC_TYPE_BANNER",
+	DynamicTypeUgcSeason:       "DYNAMIC_TYPE_UGC_SEASON",
+	DynamicTypeSubscriptionNew: "DYNAMIC_TYPE_SUBSCRIPTION_NEW",
 }
 
 type updateVideoNumberResponse struct {
@@ -52,14 +77,14 @@ type DynamicResponse struct {
 	Ttl     int    `json:"ttl"`
 	Data    struct {
 		HasMore        bool               `json:"has_more"` // 是否有更多数据
-		Items          []dynamicVideoInfo `json:"items"`
+		Items          []DynamicVideoInfo `json:"items"`
 		Offset         string             `json:"offset"`          // 偏移量 等于items中最后一条记录的id 获取下一页时使用
 		UpdateBaseline string             `json:"update_baseline"` // 更新基线	等于items中第一条记录的id
 		UpdateNum      int                `json:"update_num"`      // 本次获取获取到了多少条新动态,在更新基线以上的动态条数
 	} `json:"data"`
 }
 
-type dynamicVideoInfo struct {
+type DynamicVideoInfo struct {
 	Basic struct {
 		CommentIdStr string `json:"comment_id_str"`
 		CommentType  int    `json:"comment_type"`

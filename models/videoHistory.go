@@ -14,6 +14,7 @@ type VideoHistory struct {
 	ViewTime  time.Time
 	WebUUID   string `gorm:"size:255"`
 	Duration  int    // 视频的观看进度
+	AuthorId  int64  `gorm:"index:author_id"` // 对应网站观看用户id
 }
 
 func (vh VideoHistory) Save() {

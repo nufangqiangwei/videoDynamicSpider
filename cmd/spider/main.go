@@ -28,7 +28,7 @@ const (
 	sixTime       = oneTicket * 6
 	twentyTime    = oneTicket * 20
 	twelveTicket  = oneTicket * 12
-	configPath    = "./config.json"
+	configPath    = "./spiderConfig.json"
 )
 
 var (
@@ -96,7 +96,6 @@ func init() {
 	// 初始化数据库，连接到数据库
 	models.InitDB(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		config.DB.User, config.DB.Password, config.DB.HOST, config.DB.Port, config.DB.DatabaseName), false, databaseLog.WriterObject)
-
 	// 初始化加载cookies模块
 	cookies.DataSource = models.WebSiteCookies{}
 	cookies.FlushAllCookies()
@@ -781,21 +780,55 @@ func waitUpdateVideo(interface{}) {
 //
 func getAuthorFirstVideo(interface{}) {
 	authorList := []models.Author{}
-	/* select a.* from author a inner join follow f on f.author_id = a.id inner join user_web_site_account ua on ua.author_id = f.user_id where ua.user_id = 11*/
+	/* select a.* from author a inner join follow f on f.author_id = a.id inner join user_web_site_account ua on ua.author_id = f.user_id where ua.user_id = 11 order by f.follow_time desc*/
 	err := models.GormDB.Model(&models.Author{}).Joins("inner join follow f on f.author_id = author.id ").Joins(
-		"inner join user_web_site_account ua on ua.author_id = f.user_id").Where("ua.user_id = 11").Limit(10).Find(&authorList).Error
+		"inner join user_web_site_account ua on ua.author_id = f.user_id").Where("ua.user_id = 11").Order("f.follow_time desc").Limit(500).Offset(16).Find(&authorList).Error
+
 	if err != nil {
 		println(err.Error())
 	}
 	if len(authorList) == 0 {
 		return
 	}
+	var (
+		video    models.Video
+		pushTime time.Time
+	)
 	for _, authorObject := range authorList {
 		println("作者：", authorObject.AuthorName)
 		response := bilibili.GetAuthorDynamic(authorObject.AuthorWebUid, "")
 		if response == nil {
 			continue
 		}
-		fmt.Printf("%v\n", response)
+		for _, dynmaicInfo := range response.Data.Items {
+			switch dynmaicInfo.Type {
+			case bilibili.DynamicInfoType.DynamicTypeAv:
+				fmt.Printf("视频标题：%s\n", dynmaicInfo.Modules.ModuleDynamic.Major.Archive.Title)
+				pushTime = time.Unix(dynmaicInfo.Modules.ModuleAuthor.PubTs, 0)
+				video = models.Video{
+					WebSiteId:  1,
+					Title:      dynmaicInfo.Modules.ModuleDynamic.Major.Archive.Title,
+					VideoDesc:  dynmaicInfo.Modules.ModuleDynamic.Major.Archive.Desc,
+					Duration:   bilibili.HourAndMinutesAndSecondsToSeconds(dynmaicInfo.Modules.ModuleDynamic.Major.Archive.DurationText),
+					Uuid:       dynmaicInfo.Modules.ModuleDynamic.Major.Archive.Bvid,
+					Url:        dynmaicInfo.Modules.ModuleDynamic.Major.Archive.JumpUrl,
+					CoverUrl:   dynmaicInfo.Modules.ModuleDynamic.Major.Archive.Cover,
+					UploadTime: &pushTime,
+					Authors: []models.VideoAuthor{
+						{Contribute: "UP主", AuthorUUID: strconv.Itoa(dynmaicInfo.Modules.ModuleAuthor.Mid)},
+					},
+					StructAuthor: []models.Author{
+						{
+							WebSiteId:    1,
+							AuthorName:   dynmaicInfo.Modules.ModuleAuthor.Name,
+							AuthorWebUid: strconv.Itoa(dynmaicInfo.Modules.ModuleAuthor.Mid),
+							Avatar:       dynmaicInfo.Modules.ModuleAuthor.Face,
+						},
+					},
+				}
+				video.UpdateVideo()
+			}
+		}
+		time.Sleep(time.Second * 5)
 	}
 }
