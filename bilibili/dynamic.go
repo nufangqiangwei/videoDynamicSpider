@@ -10,6 +10,7 @@ import (
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/log"
+	"videoDynamicAcquisition/proxy"
 )
 
 type VideoInfoTypeEnum struct {
@@ -258,7 +259,8 @@ type DynamicVideoInfo struct {
 }
 
 type dynamicVideo struct {
-	userCookie *cookies.UserCookie
+	userCookie    *cookies.UserCookie
+	requestNumber int
 }
 
 // getRequest 设置请求头
@@ -316,7 +318,7 @@ func (b *dynamicVideo) getUpdateVideoNumber(updateBaseline string) int {
 	return updateResponse.Data.UpdateNum
 }
 
-func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (dynamicResponseBody *DynamicResponse) {
+func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string, useProxy bool) (dynamicResponseBody *DynamicResponse) {
 	if retriesNumber > 3 {
 		return dynamicResponseBody
 	}
@@ -325,14 +327,22 @@ func (b *dynamicVideo) getResponse(retriesNumber int, mid int, offset string) (d
 		return dynamicResponseBody
 	}
 
-	response, err := http.DefaultClient.Do(b.getRequest(mid, offset))
+	response, err := proxy.GetClient(useProxy).Do(b.getRequest(mid, offset))
 	if err != nil {
 		log.ErrorLog.Println(err.Error())
+		if useProxy && b.requestNumber < 1 {
+			b.requestNumber++
+			return b.getResponse(retriesNumber, mid, offset, useProxy)
+		}
 		return
 	}
 	dynamicResponseBody = &DynamicResponse{}
 	err = responseCodeCheck(response, dynamicResponseBody, b.userCookie)
 	if err != nil {
+		if useProxy && b.requestNumber > 1 {
+			b.requestNumber++
+			return b.getResponse(retriesNumber, mid, offset, useProxy)
+		}
 		return nil
 	}
 	return dynamicResponseBody
@@ -363,14 +373,17 @@ func (d *DynamicResponse) bindJSON(body []byte) error {
 	return json.Unmarshal(body, d)
 }
 
-func GetAuthorDynamic(uid string, offset string) *DynamicResponse {
+func GetAuthorDynamic(uid string, offset string, user *cookies.UserCookie) *DynamicResponse {
+	if user == nil {
+		user = getDefaultUser()
+	}
 	b := dynamicVideo{
-		userCookie: getDefaultUser(),
+		userCookie: user,
 	}
 	auid, err := strconv.Atoi(uid)
 	if err != nil {
 		println(err.Error())
 		return nil
 	}
-	return b.getResponse(0, auid, offset)
+	return b.getResponse(0, auid, offset, true)
 }

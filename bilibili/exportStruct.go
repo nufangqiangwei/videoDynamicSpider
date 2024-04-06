@@ -85,7 +85,7 @@ func getUserFollowAuthorVideo(result chan<- models.Video, userCookies *cookies.U
 	breakFlag := true
 	baseLine = ""
 	for breakFlag {
-		response := dynamicVideoObject.getResponse(0, 0, baseLine)
+		response := dynamicVideoObject.getResponse(0, 0, baseLine, false)
 		if response == nil {
 			log.ErrorLog.Println("请求结果错误")
 			breakFlag = false
@@ -162,7 +162,7 @@ func (s BiliSpider) GetAuthorDynamic(author int, baseOffset string) map[string]s
 		userCookie: defaultUser,
 	}
 	for {
-		response := dynamicVideoObject.getResponse(0, author, offset)
+		response := dynamicVideoObject.getResponse(0, author, offset, false)
 		if response == nil {
 			break
 		}
@@ -219,14 +219,19 @@ func (s BiliSpider) GetVideoHistoryList(VideoHistoryChan chan<- models.Video, Vi
 			log.ErrorLog.Printf("%s用户未初始化cookies", userName)
 			continue
 		}
-		_, ok := historyRequestSave[userName]
+		f, ok := historyRequestSave[userName]
 		if !ok {
 			historyRequestSave[userName] = utils.WriteFile{
 				FolderPrefix:   []string{baseStruct.RootPath, "bilbilHistoryFile"},
 				FileNamePrefix: userName,
+				FileName: func(s string) string {
+					return fmt.Sprintf("%s-%s.json", userName, time.Now().Format("2006-01"))
+				},
 			}
+			f = historyRequestSave[userName]
 		}
 		userEndBaseLine = append(userEndBaseLine, getUserViewVideoHistory(VideoHistoryChan, userCookies))
+		f.Close()
 	}
 	VideoHistoryCloseChan <- models.TaskClose{
 		WebSite: webSiteName,

@@ -157,13 +157,14 @@ func initWebSiteSpider() {
 }
 
 func main() {
-	getAuthorFirstVideo(nil)
-	//videoCollection = []models.VideoCollection{
-	//	bilibili.Spider,
-	//}
-	//spider = &Spider{
-	//	interval: defaultTicket,
-	//}
+	videoCollection = []models.VideoCollection{
+		bilibili.Spider,
+	}
+	spider = &Spider{
+		interval: defaultTicket,
+	}
+	getHistory(nil)
+	spider.getDynamic(nil)
 	//var err error
 	//_, err = wheel.AppendOnceFunc(spider.getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
 	//if err != nil {
@@ -777,12 +778,11 @@ func waitUpdateVideo(interface{}) {
 	}
 }
 
-//
 func getAuthorFirstVideo(interface{}) {
 	authorList := []models.Author{}
 	/* select a.* from author a inner join follow f on f.author_id = a.id inner join user_web_site_account ua on ua.author_id = f.user_id where ua.user_id = 11 order by f.follow_time desc*/
 	err := models.GormDB.Model(&models.Author{}).Joins("inner join follow f on f.author_id = author.id ").Joins(
-		"inner join user_web_site_account ua on ua.author_id = f.user_id").Where("ua.user_id = 11").Order("f.follow_time desc").Limit(500).Offset(16).Find(&authorList).Error
+		"inner join user_web_site_account ua on ua.author_id = f.user_id").Where("ua.user_id = 11").Order("f.follow_time desc").Limit(500).Offset(138).Find(&authorList).Error
 
 	if err != nil {
 		println(err.Error())
@@ -790,15 +790,16 @@ func getAuthorFirstVideo(interface{}) {
 	if len(authorList) == 0 {
 		return
 	}
+	userList := cookies.GetWeb("bilibili")
 	var (
 		video    models.Video
 		pushTime time.Time
 	)
-	for _, authorObject := range authorList {
-		println("作者：", authorObject.AuthorName)
-		response := bilibili.GetAuthorDynamic(authorObject.AuthorWebUid, "")
+	for index, authorObject := range authorList {
+		println(index, " 作者：", authorObject.AuthorName)
+		response := bilibili.GetAuthorDynamic(authorObject.AuthorWebUid, "", userList.PickUser())
 		if response == nil {
-			continue
+			return
 		}
 		for _, dynmaicInfo := range response.Data.Items {
 			switch dynmaicInfo.Type {
@@ -829,6 +830,6 @@ func getAuthorFirstVideo(interface{}) {
 				video.UpdateVideo()
 			}
 		}
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second)
 	}
 }

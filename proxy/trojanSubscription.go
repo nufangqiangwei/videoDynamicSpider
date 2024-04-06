@@ -39,13 +39,14 @@ const (
 /*
 trojan:// + password + @ + server + : + port + ? + sni + name
 trojan://
-    ba2ea9b1ce81@
-    sg2.b96b642e58d2.airport.com:
-    443?
-    allowInsecure=1&
-    peer=nhost.00cdn.com&
-    sni=nhost.00cdn.com&
-    type=tcp#%F0%9F%87%B8%F0%9F%87%AC%E6%96%B0%E5%8A%A0%E5%9D%A1%2002%20%7C%20%E4%B8%93%E7%BA%BF
+
+	ba2ea9b1ce81@
+	sg2.b96b642e58d2.airport.com:
+	443?
+	allowInsecure=1&
+	peer=nhost.00cdn.com&
+	sni=nhost.00cdn.com&
+	type=tcp#%F0%9F%87%B8%F0%9F%87%AC%E6%96%B0%E5%8A%A0%E5%9D%A1%2002%20%7C%20%E4%B8%93%E7%BA%BF
 */
 func trojanSerialization(trojanString string) (*trojanServer, error) {
 	if !strings.HasPrefix(trojanString, prefix) {
@@ -171,20 +172,23 @@ func downloadSubData(url string) ([]byte, error) {
 	return data, nil
 }
 
+type TrojanServerInfo struct {
+	Address  string `json:"address"`
+	Method   string `json:"method"`
+	Ota      bool   `json:"ota"`
+	Password string `json:"password"`
+	Port     int    `json:"port"`
+	Level    int    `json:"level"`
+	Flow     string `json:"flow"`
+	MarkInfo string `json:"markInfo"`
+}
+type TrojanServerList struct {
+	Servers []TrojanServerInfo `json:"servers"`
+}
 type TrojanConfig struct {
-	Tag      string `json:"tag"`
-	Protocol string `json:"protocol"`
-	Settings struct {
-		Servers []struct {
-			Address  string `json:"address"`
-			Method   string `json:"method"`
-			Ota      bool   `json:"ota"`
-			Password string `json:"password"`
-			Port     int    `json:"port"`
-			Level    int    `json:"level"`
-			Flow     string `json:"flow"`
-		} `json:"servers"`
-	} `json:"settings"`
+	Tag            string           `json:"tag"`
+	Protocol       string           `json:"protocol"`
+	Settings       TrojanServerList `json:"settings"`
 	StreamSettings struct {
 		Network     string `json:"network"`
 		Security    string `json:"security"`
@@ -231,26 +235,8 @@ func getSubscription(url, tag string) *TrojanConfig {
 			Enabled:     false,
 			Concurrency: -1,
 		},
-		Settings: struct {
-			Servers []struct {
-				Address  string `json:"address"`
-				Method   string `json:"method"`
-				Ota      bool   `json:"ota"`
-				Password string `json:"password"`
-				Port     int    `json:"port"`
-				Level    int    `json:"level"`
-				Flow     string `json:"flow"`
-			} `json:"servers"`
-		}{
-			Servers: []struct {
-				Address  string `json:"address"`
-				Method   string `json:"method"`
-				Ota      bool   `json:"ota"`
-				Password string `json:"password"`
-				Port     int    `json:"port"`
-				Level    int    `json:"level"`
-				Flow     string `json:"flow"`
-			}{},
+		Settings: TrojanServerList{
+			Servers: []TrojanServerInfo{},
 		},
 	}
 	textContent, err := ParseSubscriptionContainerDocument(data)
@@ -263,15 +249,7 @@ func getSubscription(url, tag string) *TrojanConfig {
 			println(err.Error())
 			continue
 		}
-		config.Settings.Servers = append(config.Settings.Servers, struct {
-			Address  string `json:"address"`
-			Method   string `json:"method"`
-			Ota      bool   `json:"ota"`
-			Password string `json:"password"`
-			Port     int    `json:"port"`
-			Level    int    `json:"level"`
-			Flow     string `json:"flow"`
-		}{
+		config.Settings.Servers = append(config.Settings.Servers, TrojanServerInfo{
 			Address:  a.Address,
 			Method:   "chacha20",
 			Ota:      false,
@@ -279,6 +257,7 @@ func getSubscription(url, tag string) *TrojanConfig {
 			Port:     a.Port,
 			Level:    1,
 			Flow:     "",
+			MarkInfo: a.Mark,
 		})
 
 	}
