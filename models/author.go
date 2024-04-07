@@ -45,7 +45,9 @@ func (a *Author) UpdateOrCreate() error {
 	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return result.Error
 	}
-
+	if a.AuthorName == "账号已注销" {
+		a.AuthorName = auth.AuthorName
+	}
 	if auth.Id <= 0 {
 		// 创建新用户
 		result := GormDB.Create(a)

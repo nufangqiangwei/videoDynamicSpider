@@ -9,11 +9,12 @@ import (
 type UserCookies struct {
 	ID         int64     `json:"id" gorm:"primary_key"`
 	WebSiteId  int64     `json:"webSiteId" gorm:"index:web_site_id"`
-	UserId     int64     `json:"userId" gorm:"index:user_id"`
+	UserId     int64     `json:"userId" gorm:"index:user_id"` // UserId和AuthorId值为0的时候，代表这个是游客cookies
 	AuthorId   int64     `json:"authorId" gorm:"index:author_id"`
 	Content    string    `json:"-" gorm:"text"`
 	UpdateTime time.Time `json:"updateTime" gorm:"default:CURRENT_TIMESTAMP"`
 	Spider     int       `json:"spider" gorm:"default:0"` // 指定哪个爬虫可以读取，0代表所有的都可以读取
+	Valid      bool      `json:"valid"`                   // 1有效 0无效
 }
 
 // WebSiteCookies 通过数据库实现 baseStruct.CookiesFlush 接口
@@ -77,4 +78,10 @@ func (wsc WebSiteCookies) UpdateUserCookies(webSiteName, authorName, cookiesCont
 	}
 	tx = GormDB.Model(&UserCookies{}).Joins("inner join web_site on web_site.id=web_site_id and web_site.web_name=?", webSiteName).Joins("inner join author on author.id=author_id and author.author_name=?", authorName).Where("spider=?", wsc.Spider).Update("content", cookiesContent)
 	return tx.Error
+}
+func (wsc WebSiteCookies) UserCookiesInvalid(webSiteName, authorName, cookiesContent, userId string) error {
+	return nil
+}
+func (wsc WebSiteCookies) GetTouristsCookies(webName string) []string {
+	return []string{}
 }

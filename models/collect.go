@@ -8,6 +8,7 @@ import (
 
 type Collect struct {
 	Id        int64          `json:"id" gorm:"primaryKey"`
+	AuthorId  int64          `json:"author_id"`
 	Type      int            `json:"type"`                 // 1: 收藏夹 2: 专栏
 	BvId      int64          `json:"bv_id"`                // 收藏夹的bv号
 	Name      string         `json:"name" gorm:"size:255"` // 收藏夹的名字

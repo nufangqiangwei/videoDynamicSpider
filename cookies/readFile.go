@@ -89,3 +89,9 @@ func (wsc privateReadLocalFile) UpdateUserCookies(webSiteName, authorName, cooki
 	}
 	return err
 }
+func (wsc privateReadLocalFile) UserCookiesInvalid(webSiteName, authorName, cookiesContent, userId string) error {
+	return nil
+}
+func (wsc privateReadLocalFile) GetTouristsCookies(webName string) []string {
+	return []string{}
+}

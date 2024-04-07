@@ -80,8 +80,12 @@ func (wf *WriteFile) WriteLine(data []byte) (int, error) {
 	return wf.Write([]byte{10})
 }
 func (wf *WriteFile) Close() {
+	if wf.file == nil {
+		return
+	}
 	wf.lastOpenFileName = wf.file.Name()
 	wf.file.Close()
+	wf.file = nil
 }
 
 func NewReaderJSONFile(rd io.Reader) ReadJsonFile {

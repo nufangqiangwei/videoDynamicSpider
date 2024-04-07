@@ -1,6 +1,7 @@
 package cookies
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 const (
 	cookiesFileFolder = "baseCookies"
 	blankUserName     = "空用户"
+	Tourists          = "tourists"
 )
 
 var defaultUserCookies = map[string]string{
@@ -32,6 +34,9 @@ func (c *UserCookie) SetDBPrimaryKeyId(id int64) {
 	c.dbPrimaryKeyId = id
 }
 func (c *UserCookie) GetDBPrimaryKeyId() int64 {
+	if c.dbPrimaryKeyId == 0 {
+		panic("未设置用户id")
+	}
 	return c.dbPrimaryKeyId
 }
 
@@ -71,6 +76,7 @@ func (c *UserCookie) FlushCookies() {
 			} else {
 				println("cookies失效，请更新", c.fileName, "cookies文件")
 			}
+			DataSource.UserCookiesInvalid(c.webSiteName, c.fileName, c.cookies, strconv.FormatInt(c.dbPrimaryKeyId, 10))
 		}
 	}
 }
@@ -183,6 +189,28 @@ func (wcm *WebSiteCookiesManager) FlushCookies() {
 			wcm.cookiesMap[userInfo.UserName] = c
 		}
 
+	}
+	wcm.GetTouristsCookies()
+}
+
+func (wcm *WebSiteCookiesManager) GetTouristsCookies() {
+	cookiesList := DataSource.GetTouristsCookies(wcm.webSiteName)
+	if cookiesList == nil || cap(cookiesList) == 0 {
+		return
+	}
+	for index, cookie := range cookiesList {
+		tourists := fmt.Sprintf("%s%d", Tourists, index)
+		c, ok := wcm.cookiesMap[tourists]
+		if !ok {
+			wcm.cookiesMap[tourists] = &UserCookie{
+				fileName:             tourists,
+				webSiteName:          wcm.webSiteName,
+				cookies:              cookie,
+				lastFlushCookiesTime: time.Now(),
+			}
+		} else {
+			c.cookies = cookie
+		}
 	}
 }
 

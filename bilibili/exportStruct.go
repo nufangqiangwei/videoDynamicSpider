@@ -401,9 +401,8 @@ func SaveVideoHistoryList() {
 }
 
 type WaitUpdateCollect struct {
-	BvId          int64
-	CollectId     int64
-	CollectNumber int64
+	models.Collect
+	VideoNumber int64 `json:"video_number"`
 }
 
 type NewCollect struct {
@@ -415,31 +414,54 @@ type NewCollect struct {
 func (s BiliSpider) GetCollectList() NewCollect {
 	result := new(NewCollect)
 	var (
-		collectInfo models.Collect
-		err         error
-		PageIndex   int
+		collectInfo     models.Collect
+		databaseInfo    WaitUpdateCollect
+		PageIndex       int
+		found           bool
+		userCollects    []WaitUpdateCollect
+		collectMap      map[int64]WaitUpdateCollect
+		subscriptionMap map[int64]WaitUpdateCollect
 	)
+	sql := `select c.*, cv.video_number
+from collect c
+         left join (select cv1.collect_id, count(cv1.video_id) as video_number
+                     from collect_video cv1
+                     group by cv1.collect_id) cv on cv.collect_id = c.id
+where c.author_id = ?
+order by c.bv_id`
 	PageIndex = 1
+	userCollects = make([]WaitUpdateCollect, 0)
+	collectMap = make(map[int64]WaitUpdateCollect)
+	subscriptionMap = make(map[int64]WaitUpdateCollect)
 	for _, userCookies := range cookies.GetWebSiteUser(webSiteName) {
+		models.GormDB.Raw(sql, userCookies.GetDBPrimaryKeyId()).Scan(&userCollects)
+		for _, c := range userCollects {
+			if c.Type == 1 {
+				collectMap[c.BvId] = c
+			} else if c.Type == 2 {
+				subscriptionMap[c.BvId] = c
+			}
+		}
+
 		mid := userCookies.GetCookiesKeyValue("DedeUserID")
 		for {
 			a := getCollectList(mid, PageIndex, userCookies)
 			if a != nil {
 				for _, info := range a.Data.List {
-					collectInfo = models.Collect{}
-					err = models.GormDB.Where("`type`=? and bv_id=?", 1, info.Id).Find(&collectInfo).Error
-					if err != nil {
-						log.ErrorLog.Printf("GetCollectList查询Collect表出错")
+					databaseInfo, found = collectMap[info.Id]
+					if !found {
+						collectInfo = models.Collect{
+							AuthorId: userCookies.GetDBPrimaryKeyId(),
+							Type:     1,
+							BvId:     info.Id,
+							Name:     info.Title,
+						}
+						models.GormDB.Create(&collectInfo)
+						result.Collect = append(result.Collect, databaseInfo)
 						continue
 					}
-					if collectInfo.Id == 0 {
-						collectInfo.Type = 1
-						collectInfo.BvId = info.Id
-						collectInfo.Name = info.Title
-						err = models.GormDB.Create(&collectInfo).Error
-					}
-					if err == nil {
-						result.Collect = append(result.Collect, WaitUpdateCollect{BvId: info.Id, CollectId: collectInfo.Id, CollectNumber: info.MediaCount})
+					if databaseInfo.VideoNumber != info.MediaCount {
+						result.Collect = append(result.Collect, databaseInfo)
 					}
 				}
 			} else {
@@ -456,12 +478,7 @@ func (s BiliSpider) GetCollectList() NewCollect {
 			b := subscriptionList(mid, PageIndex, userCookies)
 			if b != nil {
 				for _, info := range b.Data.List {
-					collectInfo = models.Collect{}
-					err = models.GormDB.Where("`type`=? and bv_id=?", 2, info.Id).Find(&collectInfo).Error
-					if err != nil {
-						log.ErrorLog.Printf("GetCollectList查询Collect表出错")
-						continue
-					}
+					databaseInfo, found = subscriptionMap[info.Id]
 					if info.Mid == 0 {
 						if collectInfo.Id > 0 && !strings.Contains(collectInfo.Name, "合集已失效") {
 							// 该合集以失效，更新数据
@@ -470,14 +487,19 @@ func (s BiliSpider) GetCollectList() NewCollect {
 						}
 						continue
 					}
-					if collectInfo.Id == 0 {
-						collectInfo.Type = 2
-						collectInfo.BvId = info.Id
-						collectInfo.Name = info.Title
-						err = models.GormDB.Create(&collectInfo).Error
+					if !found {
+						collectInfo = models.Collect{
+							AuthorId: userCookies.GetDBPrimaryKeyId(),
+							Type:     2,
+							BvId:     info.Id,
+							Name:     info.Title,
+						}
+						models.GormDB.Create(&collectInfo)
+						result.Season = append(result.Season, databaseInfo)
+						continue
 					}
-					if err == nil {
-						result.Season = append(result.Season, WaitUpdateCollect{BvId: info.Id, CollectId: collectInfo.Id, CollectNumber: info.MediaCount})
+					if databaseInfo.VideoNumber != info.MediaCount {
+						result.Season = append(result.Season, databaseInfo)
 					}
 				}
 			} else {

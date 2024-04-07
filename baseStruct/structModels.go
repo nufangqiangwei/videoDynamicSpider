@@ -36,4 +36,6 @@ type CookiesFlush interface {
 	UserList(webName string) []CacheUserCookies
 	GetUserCookies(webSiteName, userName string) string
 	UpdateUserCookies(webSiteName, authorName, cookiesContent, userId string) error
+	UserCookiesInvalid(webSiteName, authorName, cookiesContent, userId string) error
+	GetTouristsCookies(webName string) []string
 }
