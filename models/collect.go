@@ -19,6 +19,8 @@ type CollectVideo struct {
 	CollectId int64      `json:"collect_id" gorm:"uniqueIndex:collectId_videoId"`
 	VideoId   int64      `json:"video_id" gorm:"uniqueIndex:collectId_videoId"`
 	Mtime     *time.Time `json:"mtime"`
+	IsDel     bool       `json:"is_del" gorm:"index:is_del"`
+	IsInvalid bool       `json:"is_invalid" gorm:"index:is_invalid"`
 }
 
 func (ci *Collect) Save() bool {

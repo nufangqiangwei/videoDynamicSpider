@@ -18,7 +18,6 @@ import (
 	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
-	"videoDynamicAcquisition/proxy"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -33,7 +32,7 @@ const (
 )
 
 var (
-	videoCollection         []models.VideoCollection
+	spiderWebSit            []models.VideoCollection
 	wheel                   *timeWheel.TimeWheel
 	config                  *utils.Config
 	wheelLog                log.LogInputFile
@@ -161,8 +160,8 @@ func initWebSiteSpider() {
 }
 
 func main() {
-	videoCollection = append(videoCollection, bilibili.Spider)
-	updateFollowInfo(nil)
+	spiderWebSit = append(spiderWebSit, bilibili.Spider)
+	textUpdateVideoInfo()
 	//var err error
 	//_, err = wheel.AppendOnceFunc(getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
 	//if err != nil {
@@ -212,7 +211,7 @@ func getDynamic(interface{}) {
 	closeChan := make(chan models.TaskClose)
 	runWebSite := make([]string, 0)
 
-	for _, v := range videoCollection {
+	for _, v := range spiderWebSit {
 		go v.GetVideoList(videoResultChan, closeChan)
 		runWebSite = append(runWebSite, v.GetWebSiteName().WebName)
 	}
@@ -735,22 +734,49 @@ func updateAuthorVideoList(interface{}) {
 // 待更新的视频信息
 func waitUpdateVideo(interface{}) {
 	for v := range waitUpdateVideoInfoChan {
-		go func() {
-			proxyCilent := proxy.GetMethodAvailableProxy()
-			if proxyCilent == nil {
-				// 找不到可用的代理
-				waitUpdateVideoInfoChan <- v
-				return
-			}
-			result := models.Video{}
-			err := proxyCilent.Request(proxy.VideoDetail.Path, map[string]interface{}{"bid": v.Uuid}, result)
+		go func(videoInfo models.Video) {
+			data, _ := bilibili.GetVideoDetailByByte(videoInfo.Uuid)
+			response := bilibili.VideoDetailResponse{}
+			err := response.BindJSON(data)
 			if err != nil {
-				log.ErrorLog.Printf("%s代理获取%s视频详情失败%s", proxyCilent.GetIp(), v.Uuid, err.Error())
-				waitUpdateVideoInfoChan <- v
+				log.ErrorLog.Println(err)
 				return
 			}
+			var uploadTime time.Time
+			uploadTime = time.Unix(response.Data.View.Ctime, 0)
+			DatabaseAuthorInfo := []models.Author{
+				{
+					WebSiteId:    videoInfo.WebSiteId,
+					AuthorName:   response.Data.View.Owner.Name,
+					AuthorWebUid: strconv.FormatInt(response.Data.View.Owner.Mid, 10),
+					Avatar:       response.Data.View.Owner.Face,
+				},
+			}
+			if len(response.Data.View.Staff) > 0 {
+				for _, staff := range response.Data.View.Staff {
+					DatabaseAuthorInfo = append(DatabaseAuthorInfo, models.Author{
+						WebSiteId:    videoInfo.WebSiteId,
+						AuthorName:   staff.Name,
+						AuthorWebUid: strconv.FormatInt(staff.Mid, 10),
+						Avatar:       staff.Face,
+						FollowNumber: staff.Follower,
+					})
+				}
+			}
+
+			result := models.Video{
+				WebSiteId:    videoInfo.WebSiteId,
+				Title:        response.Data.View.Title,
+				VideoDesc:    response.Data.View.Desc,
+				Duration:     response.Data.View.Duration,
+				Uuid:         response.Data.View.Bvid,
+				CoverUrl:     response.Data.View.Pic,
+				UploadTime:   &uploadTime,
+				StructAuthor: DatabaseAuthorInfo,
+			}
+
 			result.UpdateVideo()
-		}()
+		}(v)
 	}
 }
 
@@ -807,5 +833,80 @@ func getAuthorFirstVideo(interface{}) {
 			}
 		}
 		time.Sleep(time.Second)
+	}
+}
+
+// 获取热门视频
+func getHotVideo(interface{}) {
+	var resultChan = make(chan models.Video, 10)
+	var closeChan = make(chan int64)
+	var closeSign bool
+	var closeTaskNumber int
+	for _, spider := range spiderWebSit {
+		go spider.GetHotVideoList(resultChan, closeChan)
+	}
+
+	for {
+		select {
+		case vi := <-resultChan:
+			vi.UpdateVideo()
+		case <-closeChan:
+			closeTaskNumber++
+			closeSign = len(spiderWebSit) == closeTaskNumber
+		}
+		if closeSign {
+			break
+		}
+	}
+
+}
+
+func textUpdateVideoInfo() {
+	videoList := []models.Video{}
+	models.GormDB.Model(&models.Video{}).Where("upload_time > now() - interval 30 day").Scan(&videoList)
+	println("待更新", len(videoList), "个视频")
+
+	for _, videoInfo := range videoList {
+		data, _ := bilibili.GetVideoDetailByByte(videoInfo.Uuid)
+		response := bilibili.VideoDetailResponse{}
+		err := response.BindJSON(data)
+		if err != nil {
+			log.ErrorLog.Println(err)
+			return
+		}
+		var uploadTime time.Time
+		uploadTime = time.Unix(response.Data.View.Ctime, 0)
+		DatabaseAuthorInfo := []models.Author{
+			{
+				WebSiteId:    videoInfo.WebSiteId,
+				AuthorName:   response.Data.View.Owner.Name,
+				AuthorWebUid: strconv.FormatInt(response.Data.View.Owner.Mid, 10),
+				Avatar:       response.Data.View.Owner.Face,
+			},
+		}
+		if len(response.Data.View.Staff) > 0 {
+			for _, staff := range response.Data.View.Staff {
+				DatabaseAuthorInfo = append(DatabaseAuthorInfo, models.Author{
+					WebSiteId:    videoInfo.WebSiteId,
+					AuthorName:   staff.Name,
+					AuthorWebUid: strconv.FormatInt(staff.Mid, 10),
+					Avatar:       staff.Face,
+					FollowNumber: staff.Follower,
+				})
+			}
+		}
+
+		result := models.Video{
+			WebSiteId:    videoInfo.WebSiteId,
+			Title:        response.Data.View.Title,
+			VideoDesc:    response.Data.View.Desc,
+			Duration:     response.Data.View.Duration,
+			Uuid:         response.Data.View.Bvid,
+			CoverUrl:     response.Data.View.Pic,
+			UploadTime:   &uploadTime,
+			StructAuthor: DatabaseAuthorInfo,
+		}
+
+		result.UpdateVideo()
 	}
 }

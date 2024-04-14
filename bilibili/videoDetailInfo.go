@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/log"
+	"videoDynamicAcquisition/proxy"
 )
 
 // https://socialsisteryi.github.io/bilibili-API-collect/docs/video/info.html
@@ -56,7 +57,7 @@ type VideoDetailResponse struct {
 				FreeWatch     int `json:"free_watch"`
 			} `json:"rights"`
 			Owner struct {
-				Mid  int    `json:"mid"`
+				Mid  int64  `json:"mid"`
 				Name string `json:"name"`
 				Face string `json:"face"`
 			} `json:"owner"` // 上传者
@@ -134,7 +135,7 @@ type VideoDetailResponse struct {
 				} `json:"list"`
 			} `json:"subtitle"`
 			Staff []struct {
-				Mid   int    `json:"mid"`
+				Mid   int64  `json:"mid"`
 				Title string `json:"title"`
 				Name  string `json:"name"`
 				Face  string `json:"face"`
@@ -492,11 +493,12 @@ func (receiver videoDetail) getResponse(bvid string) *VideoDetailResponse {
 
 func GetVideoDetailByByte(bvid string) ([]byte, string) {
 	var userCookie *cookies.UserCookie
-	for _, c := range cookies.GetWebSiteUser(webSiteName) {
-		userCookie = c
-		break
-	}
-	response, err := http.DefaultClient.Do(videoDetail{userCookie: userCookie}.getRequest(bvid))
+	//for _, c := range cookies.GetWebSiteUser(webSiteName) {
+	//	userCookie = c
+	//	break
+	//}
+	userCookie = cookies.NewDefaultUserCookie(webSiteName)
+	response, err := proxy.GetClient(true).Do(videoDetail{userCookie: userCookie}.getRequest(bvid))
 	if err != nil {
 		log.ErrorLog.Println(err.Error())
 		return nil, response.Request.URL.String()

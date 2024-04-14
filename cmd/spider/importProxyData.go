@@ -412,7 +412,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 		authorHave := false
 		for _, b := range response.Data.View.Staff {
 			for _, a := range DatabaseAuthorInfo {
-				if a.AuthorWebUid == strconv.Itoa(b.Mid) {
+				if a.AuthorWebUid == strconv.FormatInt(b.Mid, 10) {
 					authorHave = true
 					break
 				}
@@ -420,7 +420,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 			if !authorHave {
 				// 查询这个作者在Author表中是否存在
 				author := models.Author{}
-				err = models.GormDB.Where("author_web_uid = ?", strconv.Itoa(b.Mid)).Find(&author).Error
+				err = models.GormDB.Where("author_web_uid = ?", b.Mid).Find(&author).Error
 				if err != nil {
 					log.ErrorLog.Printf("查询作者信息失败：%s\n", err.Error())
 					return err
@@ -430,7 +430,7 @@ func (vd *biliVideoDetail) updateVideoDetailInfo(response bilibili.VideoDetailRe
 					author = models.Author{
 						AuthorName:   b.Name,
 						WebSiteId:    vd.webSiteId,
-						AuthorWebUid: strconv.Itoa(b.Mid),
+						AuthorWebUid: strconv.FormatInt(b.Mid, 10),
 						Avatar:       b.Face,
 						FollowNumber: b.Follower,
 					}

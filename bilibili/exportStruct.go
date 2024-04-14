@@ -25,12 +25,13 @@ const (
 )
 
 var (
-	Spider             = BiliSpider{}
-	wbiSignObj         = wbiSign{lastUpdateTime: time.Now()}
-	dynamicBaseLineMap map[string]int64
-	historyBaseLineMap map[string]int64
-	webSiteId          int64
-	historyRequestSave map[string]utils.WriteFile
+	Spider              = BiliSpider{}
+	wbiSignObj          = wbiSign{lastUpdateTime: time.Now()}
+	dynamicBaseLineMap  map[string]int64
+	historyBaseLineMap  map[string]int64
+	webSiteId           int64
+	historyRequestSave  map[string]utils.WriteFile
+	lastGetHotVideoTime *time.Time
 )
 
 func (s BiliSpider) Init(dynamicBaseLine map[string]int64, historyBaseLine map[string]int64, webSiteTableId int64) {
@@ -423,12 +424,13 @@ func (s BiliSpider) GetCollectList() NewCollect {
 		subscriptionMap map[int64]WaitUpdateCollect
 	)
 	sql := `select c.*, cv.video_number
-from collect c
-         left join (select cv1.collect_id, count(cv1.video_id) as video_number
-                     from collect_video cv1
-                     group by cv1.collect_id) cv on cv.collect_id = c.id
-where c.author_id = ?
-order by c.bv_id`
+		from collect c
+				 left join (select cv1.collect_id, count(cv1.video_id) as video_number
+							 from collect_video cv1
+							 where cv1.is_invalid = false and cv1.is_del = false
+							 group by cv1.collect_id) cv on cv.collect_id = c.id
+		where c.author_id = ?
+		order by c.bv_id`
 	PageIndex = 1
 	userCollects = make([]WaitUpdateCollect, 0)
 	collectMap = make(map[int64]WaitUpdateCollect)
@@ -633,4 +635,68 @@ func (s BiliSpider) GetSelfInfo(cookiesContext string) models.AccountInfo {
 		return nil
 	}
 	return data
+}
+
+func (s BiliSpider) GetHotVideoList(resultChan chan models.Video, closeChan chan<- int64) {
+	// 十个小时刷新一次
+	if lastGetHotVideoTime == nil || lastGetHotVideoTime.Add(time.Hour*10).Before(time.Now()) {
+		var (
+			pageIndex = 1
+			size      = 20
+		)
+		ranking := RankIng{}
+		var pushTime time.Time
+		for pageIndex <= 10 {
+			response := ranking.getResponse(0, nil, pageIndex, size, true)
+			if response == nil {
+				break
+			}
+			for _, info := range response.Data.List {
+				pushTime = time.Unix(info.Pubdate, 0)
+				resultChan <- models.Video{
+					WebSiteId:  webSiteId,
+					Title:      info.Title,
+					VideoDesc:  info.Desc,
+					Duration:   info.Duration,
+					Uuid:       info.Bvid,
+					CoverUrl:   info.Pic,
+					UploadTime: &pushTime,
+					CreateTime: time.Now(),
+					Baid:       info.Aid,
+					VideoPlayData: []models.VideoPlayData{
+						{
+							View:       info.Stat.View,
+							Danmaku:    info.Stat.Danmaku,
+							Reply:      info.Stat.Reply,
+							Favorite:   info.Stat.Favorite,
+							Coin:       info.Stat.Coin,
+							Share:      info.Stat.Share,
+							NowRank:    info.Stat.NowRank,
+							HisRank:    info.Stat.HisRank,
+							Like:       info.Stat.Like,
+							Dislike:    info.Stat.Dislike,
+							CreateTime: time.Now(),
+						},
+					},
+					StructAuthor: []models.Author{
+						{
+							WebSiteId:    webSiteId,
+							AuthorName:   info.Owner.Name,
+							AuthorWebUid: strconv.FormatInt(info.Owner.Mid, 10),
+							Avatar:       info.Owner.Face,
+						},
+					},
+					Classify: &models.Classify{
+						Id:   info.Tid,
+						Name: info.Tname,
+					},
+				}
+
+			}
+			pageIndex++
+		}
+	}
+	// 周五下午八点后查询周热榜内容
+	closeChan <- 0
+	return
 }

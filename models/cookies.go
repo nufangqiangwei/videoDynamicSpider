@@ -82,6 +82,8 @@ func (wsc WebSiteCookies) UpdateUserCookies(webSiteName, authorName, cookiesCont
 func (wsc WebSiteCookies) UserCookiesInvalid(webSiteName, authorName, cookiesContent, userId string) error {
 	return nil
 }
-func (wsc WebSiteCookies) GetTouristsCookies(webName string) []string {
-	return []string{}
+func (wsc WebSiteCookies) GetTouristsCookies(webSiteName string) []string {
+	touristsCookiesList := []string{}
+	GormDB.Model(&UserCookies{}).Joins("inner join web_site on web_site.id=web_site_id and web_site.web_name=?", webSiteName).Where("spider=? and user_id=0 and author_id=0 and valid=1", wsc.Spider).Pluck("content", &touristsCookiesList)
+	return touristsCookiesList
 }

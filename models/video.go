@@ -29,6 +29,7 @@ type Video struct {
 	StructTag         []Tag           `gorm:"-"`
 	StructCollectList []Collect       `gorm:"-"`
 	StructViewHistory []VideoHistory  `gorm:"-"`
+	Classify          *Classify       `gorm:"-"`
 }
 
 func (v *Video) GetByUid(uid string) {
@@ -183,13 +184,37 @@ func (v *Video) UpdateVideo() error {
 	}
 	// 保存收藏信息,先查出StructCollectList所有的信息，然后在插入CollectVideo
 	// 取出v.ViewHistory中的数据，添加video_id后保存
-	for _, history := range v.ViewHistory {
-		history.VideoId = DBvideo.Id
-		saveHistory = append(saveHistory, history)
+	if len(v.ViewHistory) > 0 {
+		var lastViewHistory VideoHistory
+		GormDB.Model(&lastViewHistory).Where("video_id=?", DBvideo.Id).Order("view_time desc").Limit(1).Find(&lastViewHistory)
+		for _, history := range v.ViewHistory {
+			history.VideoId = DBvideo.Id
+			saveHistory = append(saveHistory, history)
+		}
 	}
+
 	if len(saveHistory) > 0 {
 		GormDB.Save(&saveHistory)
 	}
+	if v.Classify != nil {
+		var classify Classify
+		GormDB.Model(&Classify{}).Where("id = ? and name = ?", v.Classify.Id, v.Classify.Name).Limit(1).Scan(&classify)
+		if classify.Id == 0 {
+			classify = Classify{
+				Id:   v.Classify.Id,
+				Name: v.Classify.Name,
+			}
+			GormDB.Create(&classify)
+		}
+		var videoClassify VideoClassify
+		GormDB.Model(&VideoClassify{}).Where("video_id=?", DBvideo.Id).Limit(1).Scan(&videoClassify)
+		if videoClassify.Id == 0 {
+			videoClassify.VideoId = DBvideo.Id
+			videoClassify.ClassifyId = classify.Id
+			GormDB.Create(&videoClassify)
+		}
+	}
+
 	if v.Id == 0 {
 		*v = DBvideo
 	}
@@ -262,4 +287,16 @@ type VideoPlayData struct {
 	Dislike    int64     `gorm:"default:0"`          // 点踩数
 	Evaluation string    `gorm:"default:0;size:255"` // 综合评分
 	CreateTime time.Time `gorm:"default:CURRENT_TIMESTAMP(3)"`
+}
+
+type Classify struct {
+	Id    int64  `json:"id" gorm:"primary_key"`
+	Name  string `json:"name" gorm:"size:255"`
+	Level int    `json:"level"`
+	Path  string `json:"path" gorm:"size:255"`
+}
+type VideoClassify struct {
+	Id         int64 `gorm:"primary_key"`
+	VideoId    int64 `gorm:"index:video_id"`
+	ClassifyId int64 `gorm:"index:classify_id"`
 }

@@ -1,7 +1,6 @@
 package cookies
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -157,12 +156,12 @@ func (ws *WebSiteCookies) PickUser() *UserCookie {
 	return ws.cookies[ws.index]
 }
 
-func (ws *WebSiteCookies) addUser(manage *WebSiteCookiesManager) {
+func (ws *WebSiteCookies) addUser(users []*UserCookie) {
 	var have bool
-	for _, u := range manage.cookiesMap {
+	for _, u := range users {
 		have = false
 		for index, U := range ws.cookies {
-			if u.fileName == u.fileName {
+			if u.fileName == U.fileName {
 				ws.cookies[index] = U
 				have = true
 				break
@@ -176,8 +175,9 @@ func (ws *WebSiteCookies) addUser(manage *WebSiteCookiesManager) {
 }
 
 type WebSiteCookiesManager struct {
-	cookiesMap  map[string]*UserCookie
-	webSiteName string
+	cookiesMap      map[string]*UserCookie
+	touristsCookies []*UserCookie
+	webSiteName     string
 }
 
 func (wcm *WebSiteCookiesManager) FlushCookies() {
@@ -198,18 +198,22 @@ func (wcm *WebSiteCookiesManager) GetTouristsCookies() {
 	if cookiesList == nil || cap(cookiesList) == 0 {
 		return
 	}
-	for index, cookie := range cookiesList {
-		tourists := fmt.Sprintf("%s%d", Tourists, index)
-		c, ok := wcm.cookiesMap[tourists]
-		if !ok {
-			wcm.cookiesMap[tourists] = &UserCookie{
-				fileName:             tourists,
+	for _, cookie := range cookiesList {
+		var isContinue bool
+		isContinue = true
+		for _, u := range wcm.touristsCookies {
+			if u.cookies == cookie {
+				isContinue = false
+				break
+			}
+		}
+		if isContinue {
+			wcm.touristsCookies = append(wcm.touristsCookies, &UserCookie{
+				fileName:             Tourists,
 				webSiteName:          wcm.webSiteName,
 				cookies:              cookie,
 				lastFlushCookiesTime: time.Now(),
-			}
-		} else {
-			c.cookies = cookie
+			})
 		}
 	}
 }
@@ -224,8 +228,9 @@ func FlushAllCookies() {
 		w, ok := rootCookiesMap[webSiteName]
 		if !ok {
 			w = &WebSiteCookiesManager{
-				cookiesMap:  make(map[string]*UserCookie),
-				webSiteName: webSiteName,
+				cookiesMap:      make(map[string]*UserCookie),
+				touristsCookies: make([]*UserCookie, 0),
+				webSiteName:     webSiteName,
 			}
 			rootCookiesMap[webSiteName] = w
 		}
@@ -239,7 +244,21 @@ func GetWeb(weiSiteName string) *WebSiteCookies {
 	if !ok {
 		return &result
 	}
-	result.addUser(websiteData)
+	var users []*UserCookie
+	for _, u := range websiteData.cookiesMap {
+		users = append(users, u)
+	}
+	result.addUser(users)
+	result.index = -1
+	return &result
+}
+func GetTouristsCookies(weiSiteName string) *WebSiteCookies {
+	result := WebSiteCookies{cookies: make([]*UserCookie, 0), webName: weiSiteName}
+	websiteData, ok := rootCookiesMap[weiSiteName]
+	if !ok {
+		return &result
+	}
+	result.addUser(websiteData.touristsCookies)
 	result.index = -1
 	return &result
 }
