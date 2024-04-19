@@ -31,7 +31,8 @@ var (
 	historyBaseLineMap  map[string]int64
 	webSiteId           int64
 	historyRequestSave  map[string]utils.WriteFile
-	lastGetHotVideoTime *time.Time
+	lastGetHotVideoTime *time.Time // 上次获取热门视频时间
+	lastGetWeekHotTime  *time.Time // 上次获取周热门时间
 )
 
 func (s BiliSpider) Init(dynamicBaseLine map[string]int64, historyBaseLine map[string]int64, webSiteTableId int64) {
@@ -637,14 +638,19 @@ func (s BiliSpider) GetSelfInfo(cookiesContext string) models.AccountInfo {
 	return data
 }
 
+func (s BiliSpider) GetVideoInfo(buid string, userProxy bool) models.Video {
+	return models.Video{}
+}
+
 func (s BiliSpider) GetHotVideoList(resultChan chan models.Video, closeChan chan<- int64) {
+	nowTime := time.Now()
 	// 十个小时刷新一次
-	if lastGetHotVideoTime == nil || lastGetHotVideoTime.Add(time.Hour*10).Before(time.Now()) {
+	if lastGetHotVideoTime == nil || lastGetHotVideoTime.Add(time.Hour*5).Before(nowTime) {
 		var (
 			pageIndex = 1
 			size      = 20
 		)
-		ranking := RankIng{}
+		ranking := RankIng{hotType: "day"}
 		var pushTime time.Time
 		for pageIndex <= 10 {
 			response := ranking.getResponse(0, nil, pageIndex, size, true)
@@ -695,8 +701,66 @@ func (s BiliSpider) GetHotVideoList(resultChan chan models.Video, closeChan chan
 			}
 			pageIndex++
 		}
+		lastGetHotVideoTime = &nowTime
 	}
 	// 周五下午八点后查询周热榜内容
 	closeChan <- 0
+	if nowTime.Weekday() == time.Friday && nowTime.Hour() > 20 && (lastGetWeekHotTime == nil || lastGetWeekHotTime.Add(time.Hour*24).Before(nowTime)) {
+		lastGetWeekHotTime = &nowTime
+		var (
+			pageIndex = 1
+			size      = 20
+		)
+		ranking := RankIng{hotType: "week"}
+		response := ranking.getResponse(0, nil, pageIndex, size, false)
+		if response != nil {
+			var pushTime time.Time
+			for _, info := range response.Data.List {
+				pushTime = time.Unix(info.Pubdate, 0)
+				resultChan <- models.Video{
+					WebSiteId:  webSiteId,
+					Title:      info.Title,
+					VideoDesc:  info.Desc,
+					Duration:   info.Duration,
+					Uuid:       info.Bvid,
+					CoverUrl:   info.Pic,
+					UploadTime: &pushTime,
+					CreateTime: time.Now(),
+					Baid:       info.Aid,
+					VideoPlayData: []models.VideoPlayData{
+						{
+							View:       info.Stat.View,
+							Danmaku:    info.Stat.Danmaku,
+							Reply:      info.Stat.Reply,
+							Favorite:   info.Stat.Favorite,
+							Coin:       info.Stat.Coin,
+							Share:      info.Stat.Share,
+							NowRank:    info.Stat.NowRank,
+							HisRank:    info.Stat.HisRank,
+							Like:       info.Stat.Like,
+							Dislike:    info.Stat.Dislike,
+							CreateTime: time.Now(),
+						},
+					},
+					StructAuthor: []models.Author{
+						{
+							WebSiteId:    webSiteId,
+							AuthorName:   info.Owner.Name,
+							AuthorWebUid: strconv.FormatInt(info.Owner.Mid, 10),
+							Avatar:       info.Owner.Face,
+						},
+					},
+					Classify: &models.Classify{
+						Id:   info.Tid,
+						Name: info.Tname,
+					},
+				}
+
+			}
+		}
+
+		lastGetWeekHotTime = &nowTime
+
+	}
 	return
 }

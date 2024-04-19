@@ -9,27 +9,28 @@ import (
 
 // Video 视频信息
 type Video struct {
-	Id                int64 `json:"id" gorm:"primary_key"`
-	WebSiteId         int64
-	Authors           []VideoAuthor   `gorm:"foreignKey:VideoId;references:Id"`
-	Tag               []VideoTag      `gorm:"foreignKey:VideoId;references:Id"`
-	CollectList       []CollectVideo  `gorm:"foreignKey:VideoId;references:Id"`
-	ViewHistory       []VideoHistory  `gorm:"foreignKey:VideoId;references:Id"`
-	VideoPlayData     []VideoPlayData `gorm:"foreignKey:VideoId;references:Id"`
-	Title             string          `gorm:"size:255"`
-	VideoDesc         string          `gorm:"size:2000"`
-	Duration          int             `gorm:"default:0;index:duration"`
-	Uuid              string          `gorm:"size:255;uniqueIndex:uuid"`
-	Url               string          `gorm:"size:255"`
-	CoverUrl          string          `gorm:"size:255"`
-	UploadTime        *time.Time      `gorm:"default:null;index:upload_time"`
-	CreateTime        time.Time       `gorm:"default:CURRENT_TIMESTAMP(3)"`
-	Baid              int64           `json:"aid"`
-	StructAuthor      []Author        `gorm:"-"`
-	StructTag         []Tag           `gorm:"-"`
-	StructCollectList []Collect       `gorm:"-"`
-	StructViewHistory []VideoHistory  `gorm:"-"`
-	Classify          *Classify       `gorm:"-"`
+	Id                  int64 `json:"id" gorm:"primary_key"`
+	WebSiteId           int64
+	Authors             []VideoAuthor   `gorm:"foreignKey:VideoId;references:Id"`
+	Tag                 []VideoTag      `gorm:"foreignKey:VideoId;references:Id"`
+	CollectList         []CollectVideo  `gorm:"foreignKey:VideoId;references:Id"`
+	ViewHistory         []VideoHistory  `gorm:"foreignKey:VideoId;references:Id"`
+	VideoPlayData       []VideoPlayData `gorm:"foreignKey:VideoId;references:Id"`
+	Title               string          `gorm:"size:255"`
+	VideoDesc           string          `gorm:"size:2000"`
+	Duration            int             `gorm:"default:0;index:duration"`
+	Uuid                string          `gorm:"size:255;uniqueIndex:uuid"`
+	Url                 string          `gorm:"size:255"`
+	CoverUrl            string          `gorm:"size:255"`
+	UploadTime          *time.Time      `gorm:"default:null;index:upload_time"`
+	CreateTime          time.Time       `gorm:"default:CURRENT_TIMESTAMP(3)"`
+	Baid                int64           `json:"aid"`
+	StructAuthor        []Author        `gorm:"-"`
+	StructTag           []Tag           `gorm:"-"`
+	StructCollectList   []Collect       `gorm:"-"`
+	StructViewHistory   *VideoHistory   `gorm:"-"`
+	StructVideoPlayData *VideoPlayData  `gorm:"-"`
+	Classify            *Classify       `gorm:"-"`
 }
 
 func (v *Video) GetByUid(uid string) {
@@ -41,13 +42,15 @@ func (v *Video) GetByUid(uid string) {
 }
 
 // UpdateVideo 数据储存到数据库中，如果存在则更新，不存在则插入。many to many的表,如果中间表不存在就插入，存在就更新。这里只做增量更新，不做删除。删除操作，有别的同步方法自行执行。
-func (v *Video) UpdateVideo() error {
+func (v *Video) UpdateVideo() (bool, error) {
 	if v.WebSiteId == 0 || v.Uuid == "" {
-		return errors.New("缺少必要参数")
+		return false, errors.New("缺少必要参数")
 	}
 	DBvideo := Video{}
 	GormDB.Where("web_site_id=? and uuid=?", v.WebSiteId, v.Uuid).Find(&DBvideo)
+	var isNew bool
 	if DBvideo.Id == 0 {
+		isNew = true
 		var (
 			authorList  []VideoAuthor
 			tagList     []VideoTag
@@ -119,7 +122,7 @@ func (v *Video) UpdateVideo() error {
 					}
 				}
 				if lateAuthor.Id == 0 {
-					return errors.New("作者信息插入失败")
+					return isNew, errors.New("作者信息插入失败")
 				}
 			}
 			videoAuthor.AuthorId = lateAuthor.Id
@@ -131,6 +134,7 @@ func (v *Video) UpdateVideo() error {
 	if len(saveAuthors) > 0 {
 		GormDB.Save(&saveAuthors)
 	}
+
 	// 保存标签信息
 	for _, videoTag := range v.Tag {
 		have = false
@@ -170,7 +174,7 @@ func (v *Video) UpdateVideo() error {
 						}
 					}
 					if lateTag.Name == "" {
-						return errors.New("标签信息插入失败")
+						return isNew, errors.New("标签信息插入失败")
 					}
 				}
 			}
@@ -182,20 +186,24 @@ func (v *Video) UpdateVideo() error {
 	if len(saveTags) > 0 {
 		GormDB.Save(&saveTags)
 	}
+
 	// 保存收藏信息,先查出StructCollectList所有的信息，然后在插入CollectVideo
 	// 取出v.ViewHistory中的数据，添加video_id后保存
 	if len(v.ViewHistory) > 0 {
-		var lastViewHistory VideoHistory
-		GormDB.Model(&lastViewHistory).Where("video_id=?", DBvideo.Id).Order("view_time desc").Limit(1).Find(&lastViewHistory)
+		var databaseHistory VideoHistory
+		GormDB.Model(&VideoHistory{}).Where("video_id=?", DBvideo.Id).Order("view_time desc").First(&databaseHistory)
 		for _, history := range v.ViewHistory {
-			history.VideoId = DBvideo.Id
-			saveHistory = append(saveHistory, history)
+			if history.ViewTime.After(databaseHistory.ViewTime) {
+				history.VideoId = DBvideo.Id
+				saveHistory = append(saveHistory, history)
+			}
 		}
 	}
-
 	if len(saveHistory) > 0 {
 		GormDB.Save(&saveHistory)
 	}
+
+	// 视频分区数据
 	if v.Classify != nil {
 		var classify Classify
 		GormDB.Model(&Classify{}).Where("id = ? and name = ?", v.Classify.Id, v.Classify.Name).Limit(1).Scan(&classify)
@@ -215,10 +223,17 @@ func (v *Video) UpdateVideo() error {
 		}
 	}
 
+	// 播放数据
+	if v.StructVideoPlayData != nil {
+		v.StructVideoPlayData.VideoId = DBvideo.Id
+		GormDB.Create(v.StructVideoPlayData)
+	}
+
 	if v.Id == 0 {
 		*v = DBvideo
 	}
-	return nil
+
+	return isNew, nil
 }
 
 // GetVideoFullData 获取视频全部信息，包括作者，标签，收藏列表，观看历史列表。中间表，子表，和其他多对多的表数据

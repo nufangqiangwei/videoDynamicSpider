@@ -1,0 +1,66 @@
+syntax = "proto3";
+package webSiteGRPC;
+
+message userInfo{
+  map<string, string> cookies = 1;
+}
+
+message videoInfoResponse{
+  string title = 1;
+  string desc = 2;
+  string cover = 3;
+  string uid = 4;
+  int64 duration = 5;
+  int64 updateTime = 6;
+  repeated tagInfoResponse tags = 7;
+  repeated classifyInfoResponse classify = 8;
+  int64 viewNumber = 9;
+  int64 danmaku = 10;
+  int64 reply = 11;
+  int64 favorite = 12;
+  int64 coin = 13;
+  int64 share = 14;
+  int64 nowRank = 15;
+  int64 hisRank = 16;
+  int64 like = 17;
+  int64 dislike = 18;
+  string evaluation = 19;
+  repeated AuthorInfoResponse authors = 20;
+  viewInfoResponse viewInfo = 21;
+}
+
+message AuthorInfoResponse{
+  string author = 1;
+  string name = 2;
+  string avatar = 3;
+  string desc = 4;
+  string uid = 5;
+  uint64 followNumber = 6;
+}
+message tagInfoResponse{
+  string name = 1;
+  int64 id = 2;
+}
+message classifyInfoResponse{
+  string name = 1;
+  int64 id = 2;
+}
+message viewInfoResponse{
+  int64 viewTime = 1;
+  int64 viewDuration = 2;
+}
+message collectionInfoResponse{
+  string name = 1;
+  string uid = 2;
+  AuthorInfoResponse author = 3; // 创建者信息
+  int64 creatTime = 4;
+  int64 appendTime = 5; // 视频添加到合集的时间
+}
+
+service WebSiteService {
+  //
+  rpc GetVideoList(userInfo) returns (stream  videoInfoResponse);
+  rpc GetHotVideoList(userInfo) returns (stream  videoInfoResponse);
+  rpc GetSelfInfo(userInfo) returns (AuthorInfoResponse);
+  rpc GetVideoInfo(userInfo) returns (videoInfoResponse);
+}

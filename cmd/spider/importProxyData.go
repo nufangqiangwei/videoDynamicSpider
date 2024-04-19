@@ -557,7 +557,7 @@ func (vd *biliVideoDetail) relatedVideo(response bilibili.VideoDetailResponse) e
 				},
 			},
 		}
-		err := video.UpdateVideo()
+		_, err := video.UpdateVideo()
 		if err != nil {
 			return err
 		}

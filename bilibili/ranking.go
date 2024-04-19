@@ -4,12 +4,18 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 	"videoDynamicAcquisition/cookies"
 	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/proxy"
 )
 
-const rankingUrl = "https://api.bilibili.com/x/web-interface/popular"
+const (
+	rankingUrl     = "https://api.bilibili.com/x/web-interface/popular"
+	weekRankingUrl = "https://api.bilibili.com/x/web-interface/popular/series/one"
+)
+
+var weekRankingStartTime = time.Date(2019, time.March, 22, 0, 0, 0, 0, time.UTC)
 
 // 热门视频获取
 // api文档 https://socialsisteryi.github.io/bilibili-API-collect/docs/video_ranking/popular.html
@@ -106,11 +112,25 @@ func (r *RankIngResponse) bindJSON(body []byte) error {
 	return json.Unmarshal(body, r)
 }
 
-// RankIng 获取指定排行榜
-type RankIng struct {
+/*
+1 2019第1期 03.22 - 03.28
+2 2019第2期 03.29 - 04.04
+3 2019第3期 04.05 - 04.11
+4 2019第4期 04.12 - 04.18
+*/
+// 计算从2019-03-22这一天开始，距离现在时间是第多少周
+func getWeekRankingNumber() int {
+	currentDate := time.Now().UTC()
+	return int(currentDate.Sub(weekRankingStartTime).Hours() / 24 / 7)
+
 }
 
-func (r RankIng) getRequest(user *cookies.UserCookie, page, size int) *http.Request {
+// RankIng 获取指定排行榜
+type RankIng struct {
+	hotType string
+}
+
+func (r RankIng) getDayHotRequest(user *cookies.UserCookie, page, size int) *http.Request {
 	request, _ := http.NewRequest("GET", rankingUrl, nil)
 	if user != nil {
 		request.Header.Add("Cookie", user.GetCookies())
@@ -122,14 +142,32 @@ func (r RankIng) getRequest(user *cookies.UserCookie, page, size int) *http.Requ
 	request.URL.RawQuery = q.Encode()
 	return request
 }
-
+func (r RankIng) getWeekHotVideoList(user *cookies.UserCookie) *http.Request {
+	request, _ := http.NewRequest("GET", weekRankingUrl, nil)
+	request.Header.Add("User-Agent", userAgent)
+	if user != nil {
+		request.Header.Add("Cookie", user.GetCookies())
+	}
+	q := request.URL.Query()
+	q.Add("number", strconv.Itoa(getWeekRankingNumber()))
+	request.URL.RawQuery = q.Encode()
+	return request
+}
 func (r RankIng) getResponse(retriesNumber int, user *cookies.UserCookie, page, size int, useProxy bool) *RankIngResponse {
 	if retriesNumber > 2 {
 		log.ErrorLog.Println("重试次数过多")
 		return nil
 	}
+	var request *http.Request
+	if r.hotType == "day" {
+		request = r.getDayHotRequest(user, page, size)
+	} else if r.hotType == "week" {
+		request = r.getWeekHotVideoList(user)
+	} else {
+		request = r.getDayHotRequest(user, page, size)
+	}
 
-	response, err := proxy.GetClient(useProxy).Do(r.getRequest(user, page, size))
+	response, err := proxy.GetClient(useProxy).Do(request)
 	if err != nil {
 		log.ErrorLog.Println("请求失败")
 		log.ErrorLog.Println(err.Error())

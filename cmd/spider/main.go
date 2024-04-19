@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	timeWheel "github.com/nufangqiangwei/timewheel"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/resolver"
 	"math/rand"
 	"os"
 	"path"
@@ -16,8 +20,11 @@ import (
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/cookies"
+	"videoDynamicAcquisition/grpcDiscovery"
 	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
+	webSiteGRPC "videoDynamicAcquisition/proto"
+	"videoDynamicAcquisition/proxy"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -29,6 +36,7 @@ const (
 	twentyTime    = oneTicket * 20
 	twelveTicket  = oneTicket * 12
 	configPath    = "./spiderConfig.json"
+	dialTimeout   = time.Minute * 10
 )
 
 var (
@@ -101,6 +109,10 @@ func init() {
 	webSiteManage = webSite{}
 	webSiteManage.init()
 
+	// 初始化代理
+	proxy.Init()
+
+	// 初始化通道
 	waitUpdateVideoInfoChan = make(chan models.Video, 100)
 	// 初始化定时器
 	wheel = timeWheel.NewTimeWheel(&timeWheel.WheelConfig{
@@ -109,6 +121,7 @@ func init() {
 	})
 	rand.Seed(time.Now().UnixNano())
 	log.Info.Println("初始化完成：", time.Now().Format("2006.01.02 15:04:05"))
+
 }
 
 func initWebSiteSpider() {
@@ -282,7 +295,10 @@ func getHistory(interface{}) {
 	for {
 		select {
 		case videoInfo := <-VideoHistoryChan:
-			videoInfo.UpdateVideo()
+			isNew, _ := videoInfo.UpdateVideo()
+			if isNew {
+				waitUpdateVideoInfoChan <- videoInfo
+			}
 		case closeInfo := <-VideoHistoryCloseChan:
 			if closeInfo.WebSite == bilibili.Spider.GetWebSiteName().WebName {
 				for _, info := range closeInfo.Data {
@@ -905,8 +921,54 @@ func textUpdateVideoInfo() {
 			CoverUrl:     response.Data.View.Pic,
 			UploadTime:   &uploadTime,
 			StructAuthor: DatabaseAuthorInfo,
+			StructVideoPlayData: &models.VideoPlayData{
+				View:       0,
+				Danmaku:    0,
+				Reply:      0,
+				Favorite:   0,
+				Coin:       0,
+				Share:      0,
+				NowRank:    0,
+				HisRank:    0,
+				Like:       0,
+				Dislike:    0,
+				Evaluation: "",
+				CreateTime: time.Time{},
+			},
 		}
 
 		result.UpdateVideo()
 	}
+}
+
+func initGrpc() {
+	dht, err := grpcDiscovery.NewServiceDiscovery(&grpcDiscovery.ServerConfig{
+		ServerType:       "spider",
+		SeedAddr:         "",
+		AwaitRegister:    false,
+		NodePort:         3190,
+		ServerIp:         "127.0.0.1",
+		GrpcSeverAddress: "127.0.0.1:3190",
+	})
+	if err != nil {
+		log.ErrorLog.Println(err)
+	}
+	resolver.Register(dht)
+}
+
+func getWebSiteConnect(ser *grpcDiscovery.ServiceDiscovery) (webSiteGRPC.WebSiteServiceClient, error) {
+	url := fmt.Sprintf("%s:///%s", ser.Scheme(), "website")
+	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
+	defer cancel()
+	client, err := grpc.DialContext(
+		ctx,
+		url,
+		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return webSiteGRPC.NewWebSiteServiceClient(client), err
 }

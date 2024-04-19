@@ -93,7 +93,7 @@ func (c *UserCookie) saveCookies() {
 
 func (c *UserCookie) readFile() {
 	// 读取文件中的cookies
-	if c.fileName == blankUserName {
+	if c.fileName == blankUserName || c.fileName == Tourists {
 		return
 	}
 

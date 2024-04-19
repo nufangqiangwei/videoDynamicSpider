@@ -4,6 +4,7 @@ type VideoCollection interface {
 	GetWebSiteName() WebSite
 	GetVideoList(chan<- Video, chan<- TaskClose)
 	GetSelfInfo(string) AccountInfo
+	GetVideoInfo(string, bool) Video
 	GetHotVideoList(chan Video, chan<- int64)
 }
 
