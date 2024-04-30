@@ -11,6 +11,7 @@ import (
 
 // https://socialsisteryi.github.io/bilibili-API-collect/docs/video/info.html
 // https://api.bilibili.com/x/web-interface/view/detail?bvid=BV117411r7R1
+// https://api.bilibili.com/x/web-interface/view/detail?bvid=BV1fH4y1A7VQ # 多用户投稿
 type VideoDetailResponse struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`

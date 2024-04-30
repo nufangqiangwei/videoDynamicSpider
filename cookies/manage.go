@@ -29,6 +29,18 @@ type UserCookie struct {
 	dbPrimaryKeyId       int64 // 用户id
 }
 
+func (c *UserCookie) GetCookiesDict() map[string]string {
+	cookies := strings.Split(c.cookies, ";")
+	result := make(map[string]string)
+	for _, cookie := range cookies {
+		cookieArr := strings.Split(cookie, "=")
+		if len(cookieArr) == 2 {
+			result[cookieArr[0]] = cookieArr[1]
+		}
+	}
+	return result
+}
+
 func (c *UserCookie) SetDBPrimaryKeyId(id int64) {
 	c.dbPrimaryKeyId = id
 }

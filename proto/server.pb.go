@@ -28,6 +28,8 @@ const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type UserInfo struct {
 	Cookies              map[string]string `protobuf:"bytes,1,rep,name=cookies,proto3" json:"cookies,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	LastHistoryTime      int64             `protobuf:"varint,2,opt,name=lastHistoryTime,proto3" json:"lastHistoryTime,omitempty"`
+	LastUpdateTime       int64             `protobuf:"varint,3,opt,name=lastUpdateTime,proto3" json:"lastUpdateTime,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -73,6 +75,20 @@ func (m *UserInfo) GetCookies() map[string]string {
 	return nil
 }
 
+func (m *UserInfo) GetLastHistoryTime() int64 {
+	if m != nil {
+		return m.LastHistoryTime
+	}
+	return 0
+}
+
+func (m *UserInfo) GetLastUpdateTime() int64 {
+	if m != nil {
+		return m.LastUpdateTime
+	}
+	return 0
+}
+
 type VideoInfoResponse struct {
 	Title                string                  `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
 	Desc                 string                  `protobuf:"bytes,2,opt,name=desc,proto3" json:"desc,omitempty"`
@@ -95,6 +111,9 @@ type VideoInfoResponse struct {
 	Evaluation           string                  `protobuf:"bytes,19,opt,name=evaluation,proto3" json:"evaluation,omitempty"`
 	Authors              []*AuthorInfoResponse   `protobuf:"bytes,20,rep,name=authors,proto3" json:"authors,omitempty"`
 	ViewInfo             *ViewInfoResponse       `protobuf:"bytes,21,opt,name=viewInfo,proto3" json:"viewInfo,omitempty"`
+	WebSiteName          string                  `protobuf:"bytes,22,opt,name=webSiteName,proto3" json:"webSiteName,omitempty"`
+	ErrorCode            int32                   `protobuf:"varint,50,opt,name=errorCode,proto3" json:"errorCode,omitempty"`
+	ErrorMsg             string                  `protobuf:"bytes,51,opt,name=errorMsg,proto3" json:"errorMsg,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -280,6 +299,27 @@ func (m *VideoInfoResponse) GetViewInfo() *ViewInfoResponse {
 	return nil
 }
 
+func (m *VideoInfoResponse) GetWebSiteName() string {
+	if m != nil {
+		return m.WebSiteName
+	}
+	return ""
+}
+
+func (m *VideoInfoResponse) GetErrorCode() int32 {
+	if m != nil {
+		return m.ErrorCode
+	}
+	return 0
+}
+
+func (m *VideoInfoResponse) GetErrorMsg() string {
+	if m != nil {
+		return m.ErrorMsg
+	}
+	return ""
+}
+
 type AuthorInfoResponse struct {
 	Author               string   `protobuf:"bytes,1,opt,name=author,proto3" json:"author,omitempty"`
 	Name                 string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
@@ -287,6 +327,8 @@ type AuthorInfoResponse struct {
 	Desc                 string   `protobuf:"bytes,4,opt,name=desc,proto3" json:"desc,omitempty"`
 	Uid                  string   `protobuf:"bytes,5,opt,name=uid,proto3" json:"uid,omitempty"`
 	FollowNumber         uint64   `protobuf:"varint,6,opt,name=followNumber,proto3" json:"followNumber,omitempty"`
+	ErrorCode            int32    `protobuf:"varint,50,opt,name=errorCode,proto3" json:"errorCode,omitempty"`
+	ErrorMsg             string   `protobuf:"bytes,51,opt,name=errorMsg,proto3" json:"errorMsg,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -367,9 +409,25 @@ func (m *AuthorInfoResponse) GetFollowNumber() uint64 {
 	return 0
 }
 
+func (m *AuthorInfoResponse) GetErrorCode() int32 {
+	if m != nil {
+		return m.ErrorCode
+	}
+	return 0
+}
+
+func (m *AuthorInfoResponse) GetErrorMsg() string {
+	if m != nil {
+		return m.ErrorMsg
+	}
+	return ""
+}
+
 type TagInfoResponse struct {
 	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Id                   int64    `protobuf:"varint,2,opt,name=id,proto3" json:"id,omitempty"`
+	ErrorCode            int32    `protobuf:"varint,50,opt,name=errorCode,proto3" json:"errorCode,omitempty"`
+	ErrorMsg             string   `protobuf:"bytes,51,opt,name=errorMsg,proto3" json:"errorMsg,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -420,6 +478,20 @@ func (m *TagInfoResponse) GetId() int64 {
 		return m.Id
 	}
 	return 0
+}
+
+func (m *TagInfoResponse) GetErrorCode() int32 {
+	if m != nil {
+		return m.ErrorCode
+	}
+	return 0
+}
+
+func (m *TagInfoResponse) GetErrorMsg() string {
+	if m != nil {
+		return m.ErrorMsg
+	}
+	return ""
 }
 
 type ClassifyInfoResponse struct {
@@ -538,6 +610,8 @@ type CollectionInfoResponse struct {
 	Author               *AuthorInfoResponse `protobuf:"bytes,3,opt,name=author,proto3" json:"author,omitempty"`
 	CreatTime            int64               `protobuf:"varint,4,opt,name=creatTime,proto3" json:"creatTime,omitempty"`
 	AppendTime           int64               `protobuf:"varint,5,opt,name=appendTime,proto3" json:"appendTime,omitempty"`
+	ErrorCode            int32               `protobuf:"varint,50,opt,name=errorCode,proto3" json:"errorCode,omitempty"`
+	ErrorMsg             string              `protobuf:"bytes,51,opt,name=errorMsg,proto3" json:"errorMsg,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`
@@ -611,6 +685,75 @@ func (m *CollectionInfoResponse) GetAppendTime() int64 {
 	return 0
 }
 
+func (m *CollectionInfoResponse) GetErrorCode() int32 {
+	if m != nil {
+		return m.ErrorCode
+	}
+	return 0
+}
+
+func (m *CollectionInfoResponse) GetErrorMsg() string {
+	if m != nil {
+		return m.ErrorMsg
+	}
+	return ""
+}
+
+type GetVideoListRequest struct {
+	UserInfo             *UserInfo `protobuf:"bytes,1,opt,name=userInfo,proto3" json:"userInfo,omitempty"`
+	VideoIdList          []string  `protobuf:"bytes,2,rep,name=videoIdList,proto3" json:"videoIdList,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *GetVideoListRequest) Reset()         { *m = GetVideoListRequest{} }
+func (m *GetVideoListRequest) String() string { return proto.CompactTextString(m) }
+func (*GetVideoListRequest) ProtoMessage()    {}
+func (*GetVideoListRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_ad098daeda4239f7, []int{7}
+}
+func (m *GetVideoListRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetVideoListRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetVideoListRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetVideoListRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetVideoListRequest.Merge(m, src)
+}
+func (m *GetVideoListRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetVideoListRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetVideoListRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetVideoListRequest proto.InternalMessageInfo
+
+func (m *GetVideoListRequest) GetUserInfo() *UserInfo {
+	if m != nil {
+		return m.UserInfo
+	}
+	return nil
+}
+
+func (m *GetVideoListRequest) GetVideoIdList() []string {
+	if m != nil {
+		return m.VideoIdList
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*UserInfo)(nil), "webSiteGRPC.userInfo")
 	proto.RegisterMapType((map[string]string)(nil), "webSiteGRPC.userInfo.CookiesEntry")
@@ -620,58 +763,68 @@ func init() {
 	proto.RegisterType((*ClassifyInfoResponse)(nil), "webSiteGRPC.classifyInfoResponse")
 	proto.RegisterType((*ViewInfoResponse)(nil), "webSiteGRPC.viewInfoResponse")
 	proto.RegisterType((*CollectionInfoResponse)(nil), "webSiteGRPC.collectionInfoResponse")
+	proto.RegisterType((*GetVideoListRequest)(nil), "webSiteGRPC.getVideoListRequest")
 }
 
 func init() { proto.RegisterFile("server.proto", fileDescriptor_ad098daeda4239f7) }
 
 var fileDescriptor_ad098daeda4239f7 = []byte{
-	// 728 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0xcd, 0x6e, 0xd3, 0x4c,
-	0x14, 0xfd, 0x26, 0x3f, 0x4d, 0x7a, 0x93, 0xaf, 0x4d, 0xe7, 0x6b, 0xab, 0x51, 0xd5, 0x2f, 0x04,
-	0xaf, 0xb2, 0x8a, 0xaa, 0x22, 0x04, 0xad, 0x60, 0x01, 0xa5, 0x0a, 0x20, 0x84, 0x90, 0x8b, 0x60,
-	0x3d, 0xb5, 0x6f, 0xda, 0x51, 0x1c, 0x4f, 0x64, 0x8f, 0x5d, 0x65, 0xcf, 0x43, 0xb0, 0x44, 0xbc,
-	0x02, 0xe2, 0x1d, 0x58, 0xf2, 0x08, 0xa8, 0xbc, 0x08, 0x9a, 0x19, 0x3b, 0xb1, 0x43, 0x21, 0x2c,
-	0xd8, 0xcd, 0x39, 0xf7, 0xce, 0xf1, 0x99, 0x3b, 0x27, 0x13, 0x68, 0xc7, 0x18, 0xa5, 0x18, 0x0d,
-	0xa6, 0x91, 0x54, 0x92, 0xb6, 0xae, 0xf0, 0xfc, 0x4c, 0x28, 0x1c, 0xba, 0xaf, 0x4e, 0x9c, 0x77,
-	0x04, 0x9a, 0x49, 0x8c, 0xd1, 0xb3, 0x70, 0x24, 0xe9, 0x03, 0x68, 0x78, 0x52, 0x8e, 0x05, 0xc6,
-	0x8c, 0xf4, 0xaa, 0xfd, 0xd6, 0xa1, 0x33, 0x28, 0xf4, 0x0e, 0xf2, 0xbe, 0xc1, 0x89, 0x6d, 0x3a,
-	0x0d, 0x55, 0x34, 0x73, 0xf3, 0x2d, 0x7b, 0xc7, 0xd0, 0x2e, 0x16, 0x68, 0x07, 0xaa, 0x63, 0x9c,
-	0x31, 0xd2, 0x23, 0xfd, 0x75, 0x57, 0x2f, 0xe9, 0x36, 0xd4, 0x53, 0x1e, 0x24, 0xc8, 0x2a, 0x86,
-	0xb3, 0xe0, 0xb8, 0x72, 0x9f, 0x38, 0x1f, 0xea, 0xb0, 0x95, 0x0a, 0x1f, 0xa5, 0xd6, 0x77, 0x31,
-	0x9e, 0xca, 0x30, 0x46, 0xdd, 0xaf, 0x84, 0x0a, 0x30, 0xd3, 0xb0, 0x80, 0x52, 0xa8, 0xf9, 0x18,
-	0x7b, 0x99, 0x88, 0x59, 0xeb, 0x4e, 0x4f, 0xa6, 0x18, 0xb1, 0xaa, 0xed, 0x34, 0x40, 0x3b, 0x48,
-	0x84, 0xcf, 0x6a, 0xd6, 0x41, 0x22, 0x7c, 0xba, 0x07, 0x4d, 0x3f, 0x89, 0xb8, 0x12, 0x32, 0x64,
-	0xf5, 0x1e, 0xe9, 0x57, 0xdd, 0x39, 0xa6, 0x5d, 0x80, 0x64, 0xea, 0x73, 0x85, 0xaf, 0xc5, 0x04,
-	0xd9, 0x9a, 0xa9, 0x16, 0x18, 0x7a, 0x00, 0x35, 0xc5, 0x2f, 0x62, 0xd6, 0x30, 0xa3, 0xd9, 0x2f,
-	0x8d, 0x46, 0xf1, 0x8b, 0xa2, 0x73, 0xd7, 0x74, 0xd2, 0x87, 0xd0, 0xf4, 0x02, 0x1e, 0xc7, 0x62,
-	0x34, 0x63, 0x4d, 0xb3, 0xeb, 0x76, 0x69, 0x57, 0x5e, 0x2c, 0x6d, 0x9d, 0x6f, 0xd1, 0x86, 0x52,
-	0x81, 0x57, 0x2f, 0x93, 0xc9, 0x39, 0x46, 0x6c, 0xdd, 0x1a, 0x5a, 0x30, 0x94, 0x41, 0xc3, 0xe7,
-	0xe1, 0x84, 0x8f, 0x13, 0x06, 0xa6, 0x98, 0x43, 0x3d, 0x8e, 0x08, 0xa7, 0xc1, 0x8c, 0xb5, 0x0c,
-	0x6f, 0x81, 0x3e, 0xfc, 0x88, 0xa7, 0x32, 0x12, 0x0a, 0x59, 0xdb, 0x1e, 0x3e, 0xc7, 0x7a, 0xa8,
-	0x9e, 0x14, 0x21, 0xfb, 0xd7, 0xf0, 0x66, 0xad, 0x55, 0xe2, 0x4b, 0x1e, 0x21, 0xdb, 0xb0, 0x2a,
-	0x06, 0xe8, 0xaf, 0x86, 0xf2, 0xca, 0xe5, 0xe1, 0x98, 0x6d, 0xda, 0xaf, 0x66, 0x50, 0x57, 0x2e,
-	0x45, 0x6c, 0x2a, 0x1d, 0x5b, 0xc9, 0xa0, 0x56, 0x0f, 0xc4, 0x18, 0xd9, 0x96, 0x55, 0xd7, 0x6b,
-	0xe3, 0x5e, 0xc4, 0x86, 0xa6, 0x99, 0x7b, 0x0b, 0xf5, 0xb9, 0x51, 0x47, 0xc3, 0x5e, 0xd3, 0x7f,
-	0xe6, 0xf6, 0x0a, 0x0c, 0x3d, 0x82, 0x06, 0x4f, 0xd4, 0xa5, 0x8c, 0x62, 0xb6, 0x6d, 0xa6, 0x7a,
-	0xab, 0x34, 0xd5, 0x47, 0xa6, 0x56, 0x9a, 0x69, 0xde, 0x4f, 0x8f, 0xa0, 0xa9, 0x07, 0xa8, 0x8b,
-	0x6c, 0xa7, 0x47, 0xfa, 0xad, 0xc3, 0xff, 0x4b, 0x7b, 0xf3, 0xe2, 0xe2, 0x36, 0x72, 0xc6, 0xf9,
-	0x48, 0x80, 0xfe, 0x2c, 0x4d, 0x77, 0x61, 0xcd, 0x8a, 0x67, 0x21, 0xcd, 0x90, 0x3e, 0x72, 0xc8,
-	0x27, 0x79, 0xd4, 0xcd, 0xda, 0xf4, 0xa6, 0x5c, 0xf1, 0x3c, 0xa6, 0x19, 0x9a, 0x27, 0xba, 0x56,
-	0x48, 0x74, 0x96, 0xdd, 0xfa, 0x22, 0xbb, 0x0e, 0xb4, 0x47, 0x32, 0x08, 0x64, 0x1e, 0x08, 0x9d,
-	0xd0, 0x9a, 0x5b, 0xe2, 0x9c, 0xbb, 0xb0, 0xb9, 0x14, 0xc5, 0xb9, 0x11, 0x52, 0x30, 0xb2, 0x01,
-	0x15, 0xe1, 0x1b, 0x6b, 0x55, 0xb7, 0x22, 0x7c, 0xe7, 0x18, 0xb6, 0x6f, 0xca, 0xe2, 0x1f, 0xed,
-	0x75, 0xa1, 0xb3, 0x3c, 0x35, 0x9d, 0x34, 0xcd, 0x99, 0x1f, 0x12, 0xb1, 0x49, 0xcb, 0xb1, 0x3e,
-	0x86, 0x5e, 0x3f, 0xc9, 0x7f, 0x86, 0x56, 0xa9, 0xc4, 0x39, 0x9f, 0x09, 0xec, 0x7a, 0x32, 0x08,
-	0xd0, 0xd3, 0x70, 0xa5, 0xa5, 0x6c, 0x56, 0x95, 0xc5, 0xac, 0xee, 0xcd, 0x6f, 0xa5, 0x6a, 0x6e,
-	0x79, 0x65, 0x42, 0xf2, 0x6b, 0xdb, 0x87, 0x75, 0x2f, 0x42, 0xae, 0x8c, 0xf5, 0x9a, 0xb1, 0xb6,
-	0x20, 0x74, 0x32, 0xf9, 0x74, 0x8a, 0xa1, 0x6f, 0xca, 0xf6, 0x01, 0x29, 0x30, 0x87, 0x9f, 0x2a,
-	0xb0, 0xf1, 0xd6, 0x7e, 0xe8, 0x0c, 0xa3, 0x54, 0x78, 0x48, 0x87, 0xd0, 0x1e, 0xa2, 0x7a, 0xa3,
-	0xdf, 0xb6, 0x17, 0x22, 0x56, 0x74, 0xe7, 0xc6, 0x27, 0x75, 0xaf, 0xbb, 0x14, 0xc3, 0xa5, 0xa7,
-	0xf0, 0x80, 0xd0, 0xe7, 0xb0, 0x39, 0x44, 0xf5, 0x54, 0xfe, 0x0d, 0xad, 0x53, 0x68, 0x0d, 0x51,
-	0x9d, 0x61, 0x30, 0x32, 0xef, 0xfe, 0x2f, 0x74, 0x56, 0x0d, 0x8d, 0x9e, 0x2e, 0xce, 0xf6, 0x3b,
-	0x9d, 0x15, 0x7e, 0x1e, 0x77, 0xbe, 0x5c, 0x77, 0xc9, 0xd7, 0xeb, 0x2e, 0xf9, 0x76, 0xdd, 0x25,
-	0xef, 0xbf, 0x77, 0xff, 0x39, 0x5f, 0x33, 0xff, 0x54, 0x77, 0x7e, 0x04, 0x00, 0x00, 0xff, 0xff,
-	0xa0, 0x38, 0x00, 0x36, 0xb9, 0x06, 0x00, 0x00,
+	// 874 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0x4f, 0x6f, 0xe3, 0x44,
+	0x14, 0xc7, 0xf9, 0xd3, 0x26, 0x2f, 0xa1, 0xed, 0x4e, 0xbb, 0xd5, 0xa8, 0x2a, 0xc1, 0xe4, 0x80,
+	0x72, 0xaa, 0x96, 0xec, 0x01, 0xb6, 0x82, 0x03, 0x94, 0x25, 0x8b, 0xc4, 0x56, 0xc8, 0xa5, 0xcb,
+	0x79, 0x6a, 0xbf, 0xb4, 0x43, 0x1c, 0x4f, 0x98, 0x19, 0xbb, 0xca, 0x37, 0xe1, 0xca, 0xb7, 0xe1,
+	0xc8, 0x89, 0x13, 0x07, 0x54, 0x3e, 0x00, 0x5f, 0x80, 0x03, 0x9a, 0x19, 0x3b, 0xb6, 0x43, 0x50,
+	0x2b, 0xba, 0x37, 0xff, 0x7e, 0xef, 0xff, 0x9b, 0xf7, 0x66, 0x0c, 0x7d, 0x85, 0x32, 0x43, 0x79,
+	0xb2, 0x90, 0x42, 0x0b, 0xd2, 0xbb, 0xc5, 0xab, 0x0b, 0xae, 0x71, 0x12, 0x7c, 0x7b, 0x36, 0xfc,
+	0xcd, 0x83, 0x4e, 0xaa, 0x50, 0x7e, 0x9d, 0x4c, 0x05, 0xf9, 0x14, 0xb6, 0x43, 0x21, 0x66, 0x1c,
+	0x15, 0xf5, 0xfc, 0xe6, 0xa8, 0x37, 0x1e, 0x9e, 0x54, 0x74, 0x4f, 0x0a, 0xbd, 0x93, 0x33, 0xa7,
+	0xf4, 0x32, 0xd1, 0x72, 0x19, 0x14, 0x26, 0x64, 0x04, 0xbb, 0x31, 0x53, 0xfa, 0x15, 0x57, 0x5a,
+	0xc8, 0xe5, 0x77, 0x7c, 0x8e, 0xb4, 0xe1, 0x7b, 0xa3, 0x66, 0xb0, 0x4e, 0x93, 0x0f, 0x61, 0xc7,
+	0x50, 0x97, 0x8b, 0x88, 0x69, 0xb4, 0x8a, 0x4d, 0xab, 0xb8, 0xc6, 0x1e, 0x9d, 0x42, 0xbf, 0x1a,
+	0x8a, 0xec, 0x41, 0x73, 0x86, 0x4b, 0xea, 0xf9, 0xde, 0xa8, 0x1b, 0x98, 0x4f, 0x72, 0x00, 0xed,
+	0x8c, 0xc5, 0xa9, 0x8b, 0xd4, 0x0d, 0x1c, 0x38, 0x6d, 0x7c, 0xe2, 0x0d, 0xff, 0x6e, 0xc3, 0x93,
+	0x8c, 0x47, 0x28, 0x4c, 0xc6, 0x01, 0xaa, 0x85, 0x48, 0x14, 0x1a, 0x7d, 0xcd, 0x75, 0x8c, 0xb9,
+	0x0f, 0x07, 0x08, 0x81, 0x56, 0x84, 0x2a, 0xcc, 0x9d, 0xd8, 0x6f, 0xa3, 0x19, 0x8a, 0x0c, 0xa5,
+	0x4d, 0xad, 0x1b, 0x38, 0x60, 0x32, 0x48, 0x79, 0x44, 0x5b, 0x2e, 0x83, 0x94, 0x47, 0xe4, 0x08,
+	0x3a, 0x51, 0x2a, 0x99, 0xe6, 0x22, 0xa1, 0x6d, 0x5b, 0xc5, 0x0a, 0x93, 0x01, 0x40, 0x5a, 0xd6,
+	0xb8, 0x65, 0xa5, 0x15, 0x86, 0x3c, 0x83, 0x96, 0x66, 0xd7, 0x8a, 0x6e, 0xdb, 0x66, 0x1f, 0xd7,
+	0x9a, 0xad, 0xd9, 0x75, 0x35, 0xf3, 0xc0, 0x6a, 0x92, 0xcf, 0xa0, 0x13, 0xc6, 0x4c, 0x29, 0x3e,
+	0x5d, 0xd2, 0x8e, 0xb5, 0xfa, 0xa0, 0x66, 0x55, 0x08, 0x6b, 0xa6, 0x2b, 0x13, 0x93, 0x50, 0xc6,
+	0xf1, 0xf6, 0x3c, 0x9d, 0x5f, 0xa1, 0xa4, 0x5d, 0x97, 0x50, 0xc9, 0x10, 0x0a, 0xdb, 0x11, 0x4b,
+	0xe6, 0x6c, 0x96, 0x52, 0xb0, 0xc2, 0x02, 0x9a, 0x76, 0x48, 0x5c, 0xc4, 0x4b, 0xda, 0xb3, 0xbc,
+	0x03, 0xa6, 0xf8, 0x29, 0xcb, 0x84, 0xe4, 0x1a, 0x69, 0xdf, 0x15, 0x5f, 0x60, 0xd3, 0xd4, 0x50,
+	0xf0, 0x84, 0xbe, 0x6b, 0x79, 0xfb, 0x6d, 0xbc, 0xa8, 0x1b, 0x26, 0x91, 0xee, 0x38, 0x2f, 0x16,
+	0x98, 0xa8, 0x89, 0xb8, 0x0d, 0x58, 0x32, 0xa3, 0xbb, 0x2e, 0x6a, 0x0e, 0x8d, 0xe4, 0x86, 0x2b,
+	0x2b, 0xd9, 0x73, 0x92, 0x1c, 0x1a, 0xef, 0x31, 0x9f, 0x21, 0x7d, 0xe2, 0xbc, 0x9b, 0x6f, 0x9b,
+	0x3d, 0x57, 0x96, 0x26, 0x79, 0xf6, 0x0e, 0x9a, 0xba, 0xd1, 0x8c, 0x86, 0x3b, 0xa6, 0x7d, 0x7b,
+	0x7a, 0x15, 0x86, 0xbc, 0x80, 0x6d, 0x96, 0xea, 0x1b, 0x21, 0x15, 0x3d, 0xb0, 0x5d, 0x7d, 0xbf,
+	0xd6, 0xd5, 0xcf, 0xad, 0xac, 0xd6, 0xd3, 0x42, 0x9f, 0xbc, 0x80, 0x8e, 0x69, 0xa0, 0x11, 0xd2,
+	0xa7, 0xbe, 0x37, 0xea, 0x8d, 0xdf, 0xab, 0xd9, 0x16, 0xc2, 0xf2, 0x34, 0x0a, 0x86, 0xf8, 0x50,
+	0xac, 0xe2, 0x39, 0x9b, 0x23, 0x3d, 0xb4, 0x69, 0x55, 0x29, 0x72, 0x0c, 0x5d, 0x94, 0x52, 0xc8,
+	0x33, 0x11, 0x21, 0x1d, 0xfb, 0xde, 0xa8, 0x1d, 0x94, 0x84, 0xe9, 0xbe, 0x05, 0xaf, 0xd5, 0x35,
+	0x7d, 0x6e, 0x8d, 0x57, 0x78, 0xf8, 0xbb, 0x07, 0xe4, 0xdf, 0x69, 0x93, 0x43, 0xd8, 0x72, 0x89,
+	0xe7, 0x0b, 0x90, 0x23, 0xd3, 0xce, 0x84, 0xcd, 0x8b, 0x35, 0xb2, 0xdf, 0x56, 0x37, 0x63, 0x9a,
+	0x15, 0x2b, 0x90, 0xa3, 0xd5, 0xb6, 0xb4, 0x2a, 0xdb, 0x92, 0xef, 0x45, 0xbb, 0xdc, 0x8b, 0x21,
+	0xf4, 0xa7, 0x22, 0x8e, 0x45, 0x31, 0x6c, 0x66, 0xfa, 0x5b, 0x41, 0x8d, 0x7b, 0x44, 0x79, 0x02,
+	0x76, 0xd7, 0x16, 0x64, 0x55, 0x82, 0x57, 0x29, 0x61, 0x07, 0x1a, 0x3c, 0xca, 0x6f, 0xa1, 0x06,
+	0x8f, 0x1e, 0x11, 0xf0, 0x14, 0x0e, 0x36, 0xed, 0xd6, 0x43, 0xa2, 0x0e, 0x03, 0xd8, 0x5b, 0x9f,
+	0x02, 0x13, 0xcb, 0x70, 0xf6, 0x62, 0xf0, 0xdc, 0xe6, 0x14, 0xd8, 0xb4, 0xce, 0x7c, 0x7f, 0x59,
+	0x5c, 0x2b, 0xce, 0x53, 0x8d, 0x1b, 0xfe, 0xe5, 0xc1, 0x61, 0x28, 0xe2, 0x18, 0x43, 0x03, 0xef,
+	0x4d, 0x29, 0x3f, 0x9f, 0x46, 0x79, 0x3e, 0x1f, 0xaf, 0x26, 0xa1, 0x69, 0xa7, 0xf6, 0xde, 0x89,
+	0x2f, 0x46, 0xe5, 0x18, 0xba, 0xa1, 0x44, 0xa6, 0x6d, 0xea, 0x2d, 0x9b, 0x5a, 0x49, 0x98, 0x4d,
+	0x63, 0x8b, 0x05, 0x26, 0x91, 0x15, 0xbb, 0x0b, 0xb1, 0xc2, 0x3c, 0xe2, 0x04, 0x7e, 0x80, 0xfd,
+	0x6b, 0xd4, 0x6f, 0xcc, 0x95, 0xfe, 0x0d, 0x57, 0x3a, 0xc0, 0x1f, 0x53, 0x54, 0x9a, 0x7c, 0x54,
+	0xbe, 0x5f, 0xb6, 0xe2, 0xde, 0xf8, 0xe9, 0xc6, 0x47, 0x2b, 0x28, 0x9f, 0x39, 0x1f, 0x7a, 0xee,
+	0x65, 0x88, 0x8c, 0x23, 0xda, 0xf0, 0x9b, 0x66, 0xef, 0x2a, 0xd4, 0xf8, 0xe7, 0x26, 0xec, 0x7c,
+	0xef, 0x9c, 0x5c, 0xa0, 0xcc, 0x78, 0x88, 0xe4, 0x1c, 0xf6, 0x27, 0xa8, 0x2f, 0x15, 0xca, 0xaf,
+	0xec, 0x08, 0xbb, 0x67, 0x8a, 0x6c, 0x0e, 0x76, 0x34, 0x58, 0xbb, 0x03, 0xd6, 0xde, 0xa1, 0x67,
+	0x1e, 0x79, 0x0d, 0x24, 0xf7, 0xf7, 0x86, 0xe3, 0x6d, 0xfe, 0x3a, 0xfe, 0x7f, 0x77, 0x01, 0xf4,
+	0x27, 0x95, 0xee, 0x10, 0xbf, 0x66, 0xb1, 0xa1, 0x71, 0x0f, 0xf0, 0x79, 0x09, 0xbb, 0x13, 0xd4,
+	0xaf, 0xc4, 0x5b, 0x76, 0xfb, 0x12, 0x7a, 0x13, 0xd4, 0x17, 0x18, 0x4f, 0xed, 0x69, 0xfc, 0x47,
+	0xc9, 0xf7, 0xcd, 0xe3, 0x17, 0x7b, 0xbf, 0xdc, 0x0d, 0xbc, 0x5f, 0xef, 0x06, 0xde, 0x1f, 0x77,
+	0x03, 0xef, 0xa7, 0x3f, 0x07, 0xef, 0x5c, 0x6d, 0xd9, 0xff, 0x9b, 0xe7, 0xff, 0x04, 0x00, 0x00,
+	0xff, 0xff, 0x20, 0x91, 0x75, 0xc2, 0xef, 0x08, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -686,11 +839,11 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type WebSiteServiceClient interface {
-	//
-	GetVideoList(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (WebSiteService_GetVideoListClient, error)
-	GetHotVideoList(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (WebSiteService_GetHotVideoListClient, error)
+	GetUserFollowUpdate(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (WebSiteService_GetUserFollowUpdateClient, error)
+	GetUserViewHistory(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (WebSiteService_GetUserViewHistoryClient, error)
+	GetVideoList(ctx context.Context, in *GetVideoListRequest, opts ...grpc.CallOption) (WebSiteService_GetVideoListClient, error)
+	GetHotVideoList(ctx context.Context, in *GetVideoListRequest, opts ...grpc.CallOption) (WebSiteService_GetHotVideoListClient, error)
 	GetSelfInfo(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*AuthorInfoResponse, error)
-	GetVideoInfo(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*VideoInfoResponse, error)
 }
 
 type webSiteServiceClient struct {
@@ -701,8 +854,72 @@ func NewWebSiteServiceClient(cc *grpc.ClientConn) WebSiteServiceClient {
 	return &webSiteServiceClient{cc}
 }
 
-func (c *webSiteServiceClient) GetVideoList(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (WebSiteService_GetVideoListClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_WebSiteService_serviceDesc.Streams[0], "/webSiteGRPC.WebSiteService/GetVideoList", opts...)
+func (c *webSiteServiceClient) GetUserFollowUpdate(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (WebSiteService_GetUserFollowUpdateClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_WebSiteService_serviceDesc.Streams[0], "/webSiteGRPC.WebSiteService/GetUserFollowUpdate", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &webSiteServiceGetUserFollowUpdateClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type WebSiteService_GetUserFollowUpdateClient interface {
+	Recv() (*VideoInfoResponse, error)
+	grpc.ClientStream
+}
+
+type webSiteServiceGetUserFollowUpdateClient struct {
+	grpc.ClientStream
+}
+
+func (x *webSiteServiceGetUserFollowUpdateClient) Recv() (*VideoInfoResponse, error) {
+	m := new(VideoInfoResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *webSiteServiceClient) GetUserViewHistory(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (WebSiteService_GetUserViewHistoryClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_WebSiteService_serviceDesc.Streams[1], "/webSiteGRPC.WebSiteService/GetUserViewHistory", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &webSiteServiceGetUserViewHistoryClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type WebSiteService_GetUserViewHistoryClient interface {
+	Recv() (*VideoInfoResponse, error)
+	grpc.ClientStream
+}
+
+type webSiteServiceGetUserViewHistoryClient struct {
+	grpc.ClientStream
+}
+
+func (x *webSiteServiceGetUserViewHistoryClient) Recv() (*VideoInfoResponse, error) {
+	m := new(VideoInfoResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *webSiteServiceClient) GetVideoList(ctx context.Context, in *GetVideoListRequest, opts ...grpc.CallOption) (WebSiteService_GetVideoListClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_WebSiteService_serviceDesc.Streams[2], "/webSiteGRPC.WebSiteService/GetVideoList", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -733,8 +950,8 @@ func (x *webSiteServiceGetVideoListClient) Recv() (*VideoInfoResponse, error) {
 	return m, nil
 }
 
-func (c *webSiteServiceClient) GetHotVideoList(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (WebSiteService_GetHotVideoListClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_WebSiteService_serviceDesc.Streams[1], "/webSiteGRPC.WebSiteService/GetHotVideoList", opts...)
+func (c *webSiteServiceClient) GetHotVideoList(ctx context.Context, in *GetVideoListRequest, opts ...grpc.CallOption) (WebSiteService_GetHotVideoListClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_WebSiteService_serviceDesc.Streams[3], "/webSiteGRPC.WebSiteService/GetHotVideoList", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -774,47 +991,83 @@ func (c *webSiteServiceClient) GetSelfInfo(ctx context.Context, in *UserInfo, op
 	return out, nil
 }
 
-func (c *webSiteServiceClient) GetVideoInfo(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*VideoInfoResponse, error) {
-	out := new(VideoInfoResponse)
-	err := c.cc.Invoke(ctx, "/webSiteGRPC.WebSiteService/GetVideoInfo", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // WebSiteServiceServer is the server API for WebSiteService service.
 type WebSiteServiceServer interface {
-	//
-	GetVideoList(*UserInfo, WebSiteService_GetVideoListServer) error
-	GetHotVideoList(*UserInfo, WebSiteService_GetHotVideoListServer) error
+	GetUserFollowUpdate(*UserInfo, WebSiteService_GetUserFollowUpdateServer) error
+	GetUserViewHistory(*UserInfo, WebSiteService_GetUserViewHistoryServer) error
+	GetVideoList(*GetVideoListRequest, WebSiteService_GetVideoListServer) error
+	GetHotVideoList(*GetVideoListRequest, WebSiteService_GetHotVideoListServer) error
 	GetSelfInfo(context.Context, *UserInfo) (*AuthorInfoResponse, error)
-	GetVideoInfo(context.Context, *UserInfo) (*VideoInfoResponse, error)
 }
 
 // UnimplementedWebSiteServiceServer can be embedded to have forward compatible implementations.
 type UnimplementedWebSiteServiceServer struct {
 }
 
-func (*UnimplementedWebSiteServiceServer) GetVideoList(req *UserInfo, srv WebSiteService_GetVideoListServer) error {
+func (*UnimplementedWebSiteServiceServer) GetUserFollowUpdate(req *UserInfo, srv WebSiteService_GetUserFollowUpdateServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetUserFollowUpdate not implemented")
+}
+func (*UnimplementedWebSiteServiceServer) GetUserViewHistory(req *UserInfo, srv WebSiteService_GetUserViewHistoryServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetUserViewHistory not implemented")
+}
+func (*UnimplementedWebSiteServiceServer) GetVideoList(req *GetVideoListRequest, srv WebSiteService_GetVideoListServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetVideoList not implemented")
 }
-func (*UnimplementedWebSiteServiceServer) GetHotVideoList(req *UserInfo, srv WebSiteService_GetHotVideoListServer) error {
+func (*UnimplementedWebSiteServiceServer) GetHotVideoList(req *GetVideoListRequest, srv WebSiteService_GetHotVideoListServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetHotVideoList not implemented")
 }
 func (*UnimplementedWebSiteServiceServer) GetSelfInfo(ctx context.Context, req *UserInfo) (*AuthorInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSelfInfo not implemented")
-}
-func (*UnimplementedWebSiteServiceServer) GetVideoInfo(ctx context.Context, req *UserInfo) (*VideoInfoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetVideoInfo not implemented")
 }
 
 func RegisterWebSiteServiceServer(s *grpc.Server, srv WebSiteServiceServer) {
 	s.RegisterService(&_WebSiteService_serviceDesc, srv)
 }
 
-func _WebSiteService_GetVideoList_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _WebSiteService_GetUserFollowUpdate_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(UserInfo)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(WebSiteServiceServer).GetUserFollowUpdate(m, &webSiteServiceGetUserFollowUpdateServer{stream})
+}
+
+type WebSiteService_GetUserFollowUpdateServer interface {
+	Send(*VideoInfoResponse) error
+	grpc.ServerStream
+}
+
+type webSiteServiceGetUserFollowUpdateServer struct {
+	grpc.ServerStream
+}
+
+func (x *webSiteServiceGetUserFollowUpdateServer) Send(m *VideoInfoResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _WebSiteService_GetUserViewHistory_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(UserInfo)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(WebSiteServiceServer).GetUserViewHistory(m, &webSiteServiceGetUserViewHistoryServer{stream})
+}
+
+type WebSiteService_GetUserViewHistoryServer interface {
+	Send(*VideoInfoResponse) error
+	grpc.ServerStream
+}
+
+type webSiteServiceGetUserViewHistoryServer struct {
+	grpc.ServerStream
+}
+
+func (x *webSiteServiceGetUserViewHistoryServer) Send(m *VideoInfoResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _WebSiteService_GetVideoList_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetVideoListRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
@@ -835,7 +1088,7 @@ func (x *webSiteServiceGetVideoListServer) Send(m *VideoInfoResponse) error {
 }
 
 func _WebSiteService_GetHotVideoList_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(UserInfo)
+	m := new(GetVideoListRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
@@ -873,24 +1126,6 @@ func _WebSiteService_GetSelfInfo_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _WebSiteService_GetVideoInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UserInfo)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(WebSiteServiceServer).GetVideoInfo(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/webSiteGRPC.WebSiteService/GetVideoInfo",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WebSiteServiceServer).GetVideoInfo(ctx, req.(*UserInfo))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 var _WebSiteService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "webSiteGRPC.WebSiteService",
 	HandlerType: (*WebSiteServiceServer)(nil),
@@ -899,12 +1134,18 @@ var _WebSiteService_serviceDesc = grpc.ServiceDesc{
 			MethodName: "GetSelfInfo",
 			Handler:    _WebSiteService_GetSelfInfo_Handler,
 		},
-		{
-			MethodName: "GetVideoInfo",
-			Handler:    _WebSiteService_GetVideoInfo_Handler,
-		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetUserFollowUpdate",
+			Handler:       _WebSiteService_GetUserFollowUpdate_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetUserViewHistory",
+			Handler:       _WebSiteService_GetUserViewHistory_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "GetVideoList",
 			Handler:       _WebSiteService_GetVideoList_Handler,
@@ -942,6 +1183,16 @@ func (m *UserInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.LastUpdateTime != 0 {
+		i = encodeVarintServer(dAtA, i, uint64(m.LastUpdateTime))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.LastHistoryTime != 0 {
+		i = encodeVarintServer(dAtA, i, uint64(m.LastHistoryTime))
+		i--
+		dAtA[i] = 0x10
 	}
 	if len(m.Cookies) > 0 {
 		for k := range m.Cookies {
@@ -988,6 +1239,31 @@ func (m *VideoInfoResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.ErrorMsg) > 0 {
+		i -= len(m.ErrorMsg)
+		copy(dAtA[i:], m.ErrorMsg)
+		i = encodeVarintServer(dAtA, i, uint64(len(m.ErrorMsg)))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0x9a
+	}
+	if m.ErrorCode != 0 {
+		i = encodeVarintServer(dAtA, i, uint64(m.ErrorCode))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0x90
+	}
+	if len(m.WebSiteName) > 0 {
+		i -= len(m.WebSiteName)
+		copy(dAtA[i:], m.WebSiteName)
+		i = encodeVarintServer(dAtA, i, uint64(len(m.WebSiteName)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xb2
 	}
 	if m.ViewInfo != nil {
 		{
@@ -1177,6 +1453,22 @@ func (m *AuthorInfoResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
+	if len(m.ErrorMsg) > 0 {
+		i -= len(m.ErrorMsg)
+		copy(dAtA[i:], m.ErrorMsg)
+		i = encodeVarintServer(dAtA, i, uint64(len(m.ErrorMsg)))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0x9a
+	}
+	if m.ErrorCode != 0 {
+		i = encodeVarintServer(dAtA, i, uint64(m.ErrorCode))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0x90
+	}
 	if m.FollowNumber != 0 {
 		i = encodeVarintServer(dAtA, i, uint64(m.FollowNumber))
 		i--
@@ -1243,6 +1535,22 @@ func (m *TagInfoResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.ErrorMsg) > 0 {
+		i -= len(m.ErrorMsg)
+		copy(dAtA[i:], m.ErrorMsg)
+		i = encodeVarintServer(dAtA, i, uint64(len(m.ErrorMsg)))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0x9a
+	}
+	if m.ErrorCode != 0 {
+		i = encodeVarintServer(dAtA, i, uint64(m.ErrorCode))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0x90
 	}
 	if m.Id != 0 {
 		i = encodeVarintServer(dAtA, i, uint64(m.Id))
@@ -1359,6 +1667,22 @@ func (m *CollectionInfoResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
+	if len(m.ErrorMsg) > 0 {
+		i -= len(m.ErrorMsg)
+		copy(dAtA[i:], m.ErrorMsg)
+		i = encodeVarintServer(dAtA, i, uint64(len(m.ErrorMsg)))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0x9a
+	}
+	if m.ErrorCode != 0 {
+		i = encodeVarintServer(dAtA, i, uint64(m.ErrorCode))
+		i--
+		dAtA[i] = 0x3
+		i--
+		dAtA[i] = 0x90
+	}
 	if m.AppendTime != 0 {
 		i = encodeVarintServer(dAtA, i, uint64(m.AppendTime))
 		i--
@@ -1398,6 +1722,54 @@ func (m *CollectionInfoResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 	return len(dAtA) - i, nil
 }
 
+func (m *GetVideoListRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetVideoListRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetVideoListRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.VideoIdList) > 0 {
+		for iNdEx := len(m.VideoIdList) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.VideoIdList[iNdEx])
+			copy(dAtA[i:], m.VideoIdList[iNdEx])
+			i = encodeVarintServer(dAtA, i, uint64(len(m.VideoIdList[iNdEx])))
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if m.UserInfo != nil {
+		{
+			size, err := m.UserInfo.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintServer(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintServer(dAtA []byte, offset int, v uint64) int {
 	offset -= sovServer(v)
 	base := offset
@@ -1422,6 +1794,12 @@ func (m *UserInfo) Size() (n int) {
 			mapEntrySize := 1 + len(k) + sovServer(uint64(len(k))) + 1 + len(v) + sovServer(uint64(len(v)))
 			n += mapEntrySize + 1 + sovServer(uint64(mapEntrySize))
 		}
+	}
+	if m.LastHistoryTime != 0 {
+		n += 1 + sovServer(uint64(m.LastHistoryTime))
+	}
+	if m.LastUpdateTime != 0 {
+		n += 1 + sovServer(uint64(m.LastUpdateTime))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1513,6 +1891,17 @@ func (m *VideoInfoResponse) Size() (n int) {
 		l = m.ViewInfo.Size()
 		n += 2 + l + sovServer(uint64(l))
 	}
+	l = len(m.WebSiteName)
+	if l > 0 {
+		n += 2 + l + sovServer(uint64(l))
+	}
+	if m.ErrorCode != 0 {
+		n += 2 + sovServer(uint64(m.ErrorCode))
+	}
+	l = len(m.ErrorMsg)
+	if l > 0 {
+		n += 2 + l + sovServer(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -1548,6 +1937,13 @@ func (m *AuthorInfoResponse) Size() (n int) {
 	if m.FollowNumber != 0 {
 		n += 1 + sovServer(uint64(m.FollowNumber))
 	}
+	if m.ErrorCode != 0 {
+		n += 2 + sovServer(uint64(m.ErrorCode))
+	}
+	l = len(m.ErrorMsg)
+	if l > 0 {
+		n += 2 + l + sovServer(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -1566,6 +1962,13 @@ func (m *TagInfoResponse) Size() (n int) {
 	}
 	if m.Id != 0 {
 		n += 1 + sovServer(uint64(m.Id))
+	}
+	if m.ErrorCode != 0 {
+		n += 2 + sovServer(uint64(m.ErrorCode))
+	}
+	l = len(m.ErrorMsg)
+	if l > 0 {
+		n += 2 + l + sovServer(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1633,6 +2036,35 @@ func (m *CollectionInfoResponse) Size() (n int) {
 	}
 	if m.AppendTime != 0 {
 		n += 1 + sovServer(uint64(m.AppendTime))
+	}
+	if m.ErrorCode != 0 {
+		n += 2 + sovServer(uint64(m.ErrorCode))
+	}
+	l = len(m.ErrorMsg)
+	if l > 0 {
+		n += 2 + l + sovServer(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *GetVideoListRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.UserInfo != nil {
+		l = m.UserInfo.Size()
+		n += 1 + l + sovServer(uint64(l))
+	}
+	if len(m.VideoIdList) > 0 {
+		for _, s := range m.VideoIdList {
+			l = len(s)
+			n += 1 + l + sovServer(uint64(l))
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1802,6 +2234,44 @@ func (m *UserInfo) Unmarshal(dAtA []byte) error {
 			}
 			m.Cookies[mapkey] = mapvalue
 			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LastHistoryTime", wireType)
+			}
+			m.LastHistoryTime = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServer
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.LastHistoryTime |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LastUpdateTime", wireType)
+			}
+			m.LastUpdateTime = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServer
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.LastUpdateTime |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipServer(dAtA[iNdEx:])
@@ -2379,6 +2849,89 @@ func (m *VideoInfoResponse) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 22:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field WebSiteName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServer
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServer
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthServer
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.WebSiteName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 50:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorCode", wireType)
+			}
+			m.ErrorCode = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServer
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ErrorCode |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 51:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorMsg", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServer
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServer
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthServer
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ErrorMsg = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipServer(dAtA[iNdEx:])
@@ -2609,6 +3162,57 @@ func (m *AuthorInfoResponse) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 50:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorCode", wireType)
+			}
+			m.ErrorCode = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServer
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ErrorCode |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 51:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorMsg", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServer
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServer
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthServer
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ErrorMsg = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipServer(dAtA[iNdEx:])
@@ -2711,6 +3315,57 @@ func (m *TagInfoResponse) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 50:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorCode", wireType)
+			}
+			m.ErrorCode = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServer
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ErrorCode |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 51:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorMsg", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServer
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServer
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthServer
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ErrorMsg = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipServer(dAtA[iNdEx:])
@@ -3091,6 +3746,176 @@ func (m *CollectionInfoResponse) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 50:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorCode", wireType)
+			}
+			m.ErrorCode = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServer
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ErrorCode |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 51:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorMsg", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServer
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServer
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthServer
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ErrorMsg = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipServer(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthServer
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetVideoListRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowServer
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: getVideoListRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: getVideoListRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field UserInfo", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServer
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthServer
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthServer
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.UserInfo == nil {
+				m.UserInfo = &UserInfo{}
+			}
+			if err := m.UserInfo.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field VideoIdList", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServer
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServer
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthServer
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.VideoIdList = append(m.VideoIdList, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipServer(dAtA[iNdEx:])

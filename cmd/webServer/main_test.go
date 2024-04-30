@@ -25,21 +25,6 @@ func TestUUID(t *testing.T) {
 	println(uuid.NewString())
 }
 
-func TestCreateFolder(t *testing.T) {
-	createFolder(false, "allVideo")
-	taskId := "f4c37262-c9e3-4e38-8717-7962ca7dfc79"
-	err := createFolder(true, "allVideo", taskId)
-	for err != nil {
-		if err.Error() == "文件夹已存在" {
-			println("重新创建文件夹")
-			taskId = uuid.NewString()
-			err = createFolder(true, "allVideo", taskId)
-		} else {
-			println("创建文件夹失败")
-			return
-		}
-	}
-}
 func TestWriteFile(t *testing.T) {
 
 }
@@ -200,7 +185,6 @@ func TestPrefixByte(t *testing.T) {
 	print(string(responseByte))
 	println(string(bracketsByte))
 	println()
-	println(string(writeRequestUrl(requestUrl, responseByte)))
 }
 
 func TestStr(t *testing.T) {

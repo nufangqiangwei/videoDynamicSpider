@@ -18,3 +18,5 @@ do
         protoc -I=. --gofast_out=plugins=grpc:${GO_OUT_DIR} ${file}
     fi
 done
+
+python -m grpc_tools.protoc -I=E:\\GoCode\\videoDynamicAcquisition\\webSiteGRPC --python_out=. --pyi_out=. --grpc_python_out=../bilibili_grpc_server E:\\GoCode\\videoDynamicAcquisition\\webSiteGRPC\\server.proto

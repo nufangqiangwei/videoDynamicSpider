@@ -7,8 +7,8 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	timeWheel "github.com/nufangqiangwei/timewheel"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/resolver"
+	"io"
 	"math/rand"
 	"os"
 	"path"
@@ -20,7 +20,8 @@ import (
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/cookies"
-	"videoDynamicAcquisition/grpcDiscovery"
+	"videoDynamicAcquisition/grpcDiscovery/DHT"
+	"videoDynamicAcquisition/grpcDiscovery/redis"
 	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
 	webSiteGRPC "videoDynamicAcquisition/proto"
@@ -28,6 +29,7 @@ import (
 	"videoDynamicAcquisition/utils"
 )
 
+// 几尺戏台上，演尽痴心梦。
 const (
 	oneMinute     = 60
 	defaultTicket = 60 * 5
@@ -47,6 +49,7 @@ var (
 	databaseLog             log.LogInputFile
 	waitUpdateVideoInfoChan chan models.Video
 	webSiteManage           webSite
+	grpcServer              map[string]webSiteGRPC.WebSiteServiceClient
 )
 
 func readConfig() error {
@@ -122,6 +125,9 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 	log.Info.Println("初始化完成：", time.Now().Format("2006.01.02 15:04:05"))
 
+	// 初始化grpc客户端
+	getWebSiteGrpcClient()
+
 }
 
 func initWebSiteSpider() {
@@ -174,7 +180,7 @@ func initWebSiteSpider() {
 
 func main() {
 	spiderWebSit = append(spiderWebSit, bilibili.Spider)
-	textUpdateVideoInfo()
+	getHistory(nil)
 	//var err error
 	//_, err = wheel.AppendOnceFunc(getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
 	//if err != nil {
@@ -288,34 +294,106 @@ func getHistory(interface{}) {
 		}
 	}()
 
-	var err error
-	VideoHistoryChan := make(chan models.Video)
-	VideoHistoryCloseChan := make(chan models.TaskClose)
-	go bilibili.Spider.GetVideoHistoryList(VideoHistoryChan, VideoHistoryCloseChan)
+	var (
+		historyResult chan webSiteGRPC.VideoInfoResponse
+		runWebSite    = make([]string, 0)
+	)
+	historyResult = make(chan webSiteGRPC.VideoInfoResponse, 10)
+	for websiteServerName, server := range grpcServer {
+		for userName, userCookie := range cookies.GetWebSiteUser(websiteServerName) {
+			go func(websiteServerName, userName string, userCookie cookies.UserCookie) {
+				res, err := server.GetUserViewHistory(context.Background(), &webSiteGRPC.UserInfo{
+					Cookies:         userCookie.GetCookiesDict(),
+					LastHistoryTime: 0,
+				})
+				if err != nil {
+					historyResult <- webSiteGRPC.VideoInfoResponse{
+						ErrorCode:   500,
+						ErrorMsg:    err.Error(),
+						WebSiteName: websiteServerName,
+						Authors: []*webSiteGRPC.AuthorInfoResponse{
+							{
+								Name: userName,
+							},
+						},
+					}
+					return
+				}
+				for {
+					vi, err := res.Recv()
+					if err == io.EOF {
+						return
+					}
+					if err != nil {
+						historyResult <- webSiteGRPC.VideoInfoResponse{
+							ErrorCode:   500,
+							ErrorMsg:    err.Error(),
+							WebSiteName: websiteServerName,
+							Authors: []*webSiteGRPC.AuthorInfoResponse{
+								{
+									Name: userName,
+								},
+							},
+						}
+						return
+					}
+					historyResult <- *vi
+				}
+
+			}(websiteServerName, userName, *userCookie)
+		}
+		runWebSite = append(runWebSite, websiteServerName)
+	}
 	for {
 		select {
-		case videoInfo := <-VideoHistoryChan:
-			isNew, _ := videoInfo.UpdateVideo()
-			if isNew {
-				waitUpdateVideoInfoChan <- videoInfo
-			}
-		case closeInfo := <-VideoHistoryCloseChan:
-			if closeInfo.WebSite == bilibili.Spider.GetWebSiteName().WebName {
-				for _, info := range closeInfo.Data {
-					err = models.SaveSpiderParamByUserId(info.AuthorId, "history_baseline", info.EndBaseLine)
-					if err != nil {
-						log.ErrorLog.Printf("保存dynamic_baseline失败：%s\n", err.Error())
+		case vi := <-historyResult:
+			if vi.ErrorCode == 0 {
+				video := models.Video{}
+				video.UpdateVideo()
+			} else if vi.ErrorCode == 200 {
+				for index, v := range runWebSite {
+					if v == vi.WebSiteName {
+						runWebSite = append(runWebSite[:index], runWebSite[index+1:]...)
+						break
 					}
 				}
+				if len(runWebSite) == 0 {
+					return
+				}
+			} else {
+				log.ErrorLog.Printf("获取历史记录失败：%s\n", vi.ErrorMsg)
 			}
-			_, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
-			if err != nil {
-				log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-				return
-			}
-			return
+
 		}
 	}
+
+	//VideoHistoryChan := make(chan models.Video)
+	//VideoHistoryCloseChan := make(chan models.TaskClose)
+	//go bilibili.Spider.GetVideoHistoryList(VideoHistoryChan, VideoHistoryCloseChan)
+	//for {
+	//	select {
+	//	case videoInfo := <-VideoHistoryChan:
+	//		isNew, _ := videoInfo.UpdateVideo()
+	//		if isNew {
+	//			waitUpdateVideoInfoChan <- videoInfo
+	//		}
+	//	case closeInfo := <-VideoHistoryCloseChan:
+	//		if closeInfo.WebSite == bilibili.Spider.GetWebSiteName().WebName {
+	//			for _, info := range closeInfo.Data {
+	//				err = models.SaveSpiderParamByUserId(info.AuthorId, "history_baseline", info.EndBaseLine)
+	//				if err != nil {
+	//					log.ErrorLog.Printf("保存dynamic_baseline失败：%s\n", err.Error())
+	//				}
+	//			}
+	//		}
+	//		_, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
+	//		if err != nil {
+	//			log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+	//			return
+	//		}
+	//		return
+	//	}
+	//}
 
 }
 
@@ -942,7 +1020,7 @@ func textUpdateVideoInfo() {
 }
 
 func initGrpc() {
-	dht, err := grpcDiscovery.NewServiceDiscovery(&grpcDiscovery.ServerConfig{
+	dht, err := DHT.NewServiceDiscovery(&DHT.ServerConfig{
 		ServerType:       "spider",
 		SeedAddr:         "",
 		AwaitRegister:    false,
@@ -956,19 +1034,19 @@ func initGrpc() {
 	resolver.Register(dht)
 }
 
-func getWebSiteConnect(ser *grpcDiscovery.ServiceDiscovery) (webSiteGRPC.WebSiteServiceClient, error) {
-	url := fmt.Sprintf("%s:///%s", ser.Scheme(), "website")
-	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
-	defer cancel()
-	client, err := grpc.DialContext(
-		ctx,
-		url,
-		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		return nil, err
+func getWebSiteGrpcClient() error {
+	serverList := redisDiscovery.GetWebSiteServer()
+	if grpcServer == nil {
+		grpcServer = make(map[string]webSiteGRPC.WebSiteServiceClient)
 	}
-
-	return webSiteGRPC.NewWebSiteServiceClient(client), err
+	for _, server := range serverList {
+		if _, ok := grpcServer[server.WebSiteName]; !ok {
+			client, err := grpc.Dial(server.ServerUrlList[0])
+			if err != nil {
+				return err
+			}
+			grpcServer[server.WebSiteName] = webSiteGRPC.NewWebSiteServiceClient(client)
+		}
+	}
+	return nil
 }

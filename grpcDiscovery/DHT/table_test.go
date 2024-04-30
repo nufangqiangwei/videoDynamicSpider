@@ -7,7 +7,7 @@ import (
 )
 
 func TestJsonNode(t *testing.T) {
-	d, err := newDhtServer(8001, "127.0.0.1", "client", "127.0.0.1:3131")
+	d, err := newDhtServer(8001, "127.0.0.1", "server", "client", "127.0.0.1:3131")
 	if err != nil {
 		println(err.Error())
 		return
