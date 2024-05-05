@@ -35,8 +35,7 @@ async def get_self_user_dynamic(sessdata, bili_jct, buvid3, dedeuserid, ac_time_
         for follow_video in follow_video_list.get('items'):
             if follow_video.get('type') != 'DYNAMIC_TYPE_AV':
                 continue
-            if last_update_time is not None and follow_video.get("modules").get("module_author").get(
-                    'pub_ts') <= last_update_time:
+            if last_update_time is not None and follow_video.get("modules").get("module_author").get('pub_ts') <= last_update_time:
                 return
             yield build_dynamic_video_info_response(follow_video)
             if last_update_time is None:
@@ -134,4 +133,5 @@ def HourAndMinutesAndSecondsToSeconds(time_str: str) -> int:
 
 
 if __name__ == '__main__':
-    print(HourAndMinutesAndSecondsToSeconds("02:23"))
+    dedeuserid = "aw"
+

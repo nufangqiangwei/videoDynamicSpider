@@ -253,12 +253,17 @@ func getDynamic(interface{}) {
 	dynamicResult = make(chan *webSiteGRPC.VideoInfoResponse, 10)
 	for websiteServerName, server := range grpcServer {
 		for userName, userCookie := range cookies.GetWebSiteUser(websiteServerName) {
-			go func(websiteServerName, userName string, userCookie cookies.UserCookie) {
-				cookieMap := userCookie.GetCookiesDictToLowerKey()
+			lastUpdateTime := models.GetDynamicBaseline(userCookie.GetDBPrimaryKeyId())
+			cookiesMap := userCookie.GetCookiesDictToLowerKey()
+			cookiesMap = checkOutWebSiteCookies(websiteServerName, cookiesMap)
+			go func(websiteServerName, userName, lastUpdateTime string, webSiteId, userId int64, cookieMap map[string]string) {
 				cookieMap["requestUserName"] = userName
-				res, err := server.GetUserFollowUpdate(context.Background(), &webSiteGRPC.UserInfo{
+				// 粗暴的设置超时时间为5分钟
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				defer cancel()
+				res, err := server.GetUserFollowUpdate(ctx, &webSiteGRPC.UserInfo{
 					Cookies:        cookieMap,
-					LastUpdateTime: models.GetDynamicBaseline(userCookie.GetDBPrimaryKeyId()),
+					LastUpdateTime: lastUpdateTime,
 				})
 				if err != nil {
 					log.ErrorLog.Printf("获取%s的用户关注更新失败：%s", websiteServerName, err.Error())
@@ -294,7 +299,7 @@ func getDynamic(interface{}) {
 					vvi.RequestUserId = userCookie.GetDBPrimaryKeyId()
 					dynamicResult <- vvi
 				}
-			}(websiteServerName, userName, *userCookie)
+			}(websiteServerName, userName, lastUpdateTime, userCookie.GetWebSiteId(), userCookie.GetDBPrimaryKeyId(), cookiesMap)
 			runWebSite = append(runWebSite, fmt.Sprintf("%s-%s", websiteServerName, userName))
 		}
 	}
@@ -370,12 +375,17 @@ func getHistory(interface{}) {
 	historyResult = make(chan *webSiteGRPC.VideoInfoResponse, 50)
 	for websiteServerName, server := range grpcServer {
 		for userName, userCookie := range cookies.GetWebSiteUser(websiteServerName) {
-			go func(websiteServerName, userName string, userCookie cookies.UserCookie) {
-				cookieMap := userCookie.GetCookiesDictToLowerKey()
+			lastUpdateTime := models.GetHistoryBaseline(userCookie.GetDBPrimaryKeyId())
+			cookiesMap := userCookie.GetCookiesDictToLowerKey()
+			cookiesMap = checkOutWebSiteCookies(websiteServerName, cookiesMap)
+			go func(websiteServerName, userName, lastUpdateTime string, webSiteId, userId int64, cookieMap map[string]string) {
 				cookieMap["requestUserName"] = userName
-				res, err := server.GetUserViewHistory(context.Background(), &webSiteGRPC.UserInfo{
+				// 粗暴的设置超时时间为5分钟
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				defer cancel()
+				res, err := server.GetUserViewHistory(ctx, &webSiteGRPC.UserInfo{
 					Cookies:         cookieMap,
-					LastHistoryTime: models.GetHistoryBaseline(userCookie.GetDBPrimaryKeyId()),
+					LastHistoryTime: lastUpdateTime,
 				})
 				if err != nil {
 					log.ErrorLog.Printf("GRPC服务端%s获取历史记录失败:%s\n", userName, err.Error())
@@ -384,8 +394,8 @@ func getHistory(interface{}) {
 						ErrorMsg:        err.Error(),
 						WebSiteName:     websiteServerName,
 						RequestUserName: userName,
-						WebSiteId:       userCookie.GetWebSiteId(),
-						RequestUserId:   userCookie.GetDBPrimaryKeyId(),
+						WebSiteId:       webSiteId,
+						RequestUserId:   userId,
 					}
 					return
 				}
@@ -401,22 +411,24 @@ func getHistory(interface{}) {
 							ErrorMsg:        err.Error(),
 							WebSiteName:     websiteServerName,
 							RequestUserName: userName,
-							WebSiteId:       userCookie.GetWebSiteId(),
-							RequestUserId:   userCookie.GetDBPrimaryKeyId(),
+							WebSiteId:       webSiteId,
+							RequestUserId:   userId,
 						}
 					}
 					vvi.WebSiteName = websiteServerName
 					vvi.RequestUserName = userName
-					vvi.WebSiteId = userCookie.GetWebSiteId()
-					vvi.RequestUserId = userCookie.GetDBPrimaryKeyId()
+					vvi.WebSiteId = webSiteId
+					vvi.RequestUserId = userId
 
 					historyResult <- vvi
 					if vvi.ErrorCode != 0 {
-						log.ErrorLog.Printf("%s获取历史状态错误:%s\n", userName, vvi.ErrorMsg)
+						if vvi.ErrorCode != 200 {
+							log.ErrorLog.Printf("%s获取历史状态错误:%s\n", userName, vvi.ErrorMsg)
+						}
 						break
 					}
 				}
-			}(websiteServerName, userName, *userCookie)
+			}(websiteServerName, userName, lastUpdateTime, userCookie.GetWebSiteId(), userCookie.GetDBPrimaryKeyId(), cookiesMap)
 			runWebSite = append(runWebSite, fmt.Sprintf("%s-%s", websiteServerName, userName))
 		}
 	}
@@ -467,7 +479,7 @@ func getHistory(interface{}) {
 			}
 			if len(runWebSite) == 0 {
 				log.Info.Printf("全部获取完成，共获取%d个视频\n", videoNumber)
-				return
+				break
 			}
 		}
 	}
@@ -1125,4 +1137,30 @@ func getWebSiteGrpcClient() error {
 		}
 	}
 	return nil
+}
+
+func checkOutWebSiteCookies(websiteName string, cookiesMap map[string]string) map[string]string {
+	switch websiteName {
+	case "bilibili":
+		return bilibiliCheckOutCookies(cookiesMap)
+	}
+	return cookiesMap
+}
+func bilibiliCheckOutCookies(cookiesMap map[string]string) map[string]string {
+	cookieKeyList := []string{
+		"sessdata",
+		"bili_jct",
+		"buvid3",
+		"dedeuserid",
+		"ac_time_value",
+	}
+	result := make(map[string]string)
+	for k, v := range cookiesMap {
+		for _, key := range cookieKeyList {
+			if strings.Contains(k, key) {
+				result[key] = v
+			}
+		}
+	}
+	return result
 }

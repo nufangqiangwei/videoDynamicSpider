@@ -19,14 +19,27 @@ from server_pb2 import AuthorInfoResponse, videoInfoResponse, classifyInfoRespon
 
 class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
     async def GetUserFollowUpdate(self, request, context):
+        sessdata = request.cookies.get("sessdata")
+        bili_jct = request.cookies.get('bili_jct')
+        buvid3 = request.cookies.get('buvid3')
+        dedeuserid = request.cookies.get('dedeuserid')
+        ac_time_value = request.cookies.get('ac_time_value')
+        
         client_ip = context.peer()
         start_time = time.time()
+        if not all([sessdata, bili_jct, buvid3, dedeuserid]):
+            yield videoInfoResponse(
+                errorCode=500,
+                errorMsg="缺少用户信息",
+                requestUserName=request.cookies.get("requestUserName", ""),
+                webSiteName="bilibili",
+            )
         yield_response = get_self_user_dynamic(
-            request.cookies.get("sessdata"),
-            request.cookies.get('bili_jct'),
-            request.cookies.get('buvid3'),
-            request.cookies.get('dedeuserid'),
-            request.cookies.get('ac_time_value'),
+            sessdata=sessdata,
+            bili_jct=bili_jct,
+            buvid3=buvid3,
+            dedeuserid=dedeuserid,
+            ac_time_value=ac_time_value,
             last_update_time=int(request.lastUpdateTime)
         )
         index = 0
@@ -35,7 +48,6 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
             if index == 0:
                 last_get_time = item.updateTime
             index += 1
-            await asyncio.sleep(0.5)
             yield item
         yield videoInfoResponse(
             errorCode=200,
@@ -44,7 +56,8 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
             webSiteName="bilibili",
         )
         end_time = time.time()
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {client_ip} 获取动态完毕，使用{request.cookies.get('requestUserName')}用户,时间参数是{request.lastUpdateTime}，耗时{int(end_time-start_time)}。获取到{index}个数据")
+        print(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {client_ip} 获取动态完毕，使用{request.cookies.get('requestUserName')}用户,时间参数是{request.lastUpdateTime}，耗时{int(end_time - start_time)}。获取到{index}个数据")
     
     async def GetUserViewHistory(self, request, context):
         client_ip = context.peer()
@@ -72,8 +85,8 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
             webSiteName="bilibili",
         )
         end_time = time.time()
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {client_ip} 获取动态完毕，使用{request.cookies.get('requestUserName')}用户,时间参数是{request.lastHistoryTime}，耗时{int(end_time-start_time)}。获取到{index}个数据")
-
+        print(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {client_ip} 获取历史记录完毕，使用{request.cookies.get('requestUserName')}用户,时间参数是{request.lastHistoryTime}，耗时{int(end_time - start_time)}。获取到{index}个数据")
     
     async def GetSelfInfo(self, request, context):
         client_ip = context.peer()
@@ -86,7 +99,8 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
         )
         user = User(request.cookies.get('dedeuserid'), credential=credential)
         user_info = await user.get_user_info()
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {client_ip} 获取用户信息完毕，使用{request.cookies.get('requestUserName')}用户")
+        print(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {client_ip} 获取用户信息完毕，使用{request.cookies.get('requestUserName')}用户")
         return AuthorInfoResponse(
             name=user_info.get('name', ''),
             avatar=user_info.get('face', ''),
@@ -109,7 +123,8 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
         
         for wait_video in request.videoIdList:
             yield await self.get_video_list(credential, wait_video)
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {client_ip} 按列表获取视频信息完毕，使用{request.cookies.get('requestUserName')}用户")
+        print(
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {client_ip} 按列表获取视频信息完毕，使用{request.cookies.get('requestUserName')}用户")
     
     async def GetHotVideoList(self, request, context):
         await hot.get_hot_videos()
