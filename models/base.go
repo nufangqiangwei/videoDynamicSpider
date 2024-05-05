@@ -1,6 +1,8 @@
 package models
 
 import (
+	"context"
+	"fmt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -33,7 +35,7 @@ func InitDB(dsn string, createModel bool, log *log.Logger) {
 		panic(err.Error())
 	}
 	if createModel {
-		err = GormDB.AutoMigrate(&BiliSpiderHistory{}, &Author{}, &Video{}, &VideoAuthor{}, &VideoTag{}, &WebSite{},
+		err = GormDB.AutoMigrate(&UserSpiderParams{}, &Author{}, &Video{}, &VideoAuthor{}, &VideoTag{}, &WebSite{},
 			&Collect{}, &CollectVideo{}, &ProxySpiderTask{}, &Tag{}, &VideoHistory{}, &TaskToDoList{}, &VideoPlayData{})
 		if err != nil {
 			println(err.Error())
@@ -44,6 +46,12 @@ func InitDB(dsn string, createModel bool, log *log.Logger) {
 	GormDB.Callback().Query().Before("gorm:query").Register("disable_raise_record_not_found", func(d *gorm.DB) {
 		d.Statement.RaiseErrorOnNotFound = false
 	})
+	if Logger != nil {
+		Logger.Info(context.Background(), "数据库初始化完成：", time.Now().Format("2006.01.02 15:04:05"))
+	} else {
+		fmt.Sprintf("数据库初始化完成：%s", time.Now().Format("2006.01.02 15:04:05"))
+	}
+
 	if err != nil {
 		panic(err.Error())
 	}

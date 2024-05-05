@@ -26,6 +26,7 @@ type UserCookie struct {
 	cookiesFail          bool
 	fileName             string
 	webSiteName          string
+	webSiteId            int64
 	dbPrimaryKeyId       int64 // 用户id
 }
 
@@ -41,6 +42,18 @@ func (c *UserCookie) GetCookiesDict() map[string]string {
 	return result
 }
 
+func (c *UserCookie) GetCookiesDictToLowerKey() map[string]string {
+	cookies := strings.Split(c.cookies, ";")
+	result := make(map[string]string)
+	for _, cookie := range cookies {
+		cookieArr := strings.Split(cookie, "=")
+		if len(cookieArr) == 2 {
+			result[strings.ToLower(cookieArr[0])] = cookieArr[1]
+		}
+	}
+	return result
+}
+
 func (c *UserCookie) SetDBPrimaryKeyId(id int64) {
 	c.dbPrimaryKeyId = id
 }
@@ -49,6 +62,16 @@ func (c *UserCookie) GetDBPrimaryKeyId() int64 {
 		panic("未设置用户id")
 	}
 	return c.dbPrimaryKeyId
+}
+
+func (c *UserCookie) SetWebSiteId(id int64) {
+	c.webSiteId = id
+}
+func (c *UserCookie) GetWebSiteId() int64 {
+	if c.webSiteId == 0 {
+		panic("未设置站点id")
+	}
+	return c.webSiteId
 }
 
 // GetStatus 获取cookies是否有效

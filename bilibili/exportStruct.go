@@ -608,7 +608,7 @@ func (s BiliSpider) GetFollowingList(resultChan chan<- baseStruct.FollowInfo, cl
 			for _, info := range response.Data.List {
 				followTime := time.Unix(info.Mtime, 0)
 				resultChan <- baseStruct.FollowInfo{
-					WebSiteId:  webSiteId,
+					WebSiteId:  1,
 					UserId:     userId,
 					AuthorName: info.Uname,
 					AuthorUUID: strconv.FormatInt(info.Mid, 10),

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-const defaultProxyAddress = "http://127.0.0.1:1080"
+const defaultProxyAddress = "http://192.168.0.20:1080"
 
 var proxyStatus = false
 

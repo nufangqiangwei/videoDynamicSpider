@@ -18,12 +18,12 @@ class userInfo(_message.Message):
     LASTHISTORYTIME_FIELD_NUMBER: _ClassVar[int]
     LASTUPDATETIME_FIELD_NUMBER: _ClassVar[int]
     cookies: _containers.ScalarMap[str, str]
-    lastHistoryTime: int
-    lastUpdateTime: int
-    def __init__(self, cookies: _Optional[_Mapping[str, str]] = ..., lastHistoryTime: _Optional[int] = ..., lastUpdateTime: _Optional[int] = ...) -> None: ...
+    lastHistoryTime: str
+    lastUpdateTime: str
+    def __init__(self, cookies: _Optional[_Mapping[str, str]] = ..., lastHistoryTime: _Optional[str] = ..., lastUpdateTime: _Optional[str] = ...) -> None: ...
 
 class videoInfoResponse(_message.Message):
-    __slots__ = ("title", "desc", "cover", "uid", "duration", "updateTime", "tags", "classify", "viewNumber", "danmaku", "reply", "favorite", "coin", "share", "nowRank", "hisRank", "like", "dislike", "evaluation", "authors", "viewInfo", "webSiteName", "errorCode", "errorMsg")
+    __slots__ = ("title", "desc", "cover", "uid", "duration", "updateTime", "tags", "classify", "viewNumber", "danmaku", "reply", "favorite", "coin", "share", "nowRank", "hisRank", "like", "dislike", "evaluation", "authors", "viewInfo", "webSiteName", "errorCode", "errorMsg", "requestUserName")
     TITLE_FIELD_NUMBER: _ClassVar[int]
     DESC_FIELD_NUMBER: _ClassVar[int]
     COVER_FIELD_NUMBER: _ClassVar[int]
@@ -48,6 +48,7 @@ class videoInfoResponse(_message.Message):
     WEBSITENAME_FIELD_NUMBER: _ClassVar[int]
     ERRORCODE_FIELD_NUMBER: _ClassVar[int]
     ERRORMSG_FIELD_NUMBER: _ClassVar[int]
+    REQUESTUSERNAME_FIELD_NUMBER: _ClassVar[int]
     title: str
     desc: str
     cover: str
@@ -72,7 +73,8 @@ class videoInfoResponse(_message.Message):
     webSiteName: str
     errorCode: int
     errorMsg: str
-    def __init__(self, title: _Optional[str] = ..., desc: _Optional[str] = ..., cover: _Optional[str] = ..., uid: _Optional[str] = ..., duration: _Optional[int] = ..., updateTime: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[tagInfoResponse, _Mapping]]] = ..., classify: _Optional[_Iterable[_Union[classifyInfoResponse, _Mapping]]] = ..., viewNumber: _Optional[int] = ..., danmaku: _Optional[int] = ..., reply: _Optional[int] = ..., favorite: _Optional[int] = ..., coin: _Optional[int] = ..., share: _Optional[int] = ..., nowRank: _Optional[int] = ..., hisRank: _Optional[int] = ..., like: _Optional[int] = ..., dislike: _Optional[int] = ..., evaluation: _Optional[str] = ..., authors: _Optional[_Iterable[_Union[AuthorInfoResponse, _Mapping]]] = ..., viewInfo: _Optional[_Union[viewInfoResponse, _Mapping]] = ..., webSiteName: _Optional[str] = ..., errorCode: _Optional[int] = ..., errorMsg: _Optional[str] = ...) -> None: ...
+    requestUserName: str
+    def __init__(self, title: _Optional[str] = ..., desc: _Optional[str] = ..., cover: _Optional[str] = ..., uid: _Optional[str] = ..., duration: _Optional[int] = ..., updateTime: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[tagInfoResponse, _Mapping]]] = ..., classify: _Optional[_Iterable[_Union[classifyInfoResponse, _Mapping]]] = ..., viewNumber: _Optional[int] = ..., danmaku: _Optional[int] = ..., reply: _Optional[int] = ..., favorite: _Optional[int] = ..., coin: _Optional[int] = ..., share: _Optional[int] = ..., nowRank: _Optional[int] = ..., hisRank: _Optional[int] = ..., like: _Optional[int] = ..., dislike: _Optional[int] = ..., evaluation: _Optional[str] = ..., authors: _Optional[_Iterable[_Union[AuthorInfoResponse, _Mapping]]] = ..., viewInfo: _Optional[_Union[viewInfoResponse, _Mapping]] = ..., webSiteName: _Optional[str] = ..., errorCode: _Optional[int] = ..., errorMsg: _Optional[str] = ..., requestUserName: _Optional[str] = ...) -> None: ...
 
 class AuthorInfoResponse(_message.Message):
     __slots__ = ("author", "name", "avatar", "desc", "uid", "followNumber", "errorCode", "errorMsg")

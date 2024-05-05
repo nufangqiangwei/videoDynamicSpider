@@ -43,3 +43,14 @@ func (w WebSiteNotExist) Error() string {
 func NewWebSiteNotExist(webSiteName string) WebSiteNotExist {
 	return WebSiteNotExist{webSiteName: webSiteName}
 }
+
+func GetAllWebSite() map[string]WebSite {
+	queryResult := make([]WebSite, 0)
+	GormDB.Find(&queryResult)
+	result := make(map[string]WebSite)
+	for _, webSite := range queryResult {
+		result[webSite.WebName] = webSite
+	}
+	return result
+
+}

@@ -12,7 +12,8 @@ func ignoreReadFromError(err error) bool {
 	if !errors.As(err, &errno) {
 		return false
 	}
-	return errors.Is(errno, syscall.WSAECONNRESET)
+	//return errors.Is(errno, syscall.WSAECONNRESET)
+	return true
 }
 
 func AddrPort(addr net.Addr) int {

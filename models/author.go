@@ -133,6 +133,15 @@ func GetAuthorId(authorName string) (int64, error) {
 	return a.Id, nil
 }
 
+func GetAuthorByUserName(WebSiteName, userName string) (Author, error) {
+	a := Author{}
+	tx := GormDB.Model(&a).Joins("inner join web_site on web_site.id = author.web_site_id").First(&a, "web_name = ? and author_name = ?", WebSiteName, userName)
+	if tx.Error != nil {
+		return a, tx.Error
+	}
+	return a, nil
+}
+
 type AuthorNotExist struct {
 	authorName string
 }

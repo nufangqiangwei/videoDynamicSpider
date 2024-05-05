@@ -1,10 +1,11 @@
 syntax = "proto3";
 package webSiteGRPC;
+option go_package = "./";
 
 message userInfo{
   map<string, string> cookies = 1;
-  int64 lastHistoryTime = 2;
-  int64 lastUpdateTime = 3;
+  string lastHistoryTime = 2;
+  string lastUpdateTime = 3;
 }
 message videoInfoResponse{
   string title = 1;
@@ -31,6 +32,9 @@ message videoInfoResponse{
   string webSiteName= 22;
   int32 errorCode = 50;
   string errorMsg = 51;
+  string requestUserName = 52;
+  int64 requestUserId = 53;
+  int64 webSiteId = 54;
 }
 message AuthorInfoResponse{
   string author = 1;

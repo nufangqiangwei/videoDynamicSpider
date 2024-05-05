@@ -193,6 +193,11 @@ func (v *Video) UpdateVideo() (bool, error) {
 		var databaseHistory VideoHistory
 		GormDB.Model(&VideoHistory{}).Where("video_id=?", DBvideo.Id).Order("view_time desc").First(&databaseHistory)
 		for _, history := range v.ViewHistory {
+			if history.AuthorId == 0 {
+				log.ErrorLog.Println("观看历史数据中没有用户信息")
+				continue
+			}
+			history.WebSiteId = v.WebSiteId
 			if history.ViewTime.After(databaseHistory.ViewTime) {
 				history.VideoId = DBvideo.Id
 				saveHistory = append(saveHistory, history)

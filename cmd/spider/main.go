@@ -7,13 +7,13 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	timeWheel "github.com/nufangqiangwei/timewheel"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/resolver"
 	"io"
 	"math/rand"
 	"os"
 	"path"
 	"runtime"
-	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -115,6 +115,13 @@ func init() {
 	// 初始化代理
 	proxy.Init()
 
+	// 初始化grpc客户端
+	redisDiscovery.OpenRedis()
+	err = getWebSiteGrpcClient()
+	if err != nil {
+		panic(err)
+	}
+
 	// 初始化通道
 	waitUpdateVideoInfoChan = make(chan models.Video, 100)
 	// 初始化定时器
@@ -122,74 +129,75 @@ func init() {
 		IsRun: false,
 		Log:   wheelLog.WriterObject,
 	})
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
+	//rand.Seed(time.Now().UnixNano())
 	log.Info.Println("初始化完成：", time.Now().Format("2006.01.02 15:04:05"))
-
-	// 初始化grpc客户端
-	getWebSiteGrpcClient()
-
 }
 
 func initWebSiteSpider() {
-	w := models.WebSite{}
-	models.GormDB.Where("web_name=?", bilibili.Spider.GetWebSiteName().WebName).First(&w)
-	if w.Id == 0 {
-		panic(fmt.Sprintf("%s站点在数据库中找不到对应的数据。", bilibili.Spider.GetWebSiteName().WebName))
-	}
-	var (
-		dynamicBaseLine map[string]int64
-		historyBaseLine map[string]int64
-	)
-	dynamicBaseLine = make(map[string]int64)
-	historyBaseLine = make(map[string]int64)
+	//websiteMap := models.GetAllWebSite()
+	//var (
+	//	dynamicBaseLine map[string]int64
+	//	historyBaseLine map[string]int64
+	//)
+	//dynamicBaseLine = make(map[string]int64)
+	//historyBaseLine = make(map[string]int64)
 	cookies.RangeCookiesMap(func(webSiteName, userName string, userCookie *cookies.UserCookie) {
 		if strings.HasPrefix(userName, cookies.Tourists) {
 			return
 		}
-		userId, err := models.GetAuthorId(userName)
+		userInfo, err := models.GetAuthorByUserName(webSiteName, userName)
 		if err != nil {
 			log.ErrorLog.Printf("获取%s用户id失败：%s\n", userName, err.Error())
 			return
 		}
-		userCookie.SetDBPrimaryKeyId(userId)
+		userCookie.SetDBPrimaryKeyId(userInfo.Id)
+		userCookie.SetWebSiteId(userInfo.WebSiteId)
 
-		if webSiteName == bilibili.Spider.GetWebSiteName().WebName {
-			var (
-				result            []models.BiliSpiderHistory
-				err               error
-				intLatestBaseline int64
-			)
-			models.GormDB.Model(&models.BiliSpiderHistory{}).Where("author_id = ?", userId).Find(&result)
-			for _, rowData := range result {
-				intLatestBaseline, err = strconv.ParseInt(rowData.Values, 10, 64)
-				if err != nil {
-					log.ErrorLog.Printf("转换%s的history_baseline失败：%s\n", userName, err.Error())
-					continue
-				}
-				if rowData.KeyName == "dynamic_baseline" {
-					dynamicBaseLine[userName] = intLatestBaseline
-				}
-				if rowData.KeyName == "history_baseline" {
-					historyBaseLine[userName] = intLatestBaseline
-				}
-			}
-		}
+		//if webSiteName == bilibili.Spider.GetWebSiteName().WebName {
+		//	var (
+		//		result            []models.UserSpiderParams
+		//		err               error
+		//		intLatestBaseline int64
+		//	)
+		//	models.GormDB.Model(&models.UserSpiderParams{}).Where("author_id = ?", userId).Find(&result)
+		//	for _, rowData := range result {
+		//		intLatestBaseline, err = strconv.ParseInt(rowData.Values, 10, 64)
+		//		if err != nil {
+		//			log.ErrorLog.Printf("转换%s的history_baseline失败：%s\n", userName, err.Error())
+		//			continue
+		//		}
+		//		if rowData.KeyName == "dynamic_baseline" {
+		//			dynamicBaseLine[userName] = intLatestBaseline
+		//		}
+		//		if rowData.KeyName == "history_baseline" {
+		//			historyBaseLine[userName] = intLatestBaseline
+		//		}
+		//	}
+		//}
 	})
-	bilibili.Spider.Init(dynamicBaseLine, historyBaseLine, w.Id)
+	//bilibili.Spider.Init(dynamicBaseLine, historyBaseLine, websiteMap[webSiteName].Id)
 }
 
 func main() {
-	spiderWebSit = append(spiderWebSit, bilibili.Spider)
-	getHistory(nil)
-	//var err error
-	//_, err = wheel.AppendOnceFunc(getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
-	//if err != nil {
-	//	return
-	//}
-	//_, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: 10})
-	//if err != nil {
-	//	return
-	//}
+	var err error
+	_, err = wheel.AppendCycleFunc(func(interface{}) {
+		e := getWebSiteGrpcClient()
+		if e != nil {
+			log.ErrorLog.Printf("getWebSiteGrpcClient error: %s", e.Error())
+		}
+	}, nil, "flushGrpcClient", timeWheel.Crontab{ExpiredTime: defaultTicket})
+	if err != nil {
+		return
+	}
+	_, err = wheel.AppendOnceFunc(getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: defaultTicket})
+	if err != nil {
+		return
+	}
+	_, err = wheel.AppendCycleFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: oneTicket})
+	if err != nil {
+		return
+	}
 	//_, err = wheel.AppendOnceFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + 120})
 	//if err != nil {
 	//	return
@@ -198,7 +206,11 @@ func main() {
 	//if err != nil {
 	//	return
 	//}
-	//wheel.Start()
+	go func() {
+		time.Sleep(time.Minute)
+		getHistory(nil)
+	}()
+	wheel.Start()
 }
 
 func arrangeRunTime(defaultValue, leftBorder, rightBorder int64) int64 {
@@ -225,52 +237,116 @@ func getDynamic(interface{}) {
 			panic(panicErr)
 		}
 	}()
-
-	videoResultChan := make(chan models.Video)
-	closeChan := make(chan models.TaskClose)
-	runWebSite := make([]string, 0)
-
-	for _, v := range spiderWebSit {
-		go v.GetVideoList(videoResultChan, closeChan)
-		runWebSite = append(runWebSite, v.GetWebSiteName().WebName)
-	}
-
+	defer func() {
+		nextRunTime := arrangeRunTime(defaultTicket, sixTime, twentyTime)
+		log.Info.Printf("%d秒后再次抓取动态", nextRunTime)
+		_, err := wheel.AppendOnceFunc(getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: nextRunTime})
+		if err != nil {
+			log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
+			return
+		}
+	}()
 	var (
-		videoInfo models.Video
-		closeInfo models.TaskClose
-		err       error
+		dynamicResult chan *webSiteGRPC.VideoInfoResponse
+		runWebSite    = make([]string, 0)
 	)
+	dynamicResult = make(chan *webSiteGRPC.VideoInfoResponse, 10)
+	for websiteServerName, server := range grpcServer {
+		for userName, userCookie := range cookies.GetWebSiteUser(websiteServerName) {
+			go func(websiteServerName, userName string, userCookie cookies.UserCookie) {
+				cookieMap := userCookie.GetCookiesDictToLowerKey()
+				cookieMap["requestUserName"] = userName
+				res, err := server.GetUserFollowUpdate(context.Background(), &webSiteGRPC.UserInfo{
+					Cookies:        cookieMap,
+					LastUpdateTime: models.GetDynamicBaseline(userCookie.GetDBPrimaryKeyId()),
+				})
+				if err != nil {
+					log.ErrorLog.Printf("获取%s的用户关注更新失败：%s", websiteServerName, err.Error())
+					dynamicResult <- &webSiteGRPC.VideoInfoResponse{
+						ErrorCode:       500,
+						ErrorMsg:        err.Error(),
+						WebSiteName:     websiteServerName,
+						RequestUserName: userName,
+						WebSiteId:       userCookie.GetWebSiteId(),
+						RequestUserId:   userCookie.GetDBPrimaryKeyId(),
+					}
+					return
+				}
+				for {
+					vvi, err := res.Recv()
+					if err == io.EOF {
+						return
+					}
+					if err != nil {
+						vvi = &webSiteGRPC.VideoInfoResponse{
+							ErrorCode:       500,
+							ErrorMsg:        err.Error(),
+							WebSiteName:     websiteServerName,
+							RequestUserName: userName,
+							WebSiteId:       userCookie.GetWebSiteId(),
+							RequestUserId:   userCookie.GetDBPrimaryKeyId(),
+						}
+						return
+					}
+					vvi.WebSiteName = websiteServerName
+					vvi.RequestUserName = userName
+					vvi.WebSiteId = userCookie.GetWebSiteId()
+					vvi.RequestUserId = userCookie.GetDBPrimaryKeyId()
+					dynamicResult <- vvi
+				}
+			}(websiteServerName, userName, *userCookie)
+			runWebSite = append(runWebSite, fmt.Sprintf("%s-%s", websiteServerName, userName))
+		}
+	}
+	var pushTime time.Time
+	videoNumber := 0
 	for {
 		select {
-		case videoInfo = <-videoResultChan:
-			videoInfo.UpdateVideo()
-		case closeInfo = <-closeChan:
-			// 删除closeInfo.WebSite的任务
-			for index, v := range runWebSite {
-				if v == closeInfo.WebSite {
-					runWebSite = append(runWebSite[:index], runWebSite[index+1:]...)
-					break
+		case videoInfoResponse := <-dynamicResult:
+			if videoInfoResponse.ErrorCode != 0 {
+				if videoInfoResponse.ErrorCode == 200 {
+					log.ErrorLog.Printf("获取动态完成：%s 用户获取到%s\n", videoInfoResponse.RequestUserName, videoInfoResponse.ErrorMsg)
+				} else {
+					log.ErrorLog.Printf("获取动态失败：%s\n", videoInfoResponse.ErrorMsg)
 				}
-			}
-			for _, info := range closeInfo.Data {
-				err = models.SaveSpiderParamByUserId(info.AuthorId, "dynamic_baseline", info.EndBaseLine)
-				if err != nil {
-					log.ErrorLog.Printf("保存dynamic_baseline失败：%s\n", err.Error())
+
+				userInfo := fmt.Sprintf("%s-%s", videoInfoResponse.WebSiteName, videoInfoResponse.RequestUserName)
+				for index, v := range runWebSite {
+					if v == userInfo {
+						runWebSite = append(runWebSite[:index], runWebSite[index+1:]...)
+						break
+					}
 				}
+				if len(runWebSite) == 0 {
+					log.Info.Printf("所有网站已经获取动态完毕，共获取%d个动态，退出\n", videoNumber)
+					return
+				}
+			} else if videoInfoResponse.ErrorCode == 0 {
+				pushTime = time.Unix(videoInfoResponse.UpdateTime, 0)
+				video := models.Video{
+					WebSiteId:  videoInfoResponse.WebSiteId,
+					Title:      videoInfoResponse.Title,
+					VideoDesc:  videoInfoResponse.Desc,
+					Duration:   int(videoInfoResponse.Duration),
+					Uuid:       videoInfoResponse.Uid,
+					CoverUrl:   videoInfoResponse.Cover,
+					UploadTime: &pushTime,
+					Authors: []models.VideoAuthor{
+						{Contribute: "UP主", AuthorUUID: videoInfoResponse.Authors[0].Uid},
+					},
+					StructAuthor: []models.Author{
+						{
+							WebSiteId:    videoInfoResponse.WebSiteId,
+							AuthorName:   videoInfoResponse.Authors[0].Name,
+							AuthorWebUid: videoInfoResponse.Authors[0].Uid,
+							Avatar:       videoInfoResponse.Authors[0].Author,
+						},
+					},
+				}
+				video.UpdateVideo()
+				videoNumber++
 			}
 		}
-		if len(runWebSite) == 0 {
-			break
-		}
-	}
-	close(closeChan)
-	close(videoResultChan)
-	nextRunTime := arrangeRunTime(defaultTicket, sixTime, twentyTime)
-	log.Info.Printf("%d秒后再次抓取动态", nextRunTime)
-	_, err = wheel.AppendOnceFunc(getDynamic, nil, "VideoDynamicSpider", timeWheel.Crontab{ExpiredTime: nextRunTime})
-	if err != nil {
-		log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-		return
 	}
 }
 
@@ -279,122 +355,122 @@ func getHistory(interface{}) {
 	defer func() {
 		panicErr := recover()
 		if panicErr != nil {
-			log.ErrorLog.Println(string(debug.Stack()))
-			_, ok := panicErr.(utils.DBFileLock)
-			if ok {
-				log.ErrorLog.Println("执行报错，重新添加历史数据爬取")
-				var err error
-				_, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: oneTicket})
-				if err != nil {
-					log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-				}
-				return
+			err, ok := panicErr.(runtime.Error)
+			if ok && err.Error() == "invalid memory address or nil pointer dereference" {
+				log.ErrorLog.Printf("出现空指针错误：定时器时间是%s", wheel.PrintTime())
 			}
 			panic(panicErr)
 		}
 	}()
 
 	var (
-		historyResult chan webSiteGRPC.VideoInfoResponse
+		historyResult chan *webSiteGRPC.VideoInfoResponse
 		runWebSite    = make([]string, 0)
 	)
-	historyResult = make(chan webSiteGRPC.VideoInfoResponse, 10)
+	historyResult = make(chan *webSiteGRPC.VideoInfoResponse, 50)
 	for websiteServerName, server := range grpcServer {
 		for userName, userCookie := range cookies.GetWebSiteUser(websiteServerName) {
 			go func(websiteServerName, userName string, userCookie cookies.UserCookie) {
+				cookieMap := userCookie.GetCookiesDictToLowerKey()
+				cookieMap["requestUserName"] = userName
 				res, err := server.GetUserViewHistory(context.Background(), &webSiteGRPC.UserInfo{
-					Cookies:         userCookie.GetCookiesDict(),
-					LastHistoryTime: 0,
+					Cookies:         cookieMap,
+					LastHistoryTime: models.GetHistoryBaseline(userCookie.GetDBPrimaryKeyId()),
 				})
 				if err != nil {
-					historyResult <- webSiteGRPC.VideoInfoResponse{
-						ErrorCode:   500,
-						ErrorMsg:    err.Error(),
-						WebSiteName: websiteServerName,
-						Authors: []*webSiteGRPC.AuthorInfoResponse{
-							{
-								Name: userName,
-							},
-						},
+					log.ErrorLog.Printf("GRPC服务端%s获取历史记录失败:%s\n", userName, err.Error())
+					historyResult <- &webSiteGRPC.VideoInfoResponse{
+						ErrorCode:       500,
+						ErrorMsg:        err.Error(),
+						WebSiteName:     websiteServerName,
+						RequestUserName: userName,
+						WebSiteId:       userCookie.GetWebSiteId(),
+						RequestUserId:   userCookie.GetDBPrimaryKeyId(),
 					}
 					return
 				}
 				for {
-					vi, err := res.Recv()
+					vvi, err := res.Recv()
 					if err == io.EOF {
 						return
 					}
 					if err != nil {
-						historyResult <- webSiteGRPC.VideoInfoResponse{
-							ErrorCode:   500,
-							ErrorMsg:    err.Error(),
-							WebSiteName: websiteServerName,
-							Authors: []*webSiteGRPC.AuthorInfoResponse{
-								{
-									Name: userName,
-								},
-							},
+						log.ErrorLog.Printf("GRPC服务端%s获取历史记录流通道错误:%s\n", userName, err.Error())
+						vvi = &webSiteGRPC.VideoInfoResponse{
+							ErrorCode:       500,
+							ErrorMsg:        err.Error(),
+							WebSiteName:     websiteServerName,
+							RequestUserName: userName,
+							WebSiteId:       userCookie.GetWebSiteId(),
+							RequestUserId:   userCookie.GetDBPrimaryKeyId(),
 						}
-						return
 					}
-					historyResult <- *vi
-				}
+					vvi.WebSiteName = websiteServerName
+					vvi.RequestUserName = userName
+					vvi.WebSiteId = userCookie.GetWebSiteId()
+					vvi.RequestUserId = userCookie.GetDBPrimaryKeyId()
 
-			}(websiteServerName, userName, *userCookie)
-		}
-		runWebSite = append(runWebSite, websiteServerName)
-	}
-	for {
-		select {
-		case vi := <-historyResult:
-			if vi.ErrorCode == 0 {
-				video := models.Video{}
-				video.UpdateVideo()
-			} else if vi.ErrorCode == 200 {
-				for index, v := range runWebSite {
-					if v == vi.WebSiteName {
-						runWebSite = append(runWebSite[:index], runWebSite[index+1:]...)
+					historyResult <- vvi
+					if vvi.ErrorCode != 0 {
+						log.ErrorLog.Printf("%s获取历史状态错误:%s\n", userName, vvi.ErrorMsg)
 						break
 					}
 				}
-				if len(runWebSite) == 0 {
-					return
-				}
-			} else {
-				log.ErrorLog.Printf("获取历史记录失败：%s\n", vi.ErrorMsg)
-			}
-
+			}(websiteServerName, userName, *userCookie)
+			runWebSite = append(runWebSite, fmt.Sprintf("%s-%s", websiteServerName, userName))
 		}
 	}
-
-	//VideoHistoryChan := make(chan models.Video)
-	//VideoHistoryCloseChan := make(chan models.TaskClose)
-	//go bilibili.Spider.GetVideoHistoryList(VideoHistoryChan, VideoHistoryCloseChan)
-	//for {
-	//	select {
-	//	case videoInfo := <-VideoHistoryChan:
-	//		isNew, _ := videoInfo.UpdateVideo()
-	//		if isNew {
-	//			waitUpdateVideoInfoChan <- videoInfo
-	//		}
-	//	case closeInfo := <-VideoHistoryCloseChan:
-	//		if closeInfo.WebSite == bilibili.Spider.GetWebSiteName().WebName {
-	//			for _, info := range closeInfo.Data {
-	//				err = models.SaveSpiderParamByUserId(info.AuthorId, "history_baseline", info.EndBaseLine)
-	//				if err != nil {
-	//					log.ErrorLog.Printf("保存dynamic_baseline失败：%s\n", err.Error())
-	//				}
-	//			}
-	//		}
-	//		_, err = wheel.AppendOnceFunc(getHistory, nil, "VideoHistorySpider", timeWheel.Crontab{ExpiredTime: historyRunTime()})
-	//		if err != nil {
-	//			log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-	//			return
-	//		}
-	//		return
-	//	}
-	//}
-
+	var viewTime time.Time
+	videoNumber := 0
+	for vi := range historyResult {
+		if vi.ErrorCode == 0 {
+			viewTime = time.Unix(vi.ViewInfo.ViewTime, 0)
+			video := models.Video{
+				WebSiteId: vi.WebSiteId,
+				Title:     vi.Title,
+				VideoDesc: vi.Desc,
+				Duration:  int(vi.Duration),
+				Uuid:      vi.Uid,
+				CoverUrl:  vi.Cover,
+				Authors: []models.VideoAuthor{
+					{
+						Contribute: "UP主",
+						AuthorUUID: vi.Authors[0].Uid,
+						Uuid:       vi.Uid,
+					},
+				},
+				StructAuthor: []models.Author{
+					{
+						AuthorName:   vi.Authors[0].Name,
+						AuthorWebUid: vi.Authors[0].Uid,
+						Avatar:       vi.Authors[0].Avatar,
+					},
+				},
+				ViewHistory: []models.VideoHistory{
+					{
+						ViewTime: viewTime,
+						Duration: int(vi.ViewInfo.ViewDuration),
+						WebUUID:  vi.Uid,
+						AuthorId: vi.RequestUserId,
+					},
+				},
+			}
+			video.UpdateVideo()
+			videoNumber++
+		} else {
+			userInfo := fmt.Sprintf("%s-%s", vi.WebSiteName, vi.RequestUserName)
+			for index, v := range runWebSite {
+				if v == userInfo {
+					runWebSite = append(runWebSite[:index], runWebSite[index+1:]...)
+					break
+				}
+			}
+			if len(runWebSite) == 0 {
+				log.Info.Printf("全部获取完成，共获取%d个视频\n", videoNumber)
+				return
+			}
+		}
+	}
 }
 
 // 更新收藏夹列表，喝订阅的合集列表，新创建的同步视频数据
@@ -1041,7 +1117,7 @@ func getWebSiteGrpcClient() error {
 	}
 	for _, server := range serverList {
 		if _, ok := grpcServer[server.WebSiteName]; !ok {
-			client, err := grpc.Dial(server.ServerUrlList[0])
+			client, err := grpc.Dial(server.ServerUrlList[0], grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				return err
 			}
