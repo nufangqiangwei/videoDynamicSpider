@@ -24,8 +24,18 @@ class WebSiteServiceStub(object):
                 request_serializer=server__pb2.userInfo.SerializeToString,
                 response_deserializer=server__pb2.videoInfoResponse.FromString,
                 )
-        self.GetVideoList = channel.unary_stream(
-                '/webSiteGRPC.WebSiteService/GetVideoList',
+        self.GetUserFollowList = channel.unary_stream(
+                '/webSiteGRPC.WebSiteService/GetUserFollowList',
+                request_serializer=server__pb2.userInfo.SerializeToString,
+                response_deserializer=server__pb2.AuthorInfoResponse.FromString,
+                )
+        self.GetUserCollectionList = channel.unary_stream(
+                '/webSiteGRPC.WebSiteService/GetUserCollectionList',
+                request_serializer=server__pb2.collectionInfoRequest.SerializeToString,
+                response_deserializer=server__pb2.collectionInfoResponse.FromString,
+                )
+        self.GetVideoDetail = channel.stream_stream(
+                '/webSiteGRPC.WebSiteService/GetVideoDetail',
                 request_serializer=server__pb2.getVideoListRequest.SerializeToString,
                 response_deserializer=server__pb2.videoInfoResponse.FromString,
                 )
@@ -56,7 +66,19 @@ class WebSiteServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetVideoList(self, request, context):
+    def GetUserFollowList(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetUserCollectionList(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetVideoDetail(self, request_iterator, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -87,8 +109,18 @@ def add_WebSiteServiceServicer_to_server(servicer, server):
                     request_deserializer=server__pb2.userInfo.FromString,
                     response_serializer=server__pb2.videoInfoResponse.SerializeToString,
             ),
-            'GetVideoList': grpc.unary_stream_rpc_method_handler(
-                    servicer.GetVideoList,
+            'GetUserFollowList': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetUserFollowList,
+                    request_deserializer=server__pb2.userInfo.FromString,
+                    response_serializer=server__pb2.AuthorInfoResponse.SerializeToString,
+            ),
+            'GetUserCollectionList': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetUserCollectionList,
+                    request_deserializer=server__pb2.collectionInfoRequest.FromString,
+                    response_serializer=server__pb2.collectionInfoResponse.SerializeToString,
+            ),
+            'GetVideoDetail': grpc.stream_stream_rpc_method_handler(
+                    servicer.GetVideoDetail,
                     request_deserializer=server__pb2.getVideoListRequest.FromString,
                     response_serializer=server__pb2.videoInfoResponse.SerializeToString,
             ),
@@ -147,7 +179,7 @@ class WebSiteService(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def GetVideoList(request,
+    def GetUserFollowList(request,
             target,
             options=(),
             channel_credentials=None,
@@ -157,7 +189,41 @@ class WebSiteService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(request, target, '/webSiteGRPC.WebSiteService/GetVideoList',
+        return grpc.experimental.unary_stream(request, target, '/webSiteGRPC.WebSiteService/GetUserFollowList',
+            server__pb2.userInfo.SerializeToString,
+            server__pb2.AuthorInfoResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetUserCollectionList(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/webSiteGRPC.WebSiteService/GetUserCollectionList',
+            server__pb2.collectionInfoRequest.SerializeToString,
+            server__pb2.collectionInfoResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetVideoDetail(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_stream(request_iterator, target, '/webSiteGRPC.WebSiteService/GetVideoDetail',
             server__pb2.getVideoListRequest.SerializeToString,
             server__pb2.videoInfoResponse.FromString,
             options, channel_credentials,

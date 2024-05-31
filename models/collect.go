@@ -46,6 +46,21 @@ func (ci CollectVideo) Save() {
 	}
 }
 
+func GetUserCollectList(userId int64) []map[string]interface{} {
+	sql := `select sub.bv_id, sub.video_count, bv.video_id, v.title, v.uuid
+from (SELECT c.bv_id,
+             COUNT(*)   AS video_count,
+             MAX(cv.id) AS latest_id
+      FROM collect_video cv
+               inner join collect c on c.id = cv.collect_id and c.author_id = ?
+      GROUP BY collect_id) sub
+         left join collect_video bv on bv.id = latest_id
+         left join video v on v.id = bv.video_id`
+	result := make([]map[string]interface{}, 0)
+	GormDB.Raw(sql, userId).Scan(&result)
+	return result
+}
+
 type CollectVideoInfo struct {
 	CollectId int64
 	Video
@@ -61,5 +76,11 @@ func GetAllCollectVideo() []CollectVideoInfo {
 		Where("c.`type` = 1 and mtime>'0001-01-01 00:00:00+00:00'").
 		Order("cv.collect_id,mtime desc").
 		Find(&result)
+	return result
+}
+
+func GetAllCollect() []Collect {
+	var result []Collect
+	GormDB.Find(&result)
 	return result
 }

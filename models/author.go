@@ -29,6 +29,7 @@ type Follow struct {
 	AuthorId   int64      `json:"authorId" gorm:"primaryKey"`
 	UserId     int64      `json:"userId" gorm:"primaryKey"`
 	FollowTime *time.Time `json:"followTime" gorm:"type:datetime"` // 关注时间
+	Deteled    bool       `gorm:"type:tinyint;default:false"`
 }
 
 func (a *Author) GetOrCreate() error {
@@ -83,6 +84,13 @@ func (a *Author) Get(authorId int64) {
 	}
 }
 
+func (a *Author) GetByUid(authorWebUid string) {
+	tx := GormDB.Where("author_web_uid=?", authorWebUid).First(a)
+	if tx.Error != nil {
+		return
+	}
+}
+
 type FollowRelation struct {
 	Id           int64
 	WebSiteId    int64
@@ -109,6 +117,16 @@ func GetFollowList(webSiteId int64) (result map[int64]map[string]int64) {
 		}
 		result[v.UserId][v.AuthorWebUid] = v.Id
 
+	}
+	return
+}
+
+func GetUserFollowList(userId int64) (result []FollowRelation) {
+	tx := GormDB.Table("follow").Select("follow.Id,follow.web_site_id,follow.author_id,follow.user_id,follow.follow_time,author.author_web_uid").Where("follow.user_id=?", userId).Joins(
+		"inner join author on author.id=follow.author_id",
+	).Scan(&result)
+	if tx.Error != nil {
+		return
 	}
 	return
 }
@@ -140,6 +158,15 @@ func GetAuthorByUserName(WebSiteName, userName string) (Author, error) {
 		return a, tx.Error
 	}
 	return a, nil
+}
+
+func DeleteAuthor(userId, authorId int64) error {
+	return GormDB.Table("follow").Where("user_id = ? and author_id = ?", userId, authorId).Update("deteled", true).Error
+}
+func DeleteAuthorByUid(userId int64, authorWebUid string) error {
+	return GormDB.Table("follow").Where("user_id = ? and author_web_uid = ?", userId, authorWebUid).Joins(
+		"inner join author on author.id=follow.author_id",
+	).Update("deteled", true).Error
 }
 
 type AuthorNotExist struct {

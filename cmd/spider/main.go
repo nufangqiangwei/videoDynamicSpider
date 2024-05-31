@@ -25,7 +25,6 @@ import (
 	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
 	webSiteGRPC "videoDynamicAcquisition/proto"
-	"videoDynamicAcquisition/proxy"
 	"videoDynamicAcquisition/utils"
 )
 
@@ -111,9 +110,6 @@ func init() {
 	// 初始化网站数据
 	webSiteManage = webSite{}
 	webSiteManage.init()
-
-	// 初始化代理
-	proxy.Init()
 
 	// 初始化grpc客户端
 	redisDiscovery.OpenRedis()
@@ -487,122 +483,10 @@ func getHistory(interface{}) {
 
 // 更新收藏夹列表，喝订阅的合集列表，新创建的同步视频数据
 func updateCollectList(interface{}) {
-	defer func() {
-		panicErr := recover()
-		if panicErr != nil {
-			_, ok := panicErr.(utils.DBFileLock)
-			if ok {
-				_, err := wheel.AppendOnceFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
-				if err != nil {
-					log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-				}
-				return
-			}
-			panic(panicErr)
+	for websiteServerName, server := range grpcServer {
+		for userName, userCookie := range cookies.GetWebSiteUser(websiteServerName) {
+			models.GetUserCollectList(userCookie.GetDBPrimaryKeyId())
 		}
-	}()
-	var err error
-	web := webSiteManage.getWebSiteByName("bilibili")
-	newCollectList := bilibili.Spider.GetCollectList()
-	var (
-		videoCollectList []models.CollectVideo
-		have             bool
-	)
-	for _, collectId := range newCollectList.Collect {
-		models.GormDB.Table("collect_video").Where("collect_id=?", collectId.Id).Find(&videoCollectList)
-		for _, info := range bilibili.Spider.GetCollectAllVideo(collectId.BvId, 0) {
-			uploadTime := time.Unix(info.Ctime, 0)
-			vi := models.Video{
-				WebSiteId:  web.Id,
-				Title:      info.Title,
-				VideoDesc:  info.Intro,
-				Duration:   info.Duration,
-				Uuid:       info.Bvid,
-				CoverUrl:   info.Cover,
-				UploadTime: &uploadTime,
-				Authors: []models.VideoAuthor{
-					{Uuid: info.BvId, AuthorUUID: strconv.Itoa(info.Upper.Mid)},
-				},
-				StructAuthor: []models.Author{
-					{
-						WebSiteId:    web.Id,
-						AuthorName:   info.Upper.Name,
-						AuthorWebUid: strconv.Itoa(info.Upper.Mid),
-						Avatar:       info.Upper.Face,
-					},
-				},
-			}
-			vi.UpdateVideo()
-			mtine := time.Unix(info.FavTime, 0)
-			for _, videoCollectInfo := range videoCollectList {
-				if videoCollectInfo.VideoId == vi.Id {
-					have = true
-					break
-				}
-			}
-			if !have {
-				models.CollectVideo{
-					CollectId: collectId.Id,
-					VideoId:   vi.Id,
-					Mtime:     &mtine,
-				}.Save()
-			}
-		}
-		time.Sleep(time.Second * 5)
-	}
-	for _, collectId := range newCollectList.Season {
-		models.GormDB.Table("collect_video").Where("collect_id=?", collectId.Id).Find(&videoCollectList)
-		for _, info := range bilibili.Spider.GetSeasonAllVideo(collectId.BvId) {
-			author := models.Author{
-				WebSiteId:    web.Id,
-				AuthorWebUid: strconv.Itoa(info.Upper.Mid),
-				AuthorName:   info.Upper.Name,
-				Follow:       false,
-				Crawl:        true,
-			}
-			err = author.GetOrCreate()
-			if err != nil {
-				log.ErrorLog.Printf("获取作者信息失败：%s\n", err.Error())
-				continue
-			}
-			vi := models.Video{
-				WebSiteId: web.Id,
-				Title:     info.Title,
-				Duration:  info.Duration,
-				Uuid:      info.Bvid,
-				CoverUrl:  info.Cover,
-				Authors: []models.VideoAuthor{
-					{Uuid: info.Bvid, AuthorUUID: strconv.Itoa(info.Upper.Mid)},
-				},
-				StructAuthor: []models.Author{
-					{
-						WebSiteId:    web.Id,
-						AuthorName:   info.Upper.Name,
-						AuthorWebUid: strconv.Itoa(info.Upper.Mid),
-					},
-				},
-			}
-			vi.UpdateVideo()
-			for _, videoCollectInfo := range videoCollectList {
-				if videoCollectInfo.VideoId == vi.Id {
-					have = true
-					break
-				}
-			}
-			if !have {
-				models.CollectVideo{
-					CollectId: collectId.Id,
-					VideoId:   vi.Id,
-				}.Save()
-			}
-		}
-		time.Sleep(time.Second * 5)
-	}
-
-	_, err = wheel.AppendOnceFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + rand.Int63n(100)})
-	if err != nil {
-		log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-		return
 	}
 }
 
@@ -698,118 +582,134 @@ func getWatchLaterList(interface{}) {
 
 // 同步关注信息
 func updateFollowInfo(interface{}) {
-	defer func() {
-		panicErr := recover()
-		if panicErr != nil {
-			_, ok := panicErr.(utils.DBFileLock)
-			if ok {
-				_, err := wheel.AppendOnceFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
-				if err != nil {
-					log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-				}
-				return
-			}
-			panic(panicErr)
-		}
-	}()
-	var err error
-	web := webSiteManage.getWebSiteByName("bilibili")
-	resultChan := make(chan baseStruct.FollowInfo)
-	closeChan := make(chan int64)
-	go bilibili.Spider.GetFollowingList(resultChan, closeChan)
-
 	var (
-		followList           map[int64]map[string]int64
-		followInfo           baseStruct.FollowInfo
-		closeSign            bool
-		insertFollowRelation bool
-		receiveUserId        map[int64]bool
+		authorInfoResult chan *webSiteGRPC.AuthorInfoResponse
+		runWebSite       = make([]string, 0)
 	)
-	followList = models.GetFollowList(web.Id)
-	receiveUserId = make(map[int64]bool)
 
-	for {
-		select {
-		case followInfo = <-resultChan:
-			receiveUserId[followInfo.UserId] = true
-			insertFollowRelation = false
-			userFollowMap, ok := followList[followInfo.UserId]
-			if !ok {
-				insertFollowRelation = true
-			}
-			_, ok = userFollowMap[followInfo.AuthorUUID]
-			if !ok {
-				insertFollowRelation = true
-			}
-			if insertFollowRelation {
-				author := models.Author{
-					WebSiteId:    web.Id,
-					AuthorWebUid: followInfo.AuthorUUID,
-					AuthorName:   followInfo.AuthorName,
-					Avatar:       followInfo.Avatar,
-					AuthorDesc:   followInfo.AuthorDesc,
-					Follow:       true,
-					FollowTime:   followInfo.FollowTime,
-				}
-				err = author.UpdateOrCreate()
+	for websiteServerName, server := range grpcServer {
+		for userName, userCookie := range cookies.GetWebSiteUser(websiteServerName) {
+			cookiesMap := userCookie.GetCookiesDictToLowerKey()
+			cookiesMap = checkOutWebSiteCookies(websiteServerName, cookiesMap)
+			go func(websiteServerName, userName string, webSiteId, userId int64, cookieMap map[string]string) {
+				cookieMap["requestUserName"] = userName
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				defer cancel()
+				res, err := server.GetUserFollowList(ctx, &webSiteGRPC.UserInfo{Cookies: cookieMap})
 				if err != nil {
-					log.ErrorLog.Printf("更新作者信息失败：%s\n", err.Error())
-					continue
+					log.ErrorLog.Printf("GRPC服务端%s获取用户关注失败:%s\n", userName, err.Error())
+					authorInfoResult <- &webSiteGRPC.AuthorInfoResponse{
+						ErrorCode:       500,
+						ErrorMsg:        err.Error(),
+						WebSiteName:     websiteServerName,
+						RequestUserName: userName,
+						WebSiteId:       webSiteId,
+						RequestUserId:   userId,
+					}
+					return
 				}
-				f := models.Follow{
-					WebSiteId:  followInfo.WebSiteId,
-					AuthorId:   author.Id,
-					UserId:     followInfo.UserId,
-					FollowTime: followInfo.FollowTime,
+				for {
+					vvi, err := res.Recv()
+					if err == io.EOF {
+						return
+					}
+					if err != nil {
+						log.ErrorLog.Printf("GRPC服务端%s获取用户关注通道错误:%s\n", userName, err.Error())
+						vvi = &webSiteGRPC.AuthorInfoResponse{
+							ErrorCode: 500,
+							ErrorMsg:  err.Error(),
+						}
+					}
+					vvi.WebSiteName = websiteServerName
+					vvi.RequestUserName = userName
+					vvi.WebSiteId = webSiteId
+					vvi.RequestUserId = userId
+
+					authorInfoResult <- vvi
+					if vvi.ErrorCode != 0 {
+						if vvi.ErrorCode != 200 {
+							log.ErrorLog.Printf("%s获取历史状态错误:%s\n", userName, vvi.ErrorMsg)
+						}
+						break
+					}
 				}
-				models.GormDB.Create(&f)
-			}
-			// 从userFollowMap列表中删除这个作者
-			delete(userFollowMap, followInfo.AuthorUUID)
-		case <-closeChan:
-			closeSign = true
-		}
-		if closeSign {
-			break
+			}(websiteServerName, userName, userCookie.GetWebSiteId(), userCookie.GetDBPrimaryKeyId(), cookiesMap)
+			runWebSite = append(runWebSite, fmt.Sprintf("%s-%s", websiteServerName, userName))
 		}
 	}
-	// followList中剩下的作者，标记为未关注
-	if closeSign {
-		var deleteFollowId []int64
-		fileObject := utils.WriteFile{
-			FileName: func(s string) string {
-				return "取消关注信息.txt"
-			},
-			FolderPrefix: []string{baseStruct.RootPath},
-		}
-		for userId, authorMap := range followList {
-			_, ok := receiveUserId[userId]
+
+	var grpcResult map[int64][]*webSiteGRPC.AuthorInfoResponse
+	for authorInfo := range authorInfoResult {
+		if authorInfo.ErrorCode == 0 {
+			_, ok := grpcResult[authorInfo.RequestUserId]
 			if !ok {
+				grpcResult[authorInfo.RequestUserId] = make([]*webSiteGRPC.AuthorInfoResponse, 0)
+			}
+			grpcResult[authorInfo.RequestUserId] = append(grpcResult[authorInfo.RequestUserId], authorInfo)
+		} else {
+			userInfo := fmt.Sprintf("%s-%s", authorInfo.WebSiteName, authorInfo.RequestUserName)
+			for index, v := range runWebSite {
+				if v == userInfo {
+					runWebSite = append(runWebSite[:index], runWebSite[index+1:]...)
+					break
+				}
+			}
+			if len(runWebSite) == 0 {
+				break
+			}
+		}
+
+	}
+
+	for userId, authorInfo := range grpcResult {
+		userFollow := models.GetUserFollowList(userId)
+		// 根据 webSiteGRPC.AuthorInfoResponse.Uid，models.FollowRelation.AuthorWebUid 找出authorInfo，userFollow两个列表的差集
+		newAuthorUid := []string{}
+		for _, i := range authorInfo {
+			newAuthorUid = append(newAuthorUid, i.Uid)
+		}
+		oldAuthorUid := []string{}
+		for _, i := range userFollow {
+			oldAuthorUid = append(oldAuthorUid, i.AuthorWebUid)
+		}
+		// 删除的关注作者
+		for _, delAuthor := range utils.ArrayDifference(oldAuthorUid, newAuthorUid) {
+			models.DeleteAuthorByUid(userId, delAuthor)
+		}
+		// 新增的关注作者
+		for _, addAuthor := range utils.ArrayDifference(newAuthorUid, oldAuthorUid) {
+			author := models.Author{}
+			author.GetByUid(addAuthor)
+			var newAuthorInfo *webSiteGRPC.AuthorInfoResponse
+			for _, i := range authorInfo {
+				if i.Uid == addAuthor {
+					newAuthorInfo = i
+					break
+				}
+			}
+			if newAuthorInfo == nil {
 				continue
 			}
-			if len(authorMap) > 0 {
-				fileObject.WriteLine([]byte(strconv.FormatInt(userId, 10)))
+			if author.Id == 0 {
+				author.AuthorName = newAuthorInfo.Name
+				author.AuthorWebUid = newAuthorInfo.Uid
+				author.Avatar = newAuthorInfo.Avatar
+				author.AuthorDesc = newAuthorInfo.Desc
+				author.FollowNumber = newAuthorInfo.FollowNumber
+				author.UpdateOrCreate()
 			}
-			for _, followId := range authorMap {
-				println(followId)
-				deleteFollowId = append(deleteFollowId, followId)
-				fileObject.Write([]byte{32, 32, 32, 32})
-				fileObject.WriteLine([]byte(strconv.FormatInt(followId, 10)))
-			}
+			followTime := time.Unix(newAuthorInfo.FollowTime, 0)
+			models.GormDB.Create(&models.Follow{
+				Id:         0,
+				WebSiteId:  authorInfo[0].WebSiteId,
+				AuthorId:   author.Id,
+				UserId:     userId,
+				FollowTime: &followTime,
+				Deteled:    true,
+			})
 		}
-		fileObject.Close()
-		if len(deleteFollowId) > 0 {
-			models.GormDB.Delete(&models.Follow{}, deleteFollowId)
-		}
-	}
 
-	_, err = wheel.AppendOnceFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + rand.Int63n(100)})
-	if err != nil {
-		log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-		return
 	}
-}
-func updateWebSiteUserFollowInfo(site webSite, cookie cookies.UserCookie) {
 
 }
 

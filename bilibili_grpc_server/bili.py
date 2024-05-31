@@ -64,8 +64,7 @@ def build_dynamic_video_info_response(data: dict) -> videoInfoResponse:
     return video_info_response
 
 
-async def get_self_user_view_history(sessdata, bili_jct, buvid3, dedeuserid, ac_time_value=None, last_update_time=None,
-                                     request_user_name='None'):
+async def get_self_user_view_history(sessdata, bili_jct, buvid3, dedeuserid, ac_time_value=None, last_update_time=None):
     credential = Credential(sessdata=sessdata,
                             bili_jct=bili_jct,
                             buvid3=buvid3,
@@ -73,7 +72,7 @@ async def get_self_user_view_history(sessdata, bili_jct, buvid3, dedeuserid, ac_
                             ac_time_value=ac_time_value,
                             )
     view_at = 0
-    video_number = 100
+    video_number = 10
     while True:
         view_history_data = await get_self_history_new(credential=credential, _type=HistoryType.archive,
                                                        business=HistoryBusinessType.archive, view_at=view_at)
@@ -88,10 +87,10 @@ async def get_self_user_view_history(sessdata, bili_jct, buvid3, dedeuserid, ac_
             if video_number == 0:
                 return
             view_at = view_history.get("view_at")
-            yield build_history_video_info_response(view_history, request_user_name)
+            yield build_history_video_info_response(view_history)
 
 
-def build_history_video_info_response(data: dict, request_user_name) -> videoInfoResponse:
+def build_history_video_info_response(data: dict) -> videoInfoResponse:
     video_info_response = videoInfoResponse(
         title=data.get("title"),
         desc=data.get("history").get("part"),
@@ -102,8 +101,6 @@ def build_history_video_info_response(data: dict, request_user_name) -> videoInf
             viewTime=data.get("view_at"),
             viewDuration=data.get("progress"),
         ),
-        webSiteName="bilibili",
-        requestUserName=request_user_name
     )
     author_info_response = video_info_response.authors.add()
     author_info_response.name = data.get("author_name")

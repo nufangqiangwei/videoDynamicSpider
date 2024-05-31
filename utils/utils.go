@@ -131,3 +131,13 @@ func GenerateRandomString(length int) string {
 	// 将字节数组转换为字符串并返回
 	return string(randomString)
 }
+
+type name struct {
+}
+
+func NewSourceList[T string | int64](slice []any, getKey func(data any) T) {
+
+}
+
+type ArraySou interface {
+}

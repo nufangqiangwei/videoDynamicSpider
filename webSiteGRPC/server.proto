@@ -1,6 +1,6 @@
 syntax = "proto3";
 package webSiteGRPC;
-option go_package = "./";
+option go_package = "videoDynamicAcquisition/proto;proto";
 
 message userInfo{
   map<string, string> cookies = 1;
@@ -14,6 +14,7 @@ message videoInfoResponse{
   string uid = 4;
   int64 duration = 5;
   int64 updateTime = 6;
+  int64 collectTime = 23;
   repeated tagInfoResponse tags = 7;
   repeated classifyInfoResponse classify = 8;
   int64 viewNumber = 9;
@@ -29,7 +30,7 @@ message videoInfoResponse{
   string evaluation = 19;
   repeated AuthorInfoResponse authors = 20;
   viewInfoResponse viewInfo = 21;
-  string webSiteName= 22;
+  string webSiteName = 22;
   int32 errorCode = 50;
   string errorMsg = 51;
   string requestUserName = 52;
@@ -43,8 +44,13 @@ message AuthorInfoResponse{
   string desc = 4;
   string uid = 5;
   uint64 followNumber = 6;
+  int64 followTime = 7;
+  string webSiteName = 22;
   int32 errorCode = 50;
   string errorMsg = 51;
+  string requestUserName = 52;
+  int64 requestUserId = 53;
+  int64 webSiteId = 54;
 }
 message tagInfoResponse{
   string name = 1;
@@ -70,20 +76,44 @@ message collectionInfoResponse{
   string errorMsg = 51;
 }
 
+message collectionInfo{
+  string collectionType = 1;
+  string collectionId = 2;
+  int64 collectionVideoCount = 3;
+  int64 lastAppendTime = 4;
+  string name = 5;
+  string upperName = 6;
+  string upperUid = 7;
+  repeated videoInfoResponse video = 20;
+}
 
 
+message collectionInfoRequest{
+  userInfo user = 1;
+  repeated collectionInfo collection = 2;
 
-
+}
+message haveCollectionInfo{
+  int64 id = 1;
+  int64 videoNumber = 2;
+  bool getAll = 3;
+}
+message UserCollectionListRequest{
+  userInfo userInfo = 1;
+  repeated haveCollectionInfo collectionInfo = 2;
+}
 
 message getVideoListRequest{
   userInfo userInfo = 1;
-  repeated string videoIdList = 2;
+  string videoIdList = 2;
 }
 
 service WebSiteService {
   rpc GetUserFollowUpdate(userInfo) returns (stream  videoInfoResponse);
   rpc GetUserViewHistory(userInfo) returns (stream  videoInfoResponse);
-  rpc GetVideoList(getVideoListRequest) returns (stream  videoInfoResponse);
+  rpc GetUserFollowList(userInfo) returns (stream AuthorInfoResponse);
+  rpc GetUserCollectionList(collectionInfoRequest) returns (stream  collectionInfoResponse);
+  rpc GetVideoDetail(stream getVideoListRequest) returns (stream  videoInfoResponse);
   rpc GetHotVideoList(getVideoListRequest) returns (stream  videoInfoResponse);
   rpc GetSelfInfo(userInfo) returns (AuthorInfoResponse);
 }

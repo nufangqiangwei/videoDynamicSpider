@@ -3,6 +3,7 @@ package redisDiscovery
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/redis/go-redis/v9"
 	"strings"
 	"sync"
@@ -23,7 +24,7 @@ var (
 func OpenRedis() {
 	grpcServerMap = make(map[string][]string)
 	redisDB = redis.NewClient(&redis.Options{
-		Addr:     "192.168.0.20:6379",
+		Addr:     "database:6379",
 		Password: "", // no password set
 		DB:       5,  // use default DB
 	})
@@ -76,6 +77,11 @@ func getWebSiteServer() {
 
 	for _, webSiteName := range webSiteList {
 		serverUrlList := redisDB.SMembers(context.Background(), webSiteName).Val()
+		fmt.Printf("%s\n", serverUrlList)
+		for index, serverUrl := range serverUrlList {
+			serverUrlList[index] = strings.Replace(serverUrl, "192.168.0.20", "database", 1)
+		}
+		fmt.Printf("%s\n", serverUrlList)
 		grpcServerMap[webSiteName] = serverUrlList
 	}
 	return
