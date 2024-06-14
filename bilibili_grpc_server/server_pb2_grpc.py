@@ -29,10 +29,10 @@ class WebSiteServiceStub(object):
                 request_serializer=server__pb2.userInfo.SerializeToString,
                 response_deserializer=server__pb2.AuthorInfoResponse.FromString,
                 )
-        self.GetUserCollectionList = channel.unary_stream(
+        self.GetUserCollectionList = channel.unary_unary(
                 '/webSiteGRPC.WebSiteService/GetUserCollectionList',
                 request_serializer=server__pb2.collectionInfoRequest.SerializeToString,
-                response_deserializer=server__pb2.collectionInfoResponse.FromString,
+                response_deserializer=server__pb2.collectionInfoRequest.FromString,
                 )
         self.GetVideoDetail = channel.stream_stream(
                 '/webSiteGRPC.WebSiteService/GetVideoDetail',
@@ -114,10 +114,10 @@ def add_WebSiteServiceServicer_to_server(servicer, server):
                     request_deserializer=server__pb2.userInfo.FromString,
                     response_serializer=server__pb2.AuthorInfoResponse.SerializeToString,
             ),
-            'GetUserCollectionList': grpc.unary_stream_rpc_method_handler(
+            'GetUserCollectionList': grpc.unary_unary_rpc_method_handler(
                     servicer.GetUserCollectionList,
                     request_deserializer=server__pb2.collectionInfoRequest.FromString,
-                    response_serializer=server__pb2.collectionInfoResponse.SerializeToString,
+                    response_serializer=server__pb2.collectionInfoRequest.SerializeToString,
             ),
             'GetVideoDetail': grpc.stream_stream_rpc_method_handler(
                     servicer.GetVideoDetail,
@@ -206,9 +206,9 @@ class WebSiteService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(request, target, '/webSiteGRPC.WebSiteService/GetUserCollectionList',
+        return grpc.experimental.unary_unary(request, target, '/webSiteGRPC.WebSiteService/GetUserCollectionList',
             server__pb2.collectionInfoRequest.SerializeToString,
-            server__pb2.collectionInfoResponse.FromString,
+            server__pb2.collectionInfoRequest.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

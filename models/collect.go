@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 	"videoDynamicAcquisition/log"
+	webSiteGRPC "videoDynamicAcquisition/proto"
 )
 
 type Collect struct {
@@ -56,7 +57,7 @@ from (SELECT c.bv_id,
       GROUP BY collect_id) sub
          left join collect_video bv on bv.id = latest_id
          left join video v on v.id = bv.video_id`
-	result := make([]map[string]interface{}, 0)
+	result := make([]webSiteGRPC.CollectionInfo, 0)
 	GormDB.Raw(sql, userId).Scan(&result)
 	return result
 }

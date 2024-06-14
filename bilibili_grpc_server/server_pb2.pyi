@@ -186,24 +186,6 @@ class collectionInfoRequest(_message.Message):
     collection: _containers.RepeatedCompositeFieldContainer[collectionInfo]
     def __init__(self, user: _Optional[_Union[userInfo, _Mapping]] = ..., collection: _Optional[_Iterable[_Union[collectionInfo, _Mapping]]] = ...) -> None: ...
 
-class haveCollectionInfo(_message.Message):
-    __slots__ = ("id", "videoNumber", "getAll")
-    ID_FIELD_NUMBER: _ClassVar[int]
-    VIDEONUMBER_FIELD_NUMBER: _ClassVar[int]
-    GETALL_FIELD_NUMBER: _ClassVar[int]
-    id: int
-    videoNumber: int
-    getAll: bool
-    def __init__(self, id: _Optional[int] = ..., videoNumber: _Optional[int] = ..., getAll: bool = ...) -> None: ...
-
-class UserCollectionListRequest(_message.Message):
-    __slots__ = ("userInfo", "collectionInfo")
-    USERINFO_FIELD_NUMBER: _ClassVar[int]
-    COLLECTIONINFO_FIELD_NUMBER: _ClassVar[int]
-    userInfo: userInfo
-    collectionInfo: _containers.RepeatedCompositeFieldContainer[haveCollectionInfo]
-    def __init__(self, userInfo: _Optional[_Union[userInfo, _Mapping]] = ..., collectionInfo: _Optional[_Iterable[_Union[haveCollectionInfo, _Mapping]]] = ...) -> None: ...
-
 class getVideoListRequest(_message.Message):
     __slots__ = ("userInfo", "videoIdList")
     USERINFO_FIELD_NUMBER: _ClassVar[int]

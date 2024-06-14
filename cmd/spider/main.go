@@ -483,9 +483,31 @@ func getHistory(interface{}) {
 
 // 更新收藏夹列表，喝订阅的合集列表，新创建的同步视频数据
 func updateCollectList(interface{}) {
+	var runWebSite = make([]string, 0)
 	for websiteServerName, server := range grpcServer {
 		for userName, userCookie := range cookies.GetWebSiteUser(websiteServerName) {
-			models.GetUserCollectList(userCookie.GetDBPrimaryKeyId())
+			saveCollectInfo := models.GetUserCollectList(userCookie.GetDBPrimaryKeyId())
+			cookiesMap := userCookie.GetCookiesDictToLowerKey()
+			cookiesMap = checkOutWebSiteCookies(websiteServerName, cookiesMap)
+			cookiesMap["requestUserName"] = userName
+			var collectionList = make([]*webSiteGRPC.CollectionInfo, 0)
+			for _, v := range saveCollectInfo {
+				collectionList = append(collectionList, &webSiteGRPC.CollectionInfo{
+					Name: v["name"],
+				})
+			}
+			go func(websiteServerName, userName string, webSiteId, userId int64, requestBody webSiteGRPC.CollectionInfoRequest) {
+				// 粗暴的设置超时时间为5分钟
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				defer cancel()
+				server.GetUserCollectionList(ctx, &requestBody)
+			}(websiteServerName, userName, userCookie.GetWebSiteId(), userCookie.GetDBPrimaryKeyId(), webSiteGRPC.CollectionInfoRequest{
+				User: &webSiteGRPC.UserInfo{
+					Cookies: cookiesMap,
+				},
+				Collection: make([]*webSiteGRPC.CollectionInfo, 0),
+			})
+			runWebSite = append(runWebSite, fmt.Sprintf("%s-%s", websiteServerName, userName))
 		}
 	}
 }
