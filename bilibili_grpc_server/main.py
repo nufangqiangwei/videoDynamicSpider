@@ -1,6 +1,7 @@
 # todo 生成GRPC接口命令
 # python -m grpc_tools.protoc -I E:\PythonCode\bilibili_grpc_server --python_out=. --pyi_out=. --grpc_python_out=. E:\PythonCode\bilibili_grpc_server\server.proto
 import asyncio
+import json
 import time
 from datetime import datetime
 
@@ -12,13 +13,21 @@ from bilibili_api import Credential, video, hot
 from bilibili_api.favorite_list import get_video_favorite_list, get_favorite_collected
 from bilibili_api.user import User
 
-
 import server_pb2_grpc
 
 from bili import get_self_user_dynamic, get_self_user_view_history
 from collection import get_user_collection, get_user_follow_collection
 
-from server_pb2 import AuthorInfoResponse, videoInfoResponse, classifyInfoResponse, collectionInfoRequest
+from server_pb2 import AuthorInfoResponse, videoInfoResponse, classifyInfoResponse, collectionInfoRequest, \
+    collectionInfo
+
+from google.protobuf.json_format import MessageToDict
+from google.protobuf import message
+
+
+def grpc_object_to_json(obj):
+    if isinstance(obj, message.Message):
+        return MessageToDict(obj)
 
 
 class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
@@ -29,7 +38,7 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
         dedeuserid = request.cookies.get('dedeuserid')
         ac_time_value = request.cookies.get('ac_time_value')
         request_user_name = request.cookies.get('requestUserName', '')
-
+        
         client_ip = context.peer()
         start_time = time.time()
         if not all([sessdata, bili_jct, buvid3, dedeuserid]):
@@ -40,7 +49,7 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
                 webSiteName="bilibili",
             )
             return
-
+        
         yield_response = get_self_user_dynamic(
             sessdata=sessdata,
             bili_jct=bili_jct,
@@ -59,7 +68,7 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
                 errorMsg="获取动态失败",
             )
             return
-
+        
         yield videoInfoResponse(
             errorCode=200,
             errorMsg='获取动态完毕',
@@ -67,7 +76,7 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
             webSiteName="bilibili",
         )
         end_time = time.time()
-
+    
     async def GetUserViewHistory(self, request, context):
         client_ip = context.peer()
         start_time = time.time()
@@ -77,7 +86,7 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
         dedeuserid = request.cookies.get('dedeuserid')
         ac_time_value = request.cookies.get('ac_time_value')
         request_user_name = request.cookies.get('requestUserName', '')
-
+        
         if not all([sessdata, bili_jct, buvid3, dedeuserid]):
             yield videoInfoResponse(
                 errorCode=500,
@@ -86,7 +95,7 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
                 webSiteName="bilibili",
             )
             return
-
+        
         yield_response = get_self_user_view_history(
             sessdata,
             bili_jct,
@@ -106,7 +115,7 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
         end_time = time.time()
         print(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {client_ip} 获取历史记录完毕，使用{request_user_name}用户,时间参数是{request.lastHistoryTime}，耗时{int(end_time - start_time)}。")
-
+    
     async def GetSelfInfo(self, request, context):
         client_ip = context.peer()
         credential = Credential(
@@ -127,7 +136,7 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
             desc=user_info.get('sign', ''),
             followNumber=user_info.get('following', 0),
         )
-
+    
     async def GetVideoList(self, request, context):
         client_ip = context.peer()
         credential = None
@@ -139,15 +148,15 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
                 dedeuserid=request.userInfo.cookies.get('dedeuserid'),
                 ac_time_value=request.userInfo.cookies.get('ac_time_value'),
             )
-
+        
         for wait_video in request.videoIdList:
             yield await self.get_video_list(credential, wait_video)
         print(
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {client_ip} 按列表获取视频信息完毕，使用{request.cookies.get('requestUserName')}用户")
-
+    
     async def GetHotVideoList(self, request, context):
         await hot.get_hot_videos()
-
+    
     @classmethod
     async def get_video_list(cls, credential, bvid):
         video_obj = video.Video(credential=credential, bvid=bvid)
@@ -195,7 +204,7 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
             author_info_response.followNumber = video_info.get('Card').get('card').get('fans')
             author_info_response.desc = video_info.get('Card').get('card').get('sign')
         return video_info_response
-
+    
     async def GetUserFollowList(self, request, context):
         sessdata = request.cookies.get("sessdata")
         bili_jct = request.cookies.get('bili_jct')
@@ -203,7 +212,7 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
         dedeuserid = request.cookies.get('dedeuserid')
         ac_time_value = request.cookies.get('ac_time_value')
         request_user_name = request.cookies.get('requestUserName', '')
-
+        
         client_ip = context.peer()
         start_time = time.time()
         if not all([sessdata, bili_jct, buvid3, dedeuserid]):
@@ -212,7 +221,8 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
                 errorMsg="缺少用户信息",
             )
             return
-
+        print(
+            f'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")} {client_ip} 获取用户关注列表完毕，使用{request_user_name}用户')
         credential = Credential(
             sessdata=sessdata,
             bili_jct=bili_jct,
@@ -227,6 +237,7 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
             follow_info = await user.get_followings(page, size, False)
             total = follow_info.get('total')
             for author in follow_info.get('list'):
+                print(f"{author.get('uname')}")
                 yield AuthorInfoResponse(
                     name=author.get('uname'),
                     avatar=author.get('face'),
@@ -237,7 +248,8 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
             if page * size >= total:
                 break
             page += 1
-
+            await asyncio.sleep(0.5)
+        
         end_time = time.time()
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         print(f"{now} {client_ip} 获取{request_user_name}用户关注列表耗时 {end_time - start_time} 秒")
@@ -245,66 +257,82 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
             errorCode=200,
             errorMsg="success",
         )
-
+    
     async def GetUserCollectionList(self, request, context):
         sessdata = request.user.cookies.get("sessdata")
         bili_jct = request.user.cookies.get('bili_jct')
         buvid3 = request.user.cookies.get('buvid3')
         dedeuserid = request.user.cookies.get('dedeuserid')
-        ac_time_value = request.user.cookies.get('ac_time_value')
         request_user_name = request.user.cookies.get('requestUserName', '')
-
-        db_collection_list = request.collection
-
+        
         client_ip = context.peer()
         start_time = time.time()
+        error_response = collectionInfo(
+            errorCode=500,
+            errorMsg="缺少用户信息",
+            requestUserName=request_user_name,
+            webSiteName="bilibili",
+        )
+        
         if not all([sessdata, bili_jct, buvid3, dedeuserid]):
-            yield videoInfoResponse(
-                errorCode=500,
-                errorMsg="缺少用户信息",
-                requestUserName=request_user_name,
-                webSiteName="bilibili",
-            )
+            yield error_response
+            return
         credential = Credential(
             sessdata=sessdata,
             bili_jct=bili_jct,
             buvid3=buvid3,
             dedeuserid=dedeuserid,
-            ac_time_value=ac_time_value,
         )
-        response = collectionInfoRequest(
-            user=request.user,
-        )
+        
         # 获取用户创建的收藏夹列表
-        remote_collection_list = await get_video_favorite_list(dedeuserid, credential=credential)
+        try:
+            remote_collection_list = await get_video_favorite_list(dedeuserid, credential=credential)
+        except Exception as e:
+            error_response.errorMsg = str(e)
+            yield error_response
+            return
+        await_get_folder_list = []
         for remote_collect in remote_collection_list.get('list', []):
-            local_collect = None
-            for db_collection in db_collection_list:
-                if db_collection.collectionId == str(remote_collect.get('id')):
-                    local_collect = db_collection
-                    break
-            response.collection.append(await get_user_collection(remote_collect.get('id'), credential, local_collect is None))
-
-
+            await_get_folder_list.append(remote_collect.get('id'))
+        
         # 获取关注的合集列表信息
         page = 1
         result = []
+        folder_request = 0
         while True:
-            data = await get_favorite_collected(dedeuserid, pn=page, credential=credential)
+            try:
+                data = await get_favorite_collected(dedeuserid, pn=page, credential=credential)
+            except Exception as e:
+                error_response.errorMsg = str(e)
+                yield error_response
+                return
             page += 1
             result.extend(data.get('list', []))
             for remote_season in data.get('list', []):
-                result.append(await get_user_follow_collection(remote_season.get('id'), credential))
+                if folder_request < len(await_get_folder_list):
+                    yield await get_user_collection(await_get_folder_list[folder_request], credential)
+                    await asyncio.sleep(1)
+                    folder_request += 1
+                yield await get_user_follow_collection(remote_season.get('id'), credential)
             if not data.get('has_more'):
                 break
-        yield response
-
+            await asyncio.sleep(0.5)
+        while folder_request < len(await_get_folder_list):
+            yield await get_user_collection(await_get_folder_list[folder_request], credential)
+            folder_request += 1
+            await asyncio.sleep(2)
+        error_response.errorCode = 200
+        error_response.errorMsg = "success"
+        end_time = time.time()
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(f"{now} {client_ip} 获取{request_user_name}用户收藏列表耗时 {end_time - start_time} 秒")
+        yield error_response
 
 
 def create_server():
     server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers=10))
     server_pb2_grpc.add_WebSiteServiceServicer_to_server(BilibiliServiceServicer(), server)
-    server.add_insecure_port("[::]:50051")
+    server.add_insecure_port("[::]:50050")
     return server
 
 

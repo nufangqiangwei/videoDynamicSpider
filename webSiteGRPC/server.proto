@@ -31,6 +31,7 @@ message videoInfoResponse{
   repeated AuthorInfoResponse authors = 20;
   viewInfoResponse viewInfo = 21;
   string webSiteName = 22;
+  bool IsInvalid= 24; // 是否失效
   int32 errorCode = 50;
   string errorMsg = 51;
   string requestUserName = 52;
@@ -78,13 +79,22 @@ message collectionInfoResponse{
 
 message collectionInfo{
   string collectionType = 1; // folder 个人收藏夹  2 订阅他人的收藏夹
-  string collectionId = 2; // 网站的收藏夹id
+  int64 collectionId = 2; // 网站的收藏夹id
   int64 collectionVideoCount = 3; // 收藏夹的视频数量
   int64 lastAppendTime = 4; // 最后一次添加视频的时间
   string name = 5; // 收藏夹名称
   string upperName = 6; // 收藏夹创建者
   string upperUid = 7; // 收藏夹创建者uid
   repeated videoInfoResponse video = 20;
+  int64 videoNumber = 21;
+
+  // 请求信息
+  string webSiteName = 49;
+  int32 errorCode = 50;
+  string errorMsg = 51;
+  string requestUserName = 52;
+  int64 requestUserId = 53;
+  int64 webSiteId = 54;
 }
 
 
@@ -102,7 +112,7 @@ service WebSiteService {
   rpc GetUserFollowUpdate(userInfo) returns (stream  videoInfoResponse);
   rpc GetUserViewHistory(userInfo) returns (stream  videoInfoResponse);
   rpc GetUserFollowList(userInfo) returns (stream AuthorInfoResponse);
-  rpc GetUserCollectionList(collectionInfoRequest) returns (collectionInfoRequest);
+  rpc GetUserCollectionList(collectionInfoRequest) returns (stream collectionInfo);
   rpc GetVideoDetail(stream getVideoListRequest) returns (stream  videoInfoResponse);
   rpc GetHotVideoList(getVideoListRequest) returns (stream  videoInfoResponse);
   rpc GetSelfInfo(userInfo) returns (AuthorInfoResponse);

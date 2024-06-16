@@ -4,7 +4,6 @@ import (
 	"strings"
 	"time"
 	"videoDynamicAcquisition/log"
-	webSiteGRPC "videoDynamicAcquisition/proto"
 )
 
 type Collect struct {
@@ -13,6 +12,7 @@ type Collect struct {
 	Type      int            `json:"type"`                 // 1: 收藏夹 2: 专栏
 	BvId      int64          `json:"bv_id"`                // 收藏夹的bv号
 	Name      string         `json:"name" gorm:"size:255"` // 收藏夹的名字
+	IsInvalid bool           `json:"is_invalid" gorm:"index:is_invalid"`
 	VideoInfo []CollectVideo `gorm:"foreignKey:CollectId;references:Id"`
 }
 type CollectVideo struct {
@@ -47,17 +47,26 @@ func (ci CollectVideo) Save() {
 	}
 }
 
-func GetUserCollectList(userId int64) []map[string]interface{} {
+type UserCollectInfo struct {
+	BvId       int64
+	VideoCount int64
+	VideoId    int64
+	Title      string
+	VideoUuid  string
+}
+
+func GetUserCollectList(userId int64) []UserCollectInfo {
 	sql := `select sub.bv_id, sub.video_count, bv.video_id, v.title, v.uuid
 from (SELECT c.bv_id,
              COUNT(*)   AS video_count,
              MAX(cv.id) AS latest_id
       FROM collect_video cv
                inner join collect c on c.id = cv.collect_id and c.author_id = ?
+      where c.is_invalid=false
       GROUP BY collect_id) sub
          left join collect_video bv on bv.id = latest_id
          left join video v on v.id = bv.video_id`
-	result := make([]webSiteGRPC.CollectionInfo, 0)
+	result := make([]UserCollectInfo, 0)
 	GormDB.Raw(sql, userId).Scan(&result)
 	return result
 }

@@ -194,14 +194,15 @@ func main() {
 	if err != nil {
 		return
 	}
-	//_, err = wheel.AppendOnceFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twelveTicket + 120})
-	//if err != nil {
-	//	return
-	//}
-	//_, err = wheel.AppendOnceFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twelveTicket})
-	//if err != nil {
-	//	return
-	//}
+	_, err = wheel.AppendCycleFunc(updateFollowInfo, nil, "updateFollowInfoSpider", timeWheel.Crontab{ExpiredTime: twentyTime})
+	if err != nil {
+		return
+	}
+	_, err = wheel.AppendCycleFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twentyTime + rand.Int63n(100)*50})
+	if err != nil {
+		return
+	}
+
 	go func() {
 		time.Sleep(time.Minute)
 		getHistory(nil)
@@ -368,6 +369,10 @@ func getHistory(interface{}) {
 		historyResult chan *webSiteGRPC.VideoInfoResponse
 		runWebSite    = make([]string, 0)
 	)
+	if len(grpcServer) == 0 {
+		println("没有可用的GRPC服务")
+		return
+	}
 	historyResult = make(chan *webSiteGRPC.VideoInfoResponse, 50)
 	for websiteServerName, server := range grpcServer {
 		for userName, userCookie := range cookies.GetWebSiteUser(websiteServerName) {
@@ -484,30 +489,86 @@ func getHistory(interface{}) {
 // 更新收藏夹列表，喝订阅的合集列表，新创建的同步视频数据
 func updateCollectList(interface{}) {
 	var runWebSite = make([]string, 0)
+	historyResult := make(chan *webSiteGRPC.CollectionInfo, 50)
 	for websiteServerName, server := range grpcServer {
 		for userName, userCookie := range cookies.GetWebSiteUser(websiteServerName) {
-			saveCollectInfo := models.GetUserCollectList(userCookie.GetDBPrimaryKeyId())
 			cookiesMap := userCookie.GetCookiesDictToLowerKey()
 			cookiesMap = checkOutWebSiteCookies(websiteServerName, cookiesMap)
 			cookiesMap["requestUserName"] = userName
-			var collectionList = make([]*webSiteGRPC.CollectionInfo, 0)
-			for _, v := range saveCollectInfo {
-				collectionList = append(collectionList, &webSiteGRPC.CollectionInfo{
-					Name: v["name"],
-				})
-			}
-			go func(websiteServerName, userName string, webSiteId, userId int64, requestBody webSiteGRPC.CollectionInfoRequest) {
+			go func(websiteServerName, userName string, webSiteId, userId int64, cookieMap map[string]string) {
 				// 粗暴的设置超时时间为5分钟
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 				defer cancel()
-				server.GetUserCollectionList(ctx, &requestBody)
-			}(websiteServerName, userName, userCookie.GetWebSiteId(), userCookie.GetDBPrimaryKeyId(), webSiteGRPC.CollectionInfoRequest{
-				User: &webSiteGRPC.UserInfo{
-					Cookies: cookiesMap,
-				},
-				Collection: make([]*webSiteGRPC.CollectionInfo, 0),
-			})
+				res, err := server.GetUserCollectionList(ctx, &webSiteGRPC.CollectionInfoRequest{
+					User: &webSiteGRPC.UserInfo{
+						Cookies: cookieMap,
+					},
+				})
+				if err != nil {
+					log.ErrorLog.Printf("GRPC服务端%s获取收藏夹信息失败:%s\n", userName, err.Error())
+					historyResult <- &webSiteGRPC.CollectionInfo{
+						ErrorCode:       500,
+						ErrorMsg:        err.Error(),
+						WebSiteName:     websiteServerName,
+						RequestUserName: userName,
+						WebSiteId:       webSiteId,
+						RequestUserId:   userId,
+					}
+					return
+				}
+				for {
+					vvi, err := res.Recv()
+					if err == io.EOF {
+						return
+					}
+					if err != nil {
+						log.ErrorLog.Printf("GRPC服务端%s获取收藏夹信息流通道错误:%s\n", userName, err.Error())
+						vvi = &webSiteGRPC.CollectionInfo{
+							ErrorCode:       500,
+							ErrorMsg:        err.Error(),
+							WebSiteName:     websiteServerName,
+							RequestUserName: userName,
+							WebSiteId:       webSiteId,
+							RequestUserId:   userId,
+						}
+					}
+					vvi.WebSiteName = websiteServerName
+					vvi.RequestUserName = userName
+					vvi.WebSiteId = webSiteId
+					vvi.RequestUserId = userId
+
+					historyResult <- vvi
+					if vvi.ErrorCode != 0 && vvi.ErrorCode != -404 {
+						if vvi.ErrorCode != 200 {
+							log.ErrorLog.Printf("%s获取收藏夹信息错误:%s\n", userName, vvi.ErrorMsg)
+						}
+						break
+					}
+				}
+			}(websiteServerName, userName, userCookie.GetWebSiteId(), userCookie.GetDBPrimaryKeyId(), cookiesMap)
 			runWebSite = append(runWebSite, fmt.Sprintf("%s-%s", websiteServerName, userName))
+			time.Sleep(time.Second)
+		}
+	}
+
+	for vi := range historyResult {
+		if vi.ErrorCode == 0 {
+			handleUserCollectList(vi)
+		} else {
+			if vi.ErrorCode == -404 {
+				models.GormDB.Exec(`update collect set is_invalid = true where bv_id = ?`, vi.CollectionId)
+				continue
+			}
+			userInfo := fmt.Sprintf("%s-%s", vi.WebSiteName, vi.RequestUserName)
+			for index, v := range runWebSite {
+				if v == userInfo {
+					runWebSite = append(runWebSite[:index], runWebSite[index+1:]...)
+					break
+				}
+			}
+			if len(runWebSite) == 0 {
+				break
+			}
 		}
 	}
 }
@@ -517,14 +578,7 @@ func updateCollectVideoList(interface{}) {
 	defer func() {
 		panicErr := recover()
 		if panicErr != nil {
-			_, ok := panicErr.(utils.DBFileLock)
-			if ok {
-				_, err := wheel.AppendOnceFunc(updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(twelveTicket, sixTime, twentyTime)})
-				if err != nil {
-					log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-				}
-				return
-			}
+			log.ErrorLog.Printf("%s", panicErr)
 			panic(panicErr)
 		}
 	}()
@@ -590,16 +644,6 @@ func updateCollectVideoList(interface{}) {
 		}
 	}
 
-	_, err := wheel.AppendOnceFunc(updateCollectVideoList, nil, "updateCollectVideoSpider", timeWheel.Crontab{ExpiredTime: arrangeRunTime(twelveTicket, sixTime, twentyTime)})
-	if err != nil {
-		log.ErrorLog.Printf("添加下次运行任务失败：%s\n", err.Error())
-		return
-	}
-}
-
-// 获取稍后观看列表信息
-func getWatchLaterList(interface{}) {
-
 }
 
 // 同步关注信息
@@ -608,9 +652,17 @@ func updateFollowInfo(interface{}) {
 		authorInfoResult chan *webSiteGRPC.AuthorInfoResponse
 		runWebSite       = make([]string, 0)
 	)
-
+	authorInfoResult = make(chan *webSiteGRPC.AuthorInfoResponse)
+	println("开始同步关注信息")
+	fmt.Printf("%v\n", grpcServer)
+	if len(grpcServer) == 0 {
+		println("没有可用的GRPC服务")
+		return
+	}
 	for websiteServerName, server := range grpcServer {
+		println(websiteServerName)
 		for userName, userCookie := range cookies.GetWebSiteUser(websiteServerName) {
+			println(userName)
 			cookiesMap := userCookie.GetCookiesDictToLowerKey()
 			cookiesMap = checkOutWebSiteCookies(websiteServerName, cookiesMap)
 			go func(websiteServerName, userName string, webSiteId, userId int64, cookieMap map[string]string) {
@@ -660,7 +712,7 @@ func updateFollowInfo(interface{}) {
 		}
 	}
 
-	var grpcResult map[int64][]*webSiteGRPC.AuthorInfoResponse
+	var grpcResult = make(map[int64][]*webSiteGRPC.AuthorInfoResponse)
 	for authorInfo := range authorInfoResult {
 		if authorInfo.ErrorCode == 0 {
 			_, ok := grpcResult[authorInfo.RequestUserId]
@@ -670,6 +722,7 @@ func updateFollowInfo(interface{}) {
 			grpcResult[authorInfo.RequestUserId] = append(grpcResult[authorInfo.RequestUserId], authorInfo)
 		} else {
 			userInfo := fmt.Sprintf("%s-%s", authorInfo.WebSiteName, authorInfo.RequestUserName)
+			fmt.Printf("%d %s %s\n", authorInfo.ErrorCode, authorInfo.ErrorMsg, userInfo)
 			for index, v := range runWebSite {
 				if v == userInfo {
 					runWebSite = append(runWebSite[:index], runWebSite[index+1:]...)
@@ -686,17 +739,17 @@ func updateFollowInfo(interface{}) {
 	for userId, authorInfo := range grpcResult {
 		userFollow := models.GetUserFollowList(userId)
 		// 根据 webSiteGRPC.AuthorInfoResponse.Uid，models.FollowRelation.AuthorWebUid 找出authorInfo，userFollow两个列表的差集
-		newAuthorUid := []string{}
+		newAuthorUid := make([]string, 0)
 		for _, i := range authorInfo {
 			newAuthorUid = append(newAuthorUid, i.Uid)
 		}
-		oldAuthorUid := []string{}
+		oldAuthorUid := make([]string, 0)
 		for _, i := range userFollow {
 			oldAuthorUid = append(oldAuthorUid, i.AuthorWebUid)
 		}
 		// 删除的关注作者
 		for _, delAuthor := range utils.ArrayDifference(oldAuthorUid, newAuthorUid) {
-			models.DeleteAuthorByUid(userId, delAuthor)
+			models.DeleteAuthorFollowByUid(userId, delAuthor)
 		}
 		// 新增的关注作者
 		for _, addAuthor := range utils.ArrayDifference(newAuthorUid, oldAuthorUid) {
@@ -727,10 +780,9 @@ func updateFollowInfo(interface{}) {
 				AuthorId:   author.Id,
 				UserId:     userId,
 				FollowTime: &followTime,
-				Deteled:    true,
+				Deteled:    false,
 			})
 		}
-
 	}
 
 }

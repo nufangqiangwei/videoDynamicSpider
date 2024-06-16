@@ -160,13 +160,8 @@ func GetAuthorByUserName(WebSiteName, userName string) (Author, error) {
 	return a, nil
 }
 
-func DeleteAuthor(userId, authorId int64) error {
-	return GormDB.Table("follow").Where("user_id = ? and author_id = ?", userId, authorId).Update("deteled", true).Error
-}
-func DeleteAuthorByUid(userId int64, authorWebUid string) error {
-	return GormDB.Table("follow").Where("user_id = ? and author_web_uid = ?", userId, authorWebUid).Joins(
-		"inner join author on author.id=follow.author_id",
-	).Update("deteled", true).Error
+func DeleteAuthorFollowByUid(userId int64, authorWebUid string) error {
+	return GormDB.Table("follow").Where("user_id = ? and author_id = (select id from author where author_web_uid = ?)", userId, authorWebUid).Update("deteled", true).Error
 }
 
 type AuthorNotExist struct {
