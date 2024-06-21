@@ -29,15 +29,10 @@ class WebSiteServiceStub(object):
                 request_serializer=server__pb2.userInfo.SerializeToString,
                 response_deserializer=server__pb2.AuthorInfoResponse.FromString,
                 )
-        self.GetUserCollectionList = channel.unary_unary(
+        self.GetUserCollectionList = channel.unary_stream(
                 '/webSiteGRPC.WebSiteService/GetUserCollectionList',
                 request_serializer=server__pb2.collectionInfoRequest.SerializeToString,
-                response_deserializer=server__pb2.collectionInfoRequest.FromString,
-                )
-        self.GetVideoDetail = channel.stream_stream(
-                '/webSiteGRPC.WebSiteService/GetVideoDetail',
-                request_serializer=server__pb2.getVideoListRequest.SerializeToString,
-                response_deserializer=server__pb2.videoInfoResponse.FromString,
+                response_deserializer=server__pb2.collectionInfo.FromString,
                 )
         self.GetHotVideoList = channel.unary_stream(
                 '/webSiteGRPC.WebSiteService/GetHotVideoList',
@@ -48,6 +43,16 @@ class WebSiteServiceStub(object):
                 '/webSiteGRPC.WebSiteService/GetSelfInfo',
                 request_serializer=server__pb2.userInfo.SerializeToString,
                 response_deserializer=server__pb2.AuthorInfoResponse.FromString,
+                )
+        self.GetWaitWatchList = channel.unary_unary(
+                '/webSiteGRPC.WebSiteService/GetWaitWatchList',
+                request_serializer=server__pb2.userInfo.SerializeToString,
+                response_deserializer=server__pb2.collectionInfo.FromString,
+                )
+        self.GetVideoDetail = channel.stream_stream(
+                '/webSiteGRPC.WebSiteService/GetVideoDetail',
+                request_serializer=server__pb2.getVideoListRequest.SerializeToString,
+                response_deserializer=server__pb2.VideoDetailResponse.FromString,
                 )
 
 
@@ -78,12 +83,6 @@ class WebSiteServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetVideoDetail(self, request_iterator, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def GetHotVideoList(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -92,6 +91,19 @@ class WebSiteServiceServicer(object):
 
     def GetSelfInfo(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetWaitWatchList(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetVideoDetail(self, request_iterator, context):
+        """获取基础信息。以下接口全部使用代理发送请求
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -114,15 +126,10 @@ def add_WebSiteServiceServicer_to_server(servicer, server):
                     request_deserializer=server__pb2.userInfo.FromString,
                     response_serializer=server__pb2.AuthorInfoResponse.SerializeToString,
             ),
-            'GetUserCollectionList': grpc.unary_unary_rpc_method_handler(
+            'GetUserCollectionList': grpc.unary_stream_rpc_method_handler(
                     servicer.GetUserCollectionList,
                     request_deserializer=server__pb2.collectionInfoRequest.FromString,
-                    response_serializer=server__pb2.collectionInfoRequest.SerializeToString,
-            ),
-            'GetVideoDetail': grpc.stream_stream_rpc_method_handler(
-                    servicer.GetVideoDetail,
-                    request_deserializer=server__pb2.getVideoListRequest.FromString,
-                    response_serializer=server__pb2.videoInfoResponse.SerializeToString,
+                    response_serializer=server__pb2.collectionInfo.SerializeToString,
             ),
             'GetHotVideoList': grpc.unary_stream_rpc_method_handler(
                     servicer.GetHotVideoList,
@@ -133,6 +140,16 @@ def add_WebSiteServiceServicer_to_server(servicer, server):
                     servicer.GetSelfInfo,
                     request_deserializer=server__pb2.userInfo.FromString,
                     response_serializer=server__pb2.AuthorInfoResponse.SerializeToString,
+            ),
+            'GetWaitWatchList': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetWaitWatchList,
+                    request_deserializer=server__pb2.userInfo.FromString,
+                    response_serializer=server__pb2.collectionInfo.SerializeToString,
+            ),
+            'GetVideoDetail': grpc.stream_stream_rpc_method_handler(
+                    servicer.GetVideoDetail,
+                    request_deserializer=server__pb2.getVideoListRequest.FromString,
+                    response_serializer=server__pb2.VideoDetailResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -206,26 +223,9 @@ class WebSiteService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/webSiteGRPC.WebSiteService/GetUserCollectionList',
+        return grpc.experimental.unary_stream(request, target, '/webSiteGRPC.WebSiteService/GetUserCollectionList',
             server__pb2.collectionInfoRequest.SerializeToString,
-            server__pb2.collectionInfoRequest.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def GetVideoDetail(request_iterator,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.stream_stream(request_iterator, target, '/webSiteGRPC.WebSiteService/GetVideoDetail',
-            server__pb2.getVideoListRequest.SerializeToString,
-            server__pb2.videoInfoResponse.FromString,
+            server__pb2.collectionInfo.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -260,5 +260,39 @@ class WebSiteService(object):
         return grpc.experimental.unary_unary(request, target, '/webSiteGRPC.WebSiteService/GetSelfInfo',
             server__pb2.userInfo.SerializeToString,
             server__pb2.AuthorInfoResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetWaitWatchList(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/webSiteGRPC.WebSiteService/GetWaitWatchList',
+            server__pb2.userInfo.SerializeToString,
+            server__pb2.collectionInfo.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetVideoDetail(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_stream(request_iterator, target, '/webSiteGRPC.WebSiteService/GetVideoDetail',
+            server__pb2.getVideoListRequest.SerializeToString,
+            server__pb2.VideoDetailResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

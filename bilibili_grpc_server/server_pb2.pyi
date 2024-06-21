@@ -23,7 +23,7 @@ class userInfo(_message.Message):
     def __init__(self, cookies: _Optional[_Mapping[str, str]] = ..., lastHistoryTime: _Optional[str] = ..., lastUpdateTime: _Optional[str] = ...) -> None: ...
 
 class videoInfoResponse(_message.Message):
-    __slots__ = ("title", "desc", "cover", "uid", "duration", "updateTime", "collectTime", "tags", "classify", "viewNumber", "danmaku", "reply", "favorite", "coin", "share", "nowRank", "hisRank", "like", "dislike", "evaluation", "authors", "viewInfo", "webSiteName", "errorCode", "errorMsg", "requestUserName", "requestUserId", "webSiteId")
+    __slots__ = ("title", "desc", "cover", "uid", "duration", "updateTime", "collectTime", "tags", "classify", "viewNumber", "danmaku", "reply", "favorite", "coin", "share", "nowRank", "hisRank", "like", "dislike", "evaluation", "authors", "viewInfo", "webSiteName", "IsInvalid", "errorCode", "errorMsg", "requestUserName", "requestUserId", "webSiteId")
     TITLE_FIELD_NUMBER: _ClassVar[int]
     DESC_FIELD_NUMBER: _ClassVar[int]
     COVER_FIELD_NUMBER: _ClassVar[int]
@@ -47,6 +47,7 @@ class videoInfoResponse(_message.Message):
     AUTHORS_FIELD_NUMBER: _ClassVar[int]
     VIEWINFO_FIELD_NUMBER: _ClassVar[int]
     WEBSITENAME_FIELD_NUMBER: _ClassVar[int]
+    ISINVALID_FIELD_NUMBER: _ClassVar[int]
     ERRORCODE_FIELD_NUMBER: _ClassVar[int]
     ERRORMSG_FIELD_NUMBER: _ClassVar[int]
     REQUESTUSERNAME_FIELD_NUMBER: _ClassVar[int]
@@ -75,12 +76,13 @@ class videoInfoResponse(_message.Message):
     authors: _containers.RepeatedCompositeFieldContainer[AuthorInfoResponse]
     viewInfo: viewInfoResponse
     webSiteName: str
+    IsInvalid: bool
     errorCode: int
     errorMsg: str
     requestUserName: str
     requestUserId: int
     webSiteId: int
-    def __init__(self, title: _Optional[str] = ..., desc: _Optional[str] = ..., cover: _Optional[str] = ..., uid: _Optional[str] = ..., duration: _Optional[int] = ..., updateTime: _Optional[int] = ..., collectTime: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[tagInfoResponse, _Mapping]]] = ..., classify: _Optional[_Iterable[_Union[classifyInfoResponse, _Mapping]]] = ..., viewNumber: _Optional[int] = ..., danmaku: _Optional[int] = ..., reply: _Optional[int] = ..., favorite: _Optional[int] = ..., coin: _Optional[int] = ..., share: _Optional[int] = ..., nowRank: _Optional[int] = ..., hisRank: _Optional[int] = ..., like: _Optional[int] = ..., dislike: _Optional[int] = ..., evaluation: _Optional[str] = ..., authors: _Optional[_Iterable[_Union[AuthorInfoResponse, _Mapping]]] = ..., viewInfo: _Optional[_Union[viewInfoResponse, _Mapping]] = ..., webSiteName: _Optional[str] = ..., errorCode: _Optional[int] = ..., errorMsg: _Optional[str] = ..., requestUserName: _Optional[str] = ..., requestUserId: _Optional[int] = ..., webSiteId: _Optional[int] = ...) -> None: ...
+    def __init__(self, title: _Optional[str] = ..., desc: _Optional[str] = ..., cover: _Optional[str] = ..., uid: _Optional[str] = ..., duration: _Optional[int] = ..., updateTime: _Optional[int] = ..., collectTime: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[tagInfoResponse, _Mapping]]] = ..., classify: _Optional[_Iterable[_Union[classifyInfoResponse, _Mapping]]] = ..., viewNumber: _Optional[int] = ..., danmaku: _Optional[int] = ..., reply: _Optional[int] = ..., favorite: _Optional[int] = ..., coin: _Optional[int] = ..., share: _Optional[int] = ..., nowRank: _Optional[int] = ..., hisRank: _Optional[int] = ..., like: _Optional[int] = ..., dislike: _Optional[int] = ..., evaluation: _Optional[str] = ..., authors: _Optional[_Iterable[_Union[AuthorInfoResponse, _Mapping]]] = ..., viewInfo: _Optional[_Union[viewInfoResponse, _Mapping]] = ..., webSiteName: _Optional[str] = ..., IsInvalid: bool = ..., errorCode: _Optional[int] = ..., errorMsg: _Optional[str] = ..., requestUserName: _Optional[str] = ..., requestUserId: _Optional[int] = ..., webSiteId: _Optional[int] = ...) -> None: ...
 
 class AuthorInfoResponse(_message.Message):
     __slots__ = ("author", "name", "avatar", "desc", "uid", "followNumber", "followTime", "webSiteName", "errorCode", "errorMsg", "requestUserName", "requestUserId", "webSiteId")
@@ -113,16 +115,18 @@ class AuthorInfoResponse(_message.Message):
     def __init__(self, author: _Optional[str] = ..., name: _Optional[str] = ..., avatar: _Optional[str] = ..., desc: _Optional[str] = ..., uid: _Optional[str] = ..., followNumber: _Optional[int] = ..., followTime: _Optional[int] = ..., webSiteName: _Optional[str] = ..., errorCode: _Optional[int] = ..., errorMsg: _Optional[str] = ..., requestUserName: _Optional[str] = ..., requestUserId: _Optional[int] = ..., webSiteId: _Optional[int] = ...) -> None: ...
 
 class tagInfoResponse(_message.Message):
-    __slots__ = ("name", "id", "errorCode", "errorMsg")
+    __slots__ = ("name", "id", "tagType", "errorCode", "errorMsg")
     NAME_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
+    TAGTYPE_FIELD_NUMBER: _ClassVar[int]
     ERRORCODE_FIELD_NUMBER: _ClassVar[int]
     ERRORMSG_FIELD_NUMBER: _ClassVar[int]
     name: str
     id: int
+    tagType: int
     errorCode: int
     errorMsg: str
-    def __init__(self, name: _Optional[str] = ..., id: _Optional[int] = ..., errorCode: _Optional[int] = ..., errorMsg: _Optional[str] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., id: _Optional[int] = ..., tagType: _Optional[int] = ..., errorCode: _Optional[int] = ..., errorMsg: _Optional[str] = ...) -> None: ...
 
 class classifyInfoResponse(_message.Message):
     __slots__ = ("name", "id")
@@ -159,7 +163,7 @@ class collectionInfoResponse(_message.Message):
     def __init__(self, name: _Optional[str] = ..., uid: _Optional[str] = ..., author: _Optional[_Union[AuthorInfoResponse, _Mapping]] = ..., creatTime: _Optional[int] = ..., appendTime: _Optional[int] = ..., errorCode: _Optional[int] = ..., errorMsg: _Optional[str] = ...) -> None: ...
 
 class collectionInfo(_message.Message):
-    __slots__ = ("collectionType", "collectionId", "collectionVideoCount", "lastAppendTime", "name", "upperName", "upperUid", "video")
+    __slots__ = ("collectionType", "collectionId", "collectionVideoCount", "lastAppendTime", "name", "upperName", "upperUid", "video", "videoNumber", "webSiteName", "errorCode", "errorMsg", "requestUserName", "requestUserId", "webSiteId")
     COLLECTIONTYPE_FIELD_NUMBER: _ClassVar[int]
     COLLECTIONID_FIELD_NUMBER: _ClassVar[int]
     COLLECTIONVIDEOCOUNT_FIELD_NUMBER: _ClassVar[int]
@@ -168,15 +172,29 @@ class collectionInfo(_message.Message):
     UPPERNAME_FIELD_NUMBER: _ClassVar[int]
     UPPERUID_FIELD_NUMBER: _ClassVar[int]
     VIDEO_FIELD_NUMBER: _ClassVar[int]
+    VIDEONUMBER_FIELD_NUMBER: _ClassVar[int]
+    WEBSITENAME_FIELD_NUMBER: _ClassVar[int]
+    ERRORCODE_FIELD_NUMBER: _ClassVar[int]
+    ERRORMSG_FIELD_NUMBER: _ClassVar[int]
+    REQUESTUSERNAME_FIELD_NUMBER: _ClassVar[int]
+    REQUESTUSERID_FIELD_NUMBER: _ClassVar[int]
+    WEBSITEID_FIELD_NUMBER: _ClassVar[int]
     collectionType: str
-    collectionId: str
+    collectionId: int
     collectionVideoCount: int
     lastAppendTime: int
     name: str
     upperName: str
     upperUid: str
     video: _containers.RepeatedCompositeFieldContainer[videoInfoResponse]
-    def __init__(self, collectionType: _Optional[str] = ..., collectionId: _Optional[str] = ..., collectionVideoCount: _Optional[int] = ..., lastAppendTime: _Optional[int] = ..., name: _Optional[str] = ..., upperName: _Optional[str] = ..., upperUid: _Optional[str] = ..., video: _Optional[_Iterable[_Union[videoInfoResponse, _Mapping]]] = ...) -> None: ...
+    videoNumber: int
+    webSiteName: str
+    errorCode: int
+    errorMsg: str
+    requestUserName: str
+    requestUserId: int
+    webSiteId: int
+    def __init__(self, collectionType: _Optional[str] = ..., collectionId: _Optional[int] = ..., collectionVideoCount: _Optional[int] = ..., lastAppendTime: _Optional[int] = ..., name: _Optional[str] = ..., upperName: _Optional[str] = ..., upperUid: _Optional[str] = ..., video: _Optional[_Iterable[_Union[videoInfoResponse, _Mapping]]] = ..., videoNumber: _Optional[int] = ..., webSiteName: _Optional[str] = ..., errorCode: _Optional[int] = ..., errorMsg: _Optional[str] = ..., requestUserName: _Optional[str] = ..., requestUserId: _Optional[int] = ..., webSiteId: _Optional[int] = ...) -> None: ...
 
 class collectionInfoRequest(_message.Message):
     __slots__ = ("user", "collection")
@@ -193,3 +211,11 @@ class getVideoListRequest(_message.Message):
     userInfo: userInfo
     videoIdList: str
     def __init__(self, userInfo: _Optional[_Union[userInfo, _Mapping]] = ..., videoIdList: _Optional[str] = ...) -> None: ...
+
+class VideoDetailResponse(_message.Message):
+    __slots__ = ("videoDetail", "recommendVideo")
+    VIDEODETAIL_FIELD_NUMBER: _ClassVar[int]
+    RECOMMENDVIDEO_FIELD_NUMBER: _ClassVar[int]
+    videoDetail: videoInfoResponse
+    recommendVideo: _containers.RepeatedCompositeFieldContainer[videoInfoResponse]
+    def __init__(self, videoDetail: _Optional[_Union[videoInfoResponse, _Mapping]] = ..., recommendVideo: _Optional[_Iterable[_Union[videoInfoResponse, _Mapping]]] = ...) -> None: ...

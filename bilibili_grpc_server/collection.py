@@ -5,7 +5,7 @@ from typing import List
 from bilibili_api import Credential
 from bilibili_api.exceptions import ResponseCodeException
 from bilibili_api.favorite_list import get_video_favorite_list_content
-from bilibili_api.user import get_toview_list
+from bilibili_api.user import get_toview_list, User
 from bilibili_api.channel_series import ChannelSeries, API_USER
 from bilibili_api.favorite_list import get_video_favorite_list, get_favorite_collected
 from server_pb2 import collectionInfo, videoInfoResponse, AuthorInfoResponse
@@ -38,11 +38,34 @@ async def get_user_collection(collection_id, credential):
         page += 1
     return new_collection
 
-
-# 个人收藏夹
-async def get_user_wait_watch(credential):
-    await get_toview_list(credential)
-
+# 用户稍后观看列表
+async def get_wait_watch_list(credential:Credential):
+    response = await get_toview_list(credential)
+    new_collection = collectionInfo(
+        collectionId=int(credential.dedeuserid),
+        name='稍后观看',
+        collectionType='waitWatch',
+        upperUid=credential.dedeuserid,
+    )
+    for i in response.get('list', []):
+        video_info = videoInfoResponse(
+            title=i.get('title'),
+            cover=i.get('pic'),
+            uid=i.get('bvid'),
+            duration=i.get('duration'),
+            updateTime=i.get('ctime'),
+            collectTime=i.get('add_at'),
+            viewNumber=i.get('stat', {}).get('view'),
+            danmaku=i.get('stat', {}).get('danmaku'),
+            reply=i.get('stat', {}).get('reply'),
+        )
+        video_info.authors.append(AuthorInfoResponse(
+            name=i.get('owner', {}).get('name'),
+            avatar=i.get('owner', {}).get('face'),
+            uid=str(i.get('owner', {}).get('mid')),
+        ))
+        new_collection.video.append(video_info)
+    return new_collection
 
 # 用户关注的合集
 async def get_user_follow_collection(collection_id, credential):
@@ -105,3 +128,6 @@ def make_error_videoInfoResponse(collectionType, collection_id, errorMsg):
         errorMsg=errorMsg,
     )
     return new_collection
+
+
+

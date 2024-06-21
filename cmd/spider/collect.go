@@ -15,9 +15,10 @@ func handleUserCollectList(vi *webSiteGRPC.CollectionInfo) {
 	).Where("collect.bv_id = ? and collect_video.is_del = false and collect_video.is_invalid = false", vi.CollectionId).Order("collect_video.mtime desc").Find(&videoList)
 	if collectInfo.Id == 0 {
 		collectInfo = models.Collect{
-			BvId:     vi.CollectionId,
-			Name:     vi.Name,
-			AuthorId: vi.RequestUserId,
+			BvId:           vi.CollectionId,
+			Name:           vi.Name,
+			AuthorId:       vi.RequestUserId,
+			CollectionType: vi.CollectionType,
 		}
 		if vi.CollectionType == "folder" {
 			// 个人创建的收藏夹
@@ -25,6 +26,9 @@ func handleUserCollectList(vi *webSiteGRPC.CollectionInfo) {
 		} else if vi.CollectionType == "subscription" {
 			// 订阅的合集
 			collectInfo.Type = 2
+		} else if vi.CollectionType == "waitWatch" {
+			// 订阅的合集
+			collectInfo.Type = 3
 		}
 		models.GormDB.Create(&collectInfo)
 	}

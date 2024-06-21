@@ -31,7 +31,7 @@ message videoInfoResponse{
   repeated AuthorInfoResponse authors = 20;
   viewInfoResponse viewInfo = 21;
   string webSiteName = 22;
-  bool IsInvalid= 24; // 是否失效
+  bool IsInvalid = 24; // 是否失效
   int32 errorCode = 50;
   string errorMsg = 51;
   string requestUserName = 52;
@@ -39,7 +39,7 @@ message videoInfoResponse{
   int64 webSiteId = 54;
 }
 message AuthorInfoResponse{
-  string author = 1;
+  string author = 1; // 多人投稿的时候参与身份信息
   string name = 2;
   string avatar = 3;
   string desc = 4;
@@ -56,6 +56,7 @@ message AuthorInfoResponse{
 message tagInfoResponse{
   string name = 1;
   int64 id = 2;
+  int64 tagType = 3; // 1:普通标签 2:bgm 3：推广标签 4:活动
   int32 errorCode = 50;
   string errorMsg = 51;
 }
@@ -108,12 +109,20 @@ message getVideoListRequest{
   string videoIdList = 2;
 }
 
+message VideoDetailResponse{
+  videoInfoResponse videoDetail = 1;
+  repeated videoInfoResponse recommendVideo = 2;
+}
+
 service WebSiteService {
   rpc GetUserFollowUpdate(userInfo) returns (stream  videoInfoResponse);
   rpc GetUserViewHistory(userInfo) returns (stream  videoInfoResponse);
   rpc GetUserFollowList(userInfo) returns (stream AuthorInfoResponse);
   rpc GetUserCollectionList(collectionInfoRequest) returns (stream collectionInfo);
-  rpc GetVideoDetail(stream getVideoListRequest) returns (stream  videoInfoResponse);
   rpc GetHotVideoList(getVideoListRequest) returns (stream  videoInfoResponse);
   rpc GetSelfInfo(userInfo) returns (AuthorInfoResponse);
+  rpc GetWaitWatchList(userInfo)returns (collectionInfo);
+
+  // 获取基础信息。以下接口全部使用代理发送请求
+  rpc GetVideoDetail(stream getVideoListRequest) returns (stream  VideoDetailResponse);
 }

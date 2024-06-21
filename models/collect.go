@@ -7,13 +7,14 @@ import (
 )
 
 type Collect struct {
-	Id        int64          `json:"id" gorm:"primaryKey"`
-	AuthorId  int64          `json:"author_id"`
-	Type      int            `json:"type"`                 // 1: 收藏夹 2: 专栏
-	BvId      int64          `json:"bv_id"`                // 收藏夹的bv号
-	Name      string         `json:"name" gorm:"size:255"` // 收藏夹的名字
-	IsInvalid bool           `json:"is_invalid" gorm:"index:is_invalid"`
-	VideoInfo []CollectVideo `gorm:"foreignKey:CollectId;references:Id"`
+	Id             int64          `json:"id" gorm:"primaryKey"`
+	AuthorId       int64          `json:"author_id"`
+	Type           int            `json:"type"` // 1: 收藏夹 2: 专栏
+	CollectionType string         `json:"collection_type"`
+	BvId           int64          `json:"bv_id"`                // 收藏夹的bv号
+	Name           string         `json:"name" gorm:"size:255"` // 收藏夹的名字
+	IsInvalid      bool           `json:"is_invalid" gorm:"index:is_invalid"`
+	VideoInfo      []CollectVideo `gorm:"foreignKey:CollectId;references:Id"`
 }
 type CollectVideo struct {
 	Id        int64      `gorm:"primary_key"`
