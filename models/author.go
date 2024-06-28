@@ -91,6 +91,10 @@ func (a *Author) GetByUid(authorWebUid string) {
 	}
 }
 
+func (a *Author) GetStructUniqueKey() string {
+	return a.AuthorWebUid
+}
+
 type FollowRelation struct {
 	Id           int64
 	WebSiteId    int64

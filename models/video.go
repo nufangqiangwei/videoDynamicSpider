@@ -33,12 +33,16 @@ type Video struct {
 	Classify            *Classify       `gorm:"-"`
 }
 
-func (v *Video) GetByUid(uid string) {
-	tx := GormDB.Where("uuid = ?", uid).First(v)
+func (v *Video) GetByUid(websiteName, uid string) error {
+	tx := GormDB.Joins(
+		"inner join web_site on web_site.id = video.web_site_id",
+	).Where("web_site.web_name=? and uuid = ?", websiteName, uid).First(v)
 	if tx.Error != nil && !errors.Is(tx.Error, gorm.ErrRecordNotFound) {
 		log.ErrorLog.Println("获取视频错误: ")
 		log.ErrorLog.Println(tx.Error.Error())
+		return tx.Error
 	}
+	return nil
 }
 
 // UpdateVideo 数据储存到数据库中，如果存在则更新，不存在则插入。many to many的表,如果中间表不存在就插入，存在就更新。这里只做增量更新，不做删除。删除操作，有别的同步方法自行执行。
@@ -242,12 +246,13 @@ func (v *Video) UpdateVideo() (bool, error) {
 }
 
 // GetVideoFullData 获取视频全部信息，包括作者，标签，收藏列表，观看历史列表。中间表，子表，和其他多对多的表数据
-func GetVideoFullData(gromDb *gorm.DB, webSiteId int64, videoUuid string) Video {
+func GetVideoFullData(gromDb *gorm.DB, webSiteId int64, videoUuid string) *Video {
 	video := Video{}
 	var tx *gorm.DB
 	tx = gromDb.Debug().Where("web_site_id=? and uuid=?", webSiteId, videoUuid).Preload("Authors").Preload("Tag").Preload("CollectList").Preload("ViewHistory").First(&video)
 	if tx.Error != nil {
 		println(tx.Error.Error())
+		return nil
 	}
 	authorIds := make([]int64, 0)
 	tagIds := make([]int64, 0)
@@ -267,13 +272,17 @@ func GetVideoFullData(gromDb *gorm.DB, webSiteId int64, videoUuid string) Video 
 	gromDb.Where("id in (?)", authorIds).Find(&video.StructAuthor)
 	gromDb.Where("id in (?)", tagIds).Find(&video.StructTag)
 	gromDb.Where("id in (?)", collectIds).Find(&video.StructCollectList)
-	return video
+	return &video
 
+}
+
+func (v *Video) GetStructUniqueKey() string {
+	return v.Uuid
 }
 
 type VideoAuthor struct {
 	Id         int64  `json:"id" gorm:"primary_key"`
-	Uuid       string `json:"uuid"`
+	Uuid       string `json:"uuid"` // 视频的uid
 	VideoId    int64  `json:"video_id" gorm:"index:video_id"`
 	AuthorId   int64  `json:"author_id" gorm:"index:author_id"`
 	Contribute string `json:"contribute" gorm:"size:255"`
@@ -284,6 +293,17 @@ type VideoAuthor struct {
 type Tag struct {
 	Id   int64  `json:"id" gorm:"index:id"`
 	Name string `json:"name" gorm:"size:255"`
+}
+
+func (t *Tag) GetStructUniqueKey() string {
+	return t.Name
+}
+
+func (t *Tag) GetOrCreate() {
+	tx := GormDB.Where("name=?", t.Name).First(t)
+	if tx.Error != nil {
+		GormDB.Create(t)
+	}
 }
 
 type VideoTag struct {

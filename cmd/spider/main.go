@@ -811,21 +811,6 @@ func historyRunTime() int64 {
 	return 7200 + rand.Int63n(100)
 }
 
-func loadProxyInfo(interface{}) {
-	fileData, err := os.ReadFile(configPath)
-	if err != nil {
-		println(err.Error())
-		return
-	}
-	configFile := &utils.Config{}
-	err = json.Unmarshal(fileData, configFile)
-	if err != nil {
-		println(err.Error())
-		return
-	}
-	config.Proxy = configFile.Proxy
-}
-
 // 对没有关注的作者爬取最新的视频信息
 func updateAuthorVideoList(interface{}) {
 	defer func() {
@@ -1137,4 +1122,120 @@ func bilibiliCheckOutCookies(cookiesMap map[string]string) map[string]string {
 		}
 	}
 	return result
+}
+
+func updateVideoDetailInfo(videoGrpcDetail *webSiteGRPC.VideoInfoResponse) {
+	video := models.GetVideoFullData(models.GormDB, videoGrpcDetail.WebSiteId, videoGrpcDetail.Uid)
+	if video == nil {
+		return
+	}
+	videoTbaleUpdate := map[string]interface{}{}
+	if video.VideoDesc != videoGrpcDetail.Desc {
+		videoTbaleUpdate["video_desc"] = videoGrpcDetail.Desc
+	}
+	if video.Duration == 0 {
+		videoTbaleUpdate["duration"] = videoGrpcDetail.Duration
+	}
+	if video.CoverUrl != videoGrpcDetail.Cover {
+		videoTbaleUpdate["cover_url"] = videoGrpcDetail.Cover
+	}
+	if video.UploadTime.IsZero() {
+		videoTbaleUpdate["upload_time"] = video.UploadTime
+	}
+	if len(videoTbaleUpdate) > 0 {
+		models.GormDB.Model(&video).Updates(videoTbaleUpdate)
+	}
+	// 更新作者信息
+	authorArrayUnique := utils.ArrayUnique{
+		LeftArray:  videoGrpcDetail.Authors,
+		RightArray: video.StructAuthor,
+	}
+	// 需要更新的作者参与信息
+	for _, info := range authorArrayUnique.GetIntersection() {
+		remoteInfo := info.Left.(*webSiteGRPC.AuthorInfoResponse)
+		localInfo := info.Right.(*models.Author)
+		for _, va := range video.Authors {
+			if va.AuthorId == localInfo.Id {
+				if va.Contribute != remoteInfo.Author {
+					models.GormDB.Model(&va).Update("contribute", remoteInfo.Author)
+				}
+				break
+			}
+		}
+	}
+	// 需要新增的作者
+	for _, info := range authorArrayUnique.GetInLeftObject() {
+		authorInfo := info.(*webSiteGRPC.AuthorInfoResponse)
+		author := authorInfo.ToModel()
+		author.GetOrCreate()
+		authorVideo := models.VideoAuthor{
+			Uuid:       videoGrpcDetail.Uid,
+			VideoId:    video.Id,
+			AuthorId:   author.Id,
+			Contribute: authorInfo.Author,
+			AuthorUUID: authorInfo.Uid,
+		}
+		models.GormDB.Create(&authorVideo)
+	}
+
+	// 更新标签信息
+	tagArrayUnique := utils.ArrayUnique{
+		LeftArray:  videoGrpcDetail.Tags,
+		RightArray: video.StructTag,
+	}
+	// 需要更新的标签参与信息
+	for _, info := range tagArrayUnique.GetIntersection() {
+		remoteInfo := info.Left.(*webSiteGRPC.TagInfoResponse)
+		localInfo := info.Right.(*models.Tag)
+		for _, va := range video.Tag {
+			if va.TagId == localInfo.Id {
+				if va.TagId != localInfo.Id {
+					models.GormDB.Model(&va).Update("tag_name", remoteInfo.Name)
+				}
+				break
+			}
+		}
+	}
+	// 需要新增的标签
+	for _, info := range tagArrayUnique.GetInLeftObject() {
+		tagInfo := info.(*webSiteGRPC.TagInfoResponse)
+		tag := tagInfo.ToModel()
+		tag.GetOrCreate()
+		tagVideo := models.VideoTag{
+			VideoId: video.Id,
+			TagId:   tag.Id,
+		}
+		models.GormDB.Create(&tagVideo)
+	}
+
+	// 更新视频分区信息
+	if video.Classify == nil {
+		classify := videoGrpcDetail.Classify
+		classifyInfo := models.Classify{
+			Id:   classify.Id,
+			Name: classify.Name,
+		}
+		models.GormDB.Create(&classifyInfo)
+	} else if video.Classify.Name != videoGrpcDetail.Classify.Name {
+		models.GormDB.Model(&video).Update("classify_name", videoGrpcDetail.Classify.Name)
+	}
+
+	// 插入播放数据
+	vp := models.VideoPlayData{
+		VideoId:    video.Id,
+		View:       videoGrpcDetail.ViewNumber,
+		Danmaku:    videoGrpcDetail.Danmaku,
+		Reply:      videoGrpcDetail.Reply,
+		Favorite:   videoGrpcDetail.Favorite,
+		Coin:       videoGrpcDetail.Coin,
+		Share:      videoGrpcDetail.Share,
+		Like:       videoGrpcDetail.Like,
+		Dislike:    videoGrpcDetail.Dislike,
+		NowRank:    videoGrpcDetail.NowRank,
+		HisRank:    videoGrpcDetail.HisRank,
+		Evaluation: videoGrpcDetail.Evaluation,
+		CreateTime: time.Now(),
+	}
+	models.GormDB.Create(&vp)
+
 }
