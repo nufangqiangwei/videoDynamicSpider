@@ -122,10 +122,10 @@ func getUserFollowAuthorVideo(result chan<- models.Video, userCookies *cookies.U
 				Url:        info.Modules.ModuleDynamic.Major.Archive.JumpUrl,
 				CoverUrl:   info.Modules.ModuleDynamic.Major.Archive.Cover,
 				UploadTime: &pushTime,
-				Authors: []models.VideoAuthor{
+				Authors: []*models.VideoAuthor{
 					{Contribute: "UP主", AuthorUUID: strconv.Itoa(info.Modules.ModuleAuthor.Mid)},
 				},
-				StructAuthor: []models.Author{
+				StructAuthor: []*models.Author{
 					{
 						WebSiteId:    webSiteId,
 						AuthorName:   info.Modules.ModuleAuthor.Name,
@@ -290,10 +290,10 @@ func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies *
 					Title:     info.Title,
 					Uuid:      info.History.Bvid,
 					CoverUrl:  info.Cover,
-					Authors: []models.VideoAuthor{
+					Authors: []*models.VideoAuthor{
 						{Contribute: "UP主", AuthorUUID: strconv.FormatInt(info.AuthorMid, 10), Uuid: info.History.Bvid},
 					},
-					StructAuthor: []models.Author{
+					StructAuthor: []*models.Author{
 						{
 							AuthorWebUid: strconv.FormatInt(info.AuthorMid, 10),
 							AuthorName:   info.AuthorName,
@@ -301,7 +301,7 @@ func getUserViewVideoHistory(VideoHistoryChan chan<- models.Video, userCookies *
 							Avatar:       info.AuthorFace,
 						},
 					},
-					ViewHistory: []models.VideoHistory{
+					ViewHistory: []*models.VideoHistory{
 						{ViewTime: pushTime, WebSiteId: webSiteId, WebUUID: info.History.Bvid, Duration: info.Duration, AuthorId: userCookies.GetDBPrimaryKeyId()},
 					},
 				}
@@ -669,7 +669,7 @@ func (s BiliSpider) GetHotVideoList(resultChan chan models.Video, closeChan chan
 					UploadTime: &pushTime,
 					CreateTime: time.Now(),
 					Baid:       info.Aid,
-					VideoPlayData: []models.VideoPlayData{
+					VideoPlayData: []*models.VideoPlayData{
 						{
 							View:       info.Stat.View,
 							Danmaku:    info.Stat.Danmaku,
@@ -684,7 +684,7 @@ func (s BiliSpider) GetHotVideoList(resultChan chan models.Video, closeChan chan
 							CreateTime: time.Now(),
 						},
 					},
-					StructAuthor: []models.Author{
+					StructAuthor: []*models.Author{
 						{
 							WebSiteId:    webSiteId,
 							AuthorName:   info.Owner.Name,
@@ -727,7 +727,7 @@ func (s BiliSpider) GetHotVideoList(resultChan chan models.Video, closeChan chan
 					UploadTime: &pushTime,
 					CreateTime: time.Now(),
 					Baid:       info.Aid,
-					VideoPlayData: []models.VideoPlayData{
+					VideoPlayData: []*models.VideoPlayData{
 						{
 							View:       info.Stat.View,
 							Danmaku:    info.Stat.Danmaku,
@@ -742,7 +742,7 @@ func (s BiliSpider) GetHotVideoList(resultChan chan models.Video, closeChan chan
 							CreateTime: time.Now(),
 						},
 					},
-					StructAuthor: []models.Author{
+					StructAuthor: []*models.Author{
 						{
 							WebSiteId:    webSiteId,
 							AuthorName:   info.Owner.Name,

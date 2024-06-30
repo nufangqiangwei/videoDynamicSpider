@@ -55,7 +55,7 @@ func handleUserCollectList(vi *webSiteGRPC.CollectionInfo) {
 					Uuid:       v.Uid,
 					CoverUrl:   v.Cover,
 					UploadTime: &updateTime,
-					StructAuthor: []models.Author{
+					StructAuthor: []*models.Author{
 						{
 							AuthorWebUid: v.Authors[0].Uid,
 							Avatar:       v.Authors[0].Avatar,

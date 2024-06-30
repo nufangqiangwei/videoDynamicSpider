@@ -11,26 +11,26 @@ import (
 type Video struct {
 	Id                  int64 `json:"id" gorm:"primary_key"`
 	WebSiteId           int64
-	Authors             []VideoAuthor   `gorm:"foreignKey:VideoId;references:Id"`
-	Tag                 []VideoTag      `gorm:"foreignKey:VideoId;references:Id"`
-	CollectList         []CollectVideo  `gorm:"foreignKey:VideoId;references:Id"`
-	ViewHistory         []VideoHistory  `gorm:"foreignKey:VideoId;references:Id"`
-	VideoPlayData       []VideoPlayData `gorm:"foreignKey:VideoId;references:Id"`
-	Title               string          `gorm:"size:255"`
-	VideoDesc           string          `gorm:"size:2000"`
-	Duration            int             `gorm:"default:0;index:duration"`
-	Uuid                string          `gorm:"size:255;uniqueIndex:uuid"`
-	Url                 string          `gorm:"size:255"`
-	CoverUrl            string          `gorm:"size:255"`
-	UploadTime          *time.Time      `gorm:"default:null;index:upload_time"`
-	CreateTime          time.Time       `gorm:"default:CURRENT_TIMESTAMP(3)"`
-	Baid                int64           `json:"aid"`
-	StructAuthor        []Author        `gorm:"-"`
-	StructTag           []Tag           `gorm:"-"`
-	StructCollectList   []Collect       `gorm:"-"`
-	StructViewHistory   *VideoHistory   `gorm:"-"`
-	StructVideoPlayData *VideoPlayData  `gorm:"-"`
-	Classify            *Classify       `gorm:"-"`
+	Authors             []*VideoAuthor   `gorm:"foreignKey:VideoId;references:Id"`
+	Tag                 []*VideoTag      `gorm:"foreignKey:VideoId;references:Id"`
+	CollectList         []*CollectVideo  `gorm:"foreignKey:VideoId;references:Id"`
+	ViewHistory         []*VideoHistory  `gorm:"foreignKey:VideoId;references:Id"`
+	VideoPlayData       []*VideoPlayData `gorm:"foreignKey:VideoId;references:Id"`
+	Title               string           `gorm:"size:255"`
+	VideoDesc           string           `gorm:"size:2000"`
+	Duration            int              `gorm:"default:0;index:duration"`
+	Uuid                string           `gorm:"size:255;uniqueIndex:uuid"`
+	Url                 string           `gorm:"size:255"`
+	CoverUrl            string           `gorm:"size:255"`
+	UploadTime          *time.Time       `gorm:"default:null;index:upload_time"`
+	CreateTime          time.Time        `gorm:"default:CURRENT_TIMESTAMP(3)"`
+	Baid                int64            `json:"aid"`
+	StructAuthor        []*Author        `gorm:"-"`
+	StructTag           []*Tag           `gorm:"-"`
+	StructCollectList   []*Collect       `gorm:"-"`
+	StructViewHistory   *VideoHistory    `gorm:"-"`
+	StructVideoPlayData *VideoPlayData   `gorm:"-"`
+	Classify            *Classify        `gorm:"-"`
 }
 
 func (v *Video) GetByUid(websiteName, uid string) error {
@@ -56,10 +56,10 @@ func (v *Video) UpdateVideo() (bool, error) {
 	if DBvideo.Id == 0 {
 		isNew = true
 		var (
-			authorList  []VideoAuthor
-			tagList     []VideoTag
-			collectList []CollectVideo
-			historyList []VideoHistory
+			authorList  []*VideoAuthor
+			tagList     []*VideoTag
+			collectList []*CollectVideo
+			historyList []*VideoHistory
 		)
 		authorList = v.Authors
 		tagList = v.Tag
@@ -90,11 +90,11 @@ func (v *Video) UpdateVideo() (bool, error) {
 	}
 	var (
 		have        bool
-		saveAuthors []VideoAuthor
-		lateAuthor  Author
-		saveTags    []VideoTag
-		lateTag     Tag
-		saveHistory []VideoHistory
+		saveAuthors []*VideoAuthor
+		lateAuthor  *Author
+		saveTags    []*VideoTag
+		lateTag     *Tag
+		saveHistory []*VideoHistory
 	)
 	// 保存作者信息。video.Authors与v.Authors对比，如果v.Authors中有video.Authors中没有的，则插入。这里只做增量更新，不做删除。删除操作，有别的同步方法自行执行。
 	// 排除已存在的作者信息
@@ -108,7 +108,7 @@ func (v *Video) UpdateVideo() (bool, error) {
 		}
 		if !have {
 			// 没有存在视频作者信息,新插入的数据，先查询作者是否存在。
-			lateAuthor = Author{}
+			lateAuthor = &Author{}
 			GormDB.Where("web_site_id=? and author_web_uid=?", v.WebSiteId, videoAuthor.AuthorUUID).Find(&lateAuthor)
 			if lateAuthor.Id <= 0 {
 				// 作者不存在，先插入作者信息。作者具体信息从v.StructAuthor中查找
@@ -152,7 +152,7 @@ func (v *Video) UpdateVideo() (bool, error) {
 			// 没有存在视频标签信息
 			if videoTag.Id <= 0 {
 				// 新插入的数据，先查询标签是否存在。
-				lateTag = Tag{}
+				lateTag = &Tag{}
 				if videoTag.TagId == 0 {
 					// 该类型是bgm类型，查看name在tag表中是否存在，存在就取出这条数据。不存在就插入一条最新的tagId=max(id)+1的数据
 					for _, t := range v.StructTag {
@@ -266,9 +266,9 @@ func GetVideoFullData(gromDb *gorm.DB, webSiteId int64, videoUuid string) *Video
 	for _, videoCollectInfo := range video.CollectList {
 		collectIds = append(collectIds, videoCollectInfo.CollectId)
 	}
-	video.StructAuthor = make([]Author, 0)
-	video.StructTag = make([]Tag, 0)
-	video.StructCollectList = make([]Collect, 0)
+	video.StructAuthor = make([]*Author, 0)
+	video.StructTag = make([]*Tag, 0)
+	video.StructCollectList = make([]*Collect, 0)
 	gromDb.Where("id in (?)", authorIds).Find(&video.StructAuthor)
 	gromDb.Where("id in (?)", tagIds).Find(&video.StructTag)
 	gromDb.Where("id in (?)", collectIds).Find(&video.StructCollectList)

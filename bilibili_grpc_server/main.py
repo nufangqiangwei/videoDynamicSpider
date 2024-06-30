@@ -24,6 +24,8 @@ from server_pb2 import AuthorInfoResponse, videoInfoResponse, classifyInfoRespon
 from google.protobuf.json_format import MessageToDict
 from google.protobuf import message
 
+from videoDetail import get_video_detail
+
 
 def grpc_object_to_json(obj):
     if isinstance(obj, message.Message):
@@ -335,9 +337,16 @@ class BilibiliServiceServicer(server_pb2_grpc.WebSiteServiceServicer):
     async def GetVideoDetail(self, request_iterator, context):
         client_ip = context.peer()
         start_time = time.time()
-        for video_request in request_iterator:
-            print(video_request)
-            yield video_request
+        print(type(request_iterator))
+        try:
+            async for video_request in request_iterator:
+                print(video_request)
+                yield await get_video_detail(credential=None, bvid=video_request.videoIdList,aid=None)
+        except Exception as e:
+            # 处理客户端流结束的异常
+            print("客户端流结束的异常")
+            print(e)
+            pass
         end_time = time.time()
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         print(f"{now} {client_ip} 获取视频信息耗时 {end_time - start_time} 秒")

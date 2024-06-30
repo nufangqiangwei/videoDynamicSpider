@@ -8,7 +8,6 @@ import (
 	timeWheel "github.com/nufangqiangwei/timewheel"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/resolver"
 	"io"
 	"math/rand"
 	"os"
@@ -20,7 +19,6 @@ import (
 	"videoDynamicAcquisition/baseStruct"
 	"videoDynamicAcquisition/bilibili"
 	"videoDynamicAcquisition/cookies"
-	"videoDynamicAcquisition/grpcDiscovery/DHT"
 	"videoDynamicAcquisition/grpcDiscovery/redis"
 	"videoDynamicAcquisition/log"
 	"videoDynamicAcquisition/models"
@@ -150,29 +148,7 @@ func initWebSiteSpider() {
 		userCookie.SetDBPrimaryKeyId(userInfo.Id)
 		userCookie.SetWebSiteId(userInfo.WebSiteId)
 
-		//if webSiteName == bilibili.Spider.GetWebSiteName().WebName {
-		//	var (
-		//		result            []models.UserSpiderParams
-		//		err               error
-		//		intLatestBaseline int64
-		//	)
-		//	models.GormDB.Model(&models.UserSpiderParams{}).Where("author_id = ?", userId).Find(&result)
-		//	for _, rowData := range result {
-		//		intLatestBaseline, err = strconv.ParseInt(rowData.Values, 10, 64)
-		//		if err != nil {
-		//			log.ErrorLog.Printf("转换%s的history_baseline失败：%s\n", userName, err.Error())
-		//			continue
-		//		}
-		//		if rowData.KeyName == "dynamic_baseline" {
-		//			dynamicBaseLine[userName] = intLatestBaseline
-		//		}
-		//		if rowData.KeyName == "history_baseline" {
-		//			historyBaseLine[userName] = intLatestBaseline
-		//		}
-		//	}
-		//}
 	})
-	//bilibili.Spider.Init(dynamicBaseLine, historyBaseLine, websiteMap[webSiteName].Id)
 }
 
 func main() {
@@ -199,6 +175,10 @@ func main() {
 		return
 	}
 	_, err = wheel.AppendCycleFunc(updateCollectList, nil, "collectListSpider", timeWheel.Crontab{ExpiredTime: twentyTime + rand.Int63n(100)*50})
+	if err != nil {
+		return
+	}
+	_, err = wheel.AppendCycleFunc(textUpdateVideoInfo, nil, "textUpdateVideoInfoSpider", timeWheel.Crontab{ExpiredTime: oneTicket})
 	if err != nil {
 		return
 	}
@@ -333,10 +313,10 @@ func getDynamic(interface{}) {
 					Uuid:       videoInfoResponse.Uid,
 					CoverUrl:   videoInfoResponse.Cover,
 					UploadTime: &pushTime,
-					Authors: []models.VideoAuthor{
+					Authors: []*models.VideoAuthor{
 						{Contribute: "UP主", AuthorUUID: videoInfoResponse.Authors[0].Uid},
 					},
-					StructAuthor: []models.Author{
+					StructAuthor: []*models.Author{
 						{
 							WebSiteId:    videoInfoResponse.WebSiteId,
 							AuthorName:   videoInfoResponse.Authors[0].Name,
@@ -445,21 +425,21 @@ func getHistory(interface{}) {
 				Duration:  int(vi.Duration),
 				Uuid:      vi.Uid,
 				CoverUrl:  vi.Cover,
-				Authors: []models.VideoAuthor{
+				Authors: []*models.VideoAuthor{
 					{
 						Contribute: "UP主",
 						AuthorUUID: vi.Authors[0].Uid,
 						Uuid:       vi.Uid,
 					},
 				},
-				StructAuthor: []models.Author{
+				StructAuthor: []*models.Author{
 					{
 						AuthorName:   vi.Authors[0].Name,
 						AuthorWebUid: vi.Authors[0].Uid,
 						Avatar:       vi.Authors[0].Avatar,
 					},
 				},
-				ViewHistory: []models.VideoHistory{
+				ViewHistory: []*models.VideoHistory{
 					{
 						ViewTime: viewTime,
 						Duration: int(vi.ViewInfo.ViewDuration),
@@ -571,79 +551,6 @@ func updateCollectList(interface{}) {
 			}
 		}
 	}
-}
-
-// 更新收藏夹视频列表，更新合集视频列表
-func updateCollectVideoList(interface{}) {
-	defer func() {
-		panicErr := recover()
-		if panicErr != nil {
-			log.ErrorLog.Printf("%s", panicErr)
-			panic(panicErr)
-		}
-	}()
-
-	var (
-		collectId int64
-		videoList []string
-	)
-
-	queryResult := models.GetAllCollectVideo()
-	collectVideoGroup := make(map[int64][]string)
-	for _, info := range queryResult {
-		collectVideoGroup[info.CollectId] = append(collectVideoGroup[info.CollectId], info.Uuid)
-	}
-
-	waitUpdateList := make([]int64, 0)
-	for collectId, videoList = range collectVideoGroup {
-		r := bilibili.GetCollectVideoList(collectId, "干煸花椰菜")
-		// countList 和r.Data中的BvId对比，找不同的值
-		for _, info := range r.Data {
-			if !utils.InArray(info.BvId, videoList) {
-				waitUpdateList = append(waitUpdateList, collectId)
-				break
-			}
-		}
-	}
-	// 没有待更新的内容
-	if len(waitUpdateList) == 0 {
-		return
-	}
-	web := models.WebSite{
-		WebName: "bilibili",
-	}
-	web.GetOrCreate()
-	for _, collectId = range waitUpdateList {
-		r := bilibili.Spider.GetCollectAllVideo(collectId, 1)
-		videoList = collectVideoGroup[collectId]
-		for _, info := range r {
-			if !utils.InArray(info.BvId, videoList) {
-				vi := models.Video{
-					WebSiteId: web.Id,
-					Title:     info.Title,
-					Duration:  info.Duration,
-					Uuid:      info.Bvid,
-					CoverUrl:  info.Cover,
-					Authors: []models.VideoAuthor{
-						{Uuid: info.BvId, AuthorUUID: strconv.Itoa(info.Upper.Mid)},
-					},
-					StructAuthor: []models.Author{
-						{
-							WebSiteId:    web.Id,
-							AuthorWebUid: strconv.Itoa(info.Upper.Mid),
-							AuthorName:   info.Upper.Name,
-						},
-					},
-				}
-				vi.UpdateVideo()
-				models.CollectVideo{
-					CollectId: collectId,
-					VideoId:   vi.Id,
-				}.Save()
-			}
-		}
-	}
-
 }
 
 // 同步关注信息
@@ -845,12 +752,12 @@ func updateAuthorVideoList(interface{}) {
 		for _, videoListInfo := range authorVideoPage {
 			for _, videoInfo := range videoListInfo.Data.List.Vlist {
 				uploadTime := time.Unix(videoInfo.Created, 0)
-				authors := []models.VideoAuthor{}
-				structAuthor := []models.Author{}
+				var authors []*models.VideoAuthor
+				var structAuthor []*models.Author
 				// 是否是联合投稿 0：否 1：是
 				if videoInfo.IsUnionVideo == 0 {
-					authors = append(authors, models.VideoAuthor{Uuid: videoInfo.Bvid, AuthorUUID: author.AuthorWebUid})
-					structAuthor = append(structAuthor, models.Author{
+					authors = append(authors, &models.VideoAuthor{Uuid: videoInfo.Bvid, AuthorUUID: author.AuthorWebUid})
+					structAuthor = append(structAuthor, &models.Author{
 						WebSiteId:  web.Id,
 						AuthorName: videoInfo.Author,
 					})
@@ -885,7 +792,7 @@ func waitUpdateVideo(interface{}) {
 			}
 			var uploadTime time.Time
 			uploadTime = time.Unix(response.Data.View.Ctime, 0)
-			DatabaseAuthorInfo := []models.Author{
+			DatabaseAuthorInfo := []*models.Author{
 				{
 					WebSiteId:    videoInfo.WebSiteId,
 					AuthorName:   response.Data.View.Owner.Name,
@@ -895,7 +802,7 @@ func waitUpdateVideo(interface{}) {
 			}
 			if len(response.Data.View.Staff) > 0 {
 				for _, staff := range response.Data.View.Staff {
-					DatabaseAuthorInfo = append(DatabaseAuthorInfo, models.Author{
+					DatabaseAuthorInfo = append(DatabaseAuthorInfo, &models.Author{
 						WebSiteId:    videoInfo.WebSiteId,
 						AuthorName:   staff.Name,
 						AuthorWebUid: strconv.FormatInt(staff.Mid, 10),
@@ -922,7 +829,7 @@ func waitUpdateVideo(interface{}) {
 }
 
 func getAuthorFirstVideo(interface{}) {
-	authorList := []models.Author{}
+	var authorList []models.Author
 	/* select a.* from author a inner join follow f on f.author_id = a.id inner join user_web_site_account ua on ua.author_id = f.user_id where ua.user_id = 11 order by f.follow_time desc*/
 	err := models.GormDB.Model(&models.Author{}).Joins("inner join follow f on f.author_id = author.id ").Joins(
 		"inner join user_web_site_account ua on ua.author_id = f.user_id").Where("ua.user_id = 11").Order("f.follow_time desc").Limit(500).Offset(138).Find(&authorList).Error
@@ -958,10 +865,10 @@ func getAuthorFirstVideo(interface{}) {
 					Url:        dynmaicInfo.Modules.ModuleDynamic.Major.Archive.JumpUrl,
 					CoverUrl:   dynmaicInfo.Modules.ModuleDynamic.Major.Archive.Cover,
 					UploadTime: &pushTime,
-					Authors: []models.VideoAuthor{
+					Authors: []*models.VideoAuthor{
 						{Contribute: "UP主", AuthorUUID: strconv.Itoa(dynmaicInfo.Modules.ModuleAuthor.Mid)},
 					},
-					StructAuthor: []models.Author{
+					StructAuthor: []*models.Author{
 						{
 							WebSiteId:    1,
 							AuthorName:   dynmaicInfo.Modules.ModuleAuthor.Name,
@@ -1002,83 +909,14 @@ func getHotVideo(interface{}) {
 
 }
 
-func textUpdateVideoInfo() {
-	videoList := []models.Video{}
+func textUpdateVideoInfo(interface{}) {
+	var videoList []*models.Video
 	models.GormDB.Model(&models.Video{}).Where("upload_time > now() - interval 30 day").Scan(&videoList)
 	println("待更新", len(videoList), "个视频")
-
-	for _, videoInfo := range videoList {
-		data, _ := bilibili.GetVideoDetailByByte(videoInfo.Uuid)
-		response := bilibili.VideoDetailResponse{}
-		err := response.BindJSON(data)
-		if err != nil {
-			log.ErrorLog.Println(err)
-			return
-		}
-		var uploadTime time.Time
-		uploadTime = time.Unix(response.Data.View.Ctime, 0)
-		DatabaseAuthorInfo := []models.Author{
-			{
-				WebSiteId:    videoInfo.WebSiteId,
-				AuthorName:   response.Data.View.Owner.Name,
-				AuthorWebUid: strconv.FormatInt(response.Data.View.Owner.Mid, 10),
-				Avatar:       response.Data.View.Owner.Face,
-			},
-		}
-		if len(response.Data.View.Staff) > 0 {
-			for _, staff := range response.Data.View.Staff {
-				DatabaseAuthorInfo = append(DatabaseAuthorInfo, models.Author{
-					WebSiteId:    videoInfo.WebSiteId,
-					AuthorName:   staff.Name,
-					AuthorWebUid: strconv.FormatInt(staff.Mid, 10),
-					Avatar:       staff.Face,
-					FollowNumber: staff.Follower,
-				})
-			}
-		}
-
-		result := models.Video{
-			WebSiteId:    videoInfo.WebSiteId,
-			Title:        response.Data.View.Title,
-			VideoDesc:    response.Data.View.Desc,
-			Duration:     response.Data.View.Duration,
-			Uuid:         response.Data.View.Bvid,
-			CoverUrl:     response.Data.View.Pic,
-			UploadTime:   &uploadTime,
-			StructAuthor: DatabaseAuthorInfo,
-			StructVideoPlayData: &models.VideoPlayData{
-				View:       0,
-				Danmaku:    0,
-				Reply:      0,
-				Favorite:   0,
-				Coin:       0,
-				Share:      0,
-				NowRank:    0,
-				HisRank:    0,
-				Like:       0,
-				Dislike:    0,
-				Evaluation: "",
-				CreateTime: time.Time{},
-			},
-		}
-
-		result.UpdateVideo()
+	if len(videoList) > 0 {
+		getVideoDetail(videoList)
 	}
-}
 
-func initGrpc() {
-	dht, err := DHT.NewServiceDiscovery(&DHT.ServerConfig{
-		ServerType:       "spider",
-		SeedAddr:         "",
-		AwaitRegister:    false,
-		NodePort:         3190,
-		ServerIp:         "127.0.0.1",
-		GrpcSeverAddress: "127.0.0.1:3190",
-	})
-	if err != nil {
-		log.ErrorLog.Println(err)
-	}
-	resolver.Register(dht)
 }
 
 func getWebSiteGrpcClient() error {
@@ -1125,9 +963,15 @@ func bilibiliCheckOutCookies(cookiesMap map[string]string) map[string]string {
 }
 
 func updateVideoDetailInfo(videoGrpcDetail *webSiteGRPC.VideoInfoResponse) {
-	video := models.GetVideoFullData(models.GormDB, videoGrpcDetail.WebSiteId, videoGrpcDetail.Uid)
-	if video == nil {
-		return
+	transactions := models.GormDB.Begin()
+	video := models.GetVideoFullData(transactions, videoGrpcDetail.WebSiteId, videoGrpcDetail.Uid)
+	if video.Id <= 0 {
+		video = videoGrpcDetail.ToVideoModel()
+		err := transactions.Create(video).Error
+		if err != nil {
+			println(err.Error())
+			return
+		}
 	}
 	videoTbaleUpdate := map[string]interface{}{}
 	if video.VideoDesc != videoGrpcDetail.Desc {
@@ -1139,11 +983,16 @@ func updateVideoDetailInfo(videoGrpcDetail *webSiteGRPC.VideoInfoResponse) {
 	if video.CoverUrl != videoGrpcDetail.Cover {
 		videoTbaleUpdate["cover_url"] = videoGrpcDetail.Cover
 	}
-	if video.UploadTime.IsZero() {
-		videoTbaleUpdate["upload_time"] = video.UploadTime
+	if video.UploadTime == nil || video.UploadTime.IsZero() {
+		t := time.Unix(videoGrpcDetail.UpdateTime, 0)
+		videoTbaleUpdate["upload_time"] = &t
 	}
 	if len(videoTbaleUpdate) > 0 {
-		models.GormDB.Model(&video).Updates(videoTbaleUpdate)
+		err := transactions.Model(&video).Updates(videoTbaleUpdate).Error
+		if err != nil {
+			println(err.Error())
+			return
+		}
 	}
 	// 更新作者信息
 	authorArrayUnique := utils.ArrayUnique{
@@ -1157,7 +1006,7 @@ func updateVideoDetailInfo(videoGrpcDetail *webSiteGRPC.VideoInfoResponse) {
 		for _, va := range video.Authors {
 			if va.AuthorId == localInfo.Id {
 				if va.Contribute != remoteInfo.Author {
-					models.GormDB.Model(&va).Update("contribute", remoteInfo.Author)
+					transactions.Model(&va).Update("contribute", remoteInfo.Author)
 				}
 				break
 			}
@@ -1175,7 +1024,7 @@ func updateVideoDetailInfo(videoGrpcDetail *webSiteGRPC.VideoInfoResponse) {
 			Contribute: authorInfo.Author,
 			AuthorUUID: authorInfo.Uid,
 		}
-		models.GormDB.Create(&authorVideo)
+		transactions.Create(&authorVideo)
 	}
 
 	// 更新标签信息
@@ -1190,7 +1039,7 @@ func updateVideoDetailInfo(videoGrpcDetail *webSiteGRPC.VideoInfoResponse) {
 		for _, va := range video.Tag {
 			if va.TagId == localInfo.Id {
 				if va.TagId != localInfo.Id {
-					models.GormDB.Model(&va).Update("tag_name", remoteInfo.Name)
+					transactions.Model(&va).Update("tag_name", remoteInfo.Name)
 				}
 				break
 			}
@@ -1205,19 +1054,21 @@ func updateVideoDetailInfo(videoGrpcDetail *webSiteGRPC.VideoInfoResponse) {
 			VideoId: video.Id,
 			TagId:   tag.Id,
 		}
-		models.GormDB.Create(&tagVideo)
+		transactions.Create(&tagVideo)
 	}
 
 	// 更新视频分区信息
-	if video.Classify == nil {
-		classify := videoGrpcDetail.Classify
-		classifyInfo := models.Classify{
-			Id:   classify.Id,
-			Name: classify.Name,
+	if videoGrpcDetail.Classify != nil {
+		if video.Classify == nil {
+			classify := videoGrpcDetail.Classify
+			classifyInfo := models.Classify{
+				Id:   classify.Id,
+				Name: classify.Name,
+			}
+			transactions.Create(&classifyInfo)
+		} else if video.Classify.Name != videoGrpcDetail.Classify.Name {
+			transactions.Model(&video).Update("classify_name", videoGrpcDetail.Classify.Name)
 		}
-		models.GormDB.Create(&classifyInfo)
-	} else if video.Classify.Name != videoGrpcDetail.Classify.Name {
-		models.GormDB.Model(&video).Update("classify_name", videoGrpcDetail.Classify.Name)
 	}
 
 	// 插入播放数据
@@ -1236,6 +1087,74 @@ func updateVideoDetailInfo(videoGrpcDetail *webSiteGRPC.VideoInfoResponse) {
 		Evaluation: videoGrpcDetail.Evaluation,
 		CreateTime: time.Now(),
 	}
-	models.GormDB.Create(&vp)
+	transactions.Create(&vp)
+	transactions.Commit()
+}
+
+func getVideoDetail(videoList []*models.Video) {
+	var webSiteList []models.WebSite
+	err := models.GormDB.Model(&models.WebSite{}).Find(&webSiteList).Error
+	if err != nil {
+		println(err.Error())
+		return
+	}
+	webSiteMap := map[int64]string{}
+	for _, webSiteInfo := range webSiteList {
+		webSiteMap[webSiteInfo.Id] = webSiteInfo.WebName
+	}
+
+	var webSiteIdList []int64
+	groupByWebSiteId := make(map[int64][]*models.Video)
+	for _, video := range videoList {
+		webSiteIdList = append(webSiteIdList, video.WebSiteId)
+		vList, ok := groupByWebSiteId[video.WebSiteId]
+		if ok {
+			groupByWebSiteId[video.WebSiteId] = []*models.Video{}
+		}
+		vList = append(vList, video)
+	}
+	for _, webSiteId := range webSiteIdList {
+		go func(requestWebSiteId int64) {
+			webSiteName := webSiteMap[requestWebSiteId]
+			server, ok := grpcServer[webSiteName]
+			if !ok {
+				println(webSiteName, " 服务不存在")
+				return
+			}
+			stream, err := server.GetVideoDetail(context.Background())
+			if err != nil {
+				println(webSiteName, "拨号错误")
+				println(err.Error())
+				return
+			}
+			go func() {
+				for {
+					videoDetailResponse, err := stream.Recv()
+					if err != nil {
+						println(webSiteName, "接收错误")
+						println(err.Error())
+						return
+					}
+					videoDetail := videoDetailResponse.GetVideoDetail()
+					videoDetail.WebSiteId = requestWebSiteId
+					videoDetail.WebSiteName = webSiteName
+					updateVideoDetailInfo(videoDetail)
+					for _, videoDetail = range videoDetailResponse.GetRecommendVideo() {
+						videoDetail.WebSiteId = requestWebSiteId
+						videoDetail.WebSiteName = webSiteName
+						updateVideoDetailInfo(videoDetail)
+					}
+				}
+			}()
+			for _, video := range groupByWebSiteId[requestWebSiteId] {
+				err = stream.Send(&webSiteGRPC.GetVideoListRequest{
+					VideoIdList: video.Uuid,
+				})
+				time.Sleep(time.Millisecond * 100)
+			}
+
+		}(webSiteId)
+		time.Sleep(time.Second * 1)
+	}
 
 }

@@ -288,7 +288,7 @@ func (avl *biliAuthorVideoList) saveAuthorVideoList(response bilibili.VideoListP
 			// 保存视频信息
 			vv := models.Video{
 				WebSiteId: avl.webSiteId,
-				Authors: []models.VideoAuthor{
+				Authors: []*models.VideoAuthor{
 					{AuthorId: avl.authorId, Uuid: videoInfo.Bvid},
 				},
 				Title:      videoInfo.Title,
@@ -545,10 +545,10 @@ func (vd *biliVideoDetail) relatedVideo(response bilibili.VideoDetailResponse) e
 			CreateTime: time.Now(),
 			UploadTime: &uploadTime,
 			Duration:   videoInfo.Duration,
-			Authors: []models.VideoAuthor{
+			Authors: []*models.VideoAuthor{
 				{AuthorUUID: strconv.Itoa(videoInfo.Owner.Mid), Contribute: "UP主"},
 			},
-			StructAuthor: []models.Author{
+			StructAuthor: []*models.Author{
 				{
 					WebSiteId:    vd.webSiteId,
 					AuthorWebUid: strconv.Itoa(videoInfo.Owner.Mid),
@@ -619,10 +619,10 @@ func importHistoryResponse() {
 						Title:     info.Title,
 						Uuid:      info.History.Bvid,
 						CoverUrl:  info.Cover,
-						Authors: []models.VideoAuthor{
+						Authors: []*models.VideoAuthor{
 							{Contribute: "UP主", AuthorUUID: strconv.FormatInt(info.AuthorMid, 10), Uuid: info.History.Bvid},
 						},
-						StructAuthor: []models.Author{
+						StructAuthor: []*models.Author{
 							{
 								AuthorWebUid: strconv.FormatInt(info.AuthorMid, 10),
 								AuthorName:   info.AuthorName,
@@ -630,7 +630,7 @@ func importHistoryResponse() {
 								Avatar:       info.AuthorFace,
 							},
 						},
-						ViewHistory: []models.VideoHistory{
+						ViewHistory: []*models.VideoHistory{
 							{ViewTime: pushTime, WebSiteId: 1, WebUUID: info.History.Bvid},
 						},
 					}

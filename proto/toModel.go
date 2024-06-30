@@ -18,3 +18,16 @@ func (t *TagInfoResponse) ToModel() *models.Tag {
 	tag.Name = t.Name
 	return &tag
 }
+
+func (v *VideoInfoResponse) ToVideoModel() *models.Video {
+	video := models.Video{
+		WebSiteId: v.WebSiteId,
+		Title:     v.Title,
+		VideoDesc: v.Desc,
+		Duration:  int(v.Duration),
+		Uuid:      v.Uid,
+		CoverUrl:  v.Cover,
+	}
+
+	return &video
+}

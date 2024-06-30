@@ -10,7 +10,7 @@ video_API = get_api("video")
 async def get_video_detail(credential: Credential, bvid: str, aid: int) -> VideoDetailResponse:
     api = video_API["info"]["detail"]
     params = {"bvid": bvid, "aid": aid}
-    response = await Api(**api, credential=credential).update_params(**params).request(proxy="http://127.0.0.1:10809")
+    response = await Api(**api, credential=credential).update_params(**params).request(proxy="http://127.0.0.1:1080")
     remote_video_info = response.get("View", {})
     video_detail_response = VideoDetailResponse(
         videoDetail=gen_video_detail_response(remote_video_info)
