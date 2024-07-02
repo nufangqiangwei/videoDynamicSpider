@@ -3,16 +3,19 @@ module videoDynamicAcquisition
 go 1.18
 
 require (
-	github.com/elliotchance/pie/v2 v2.8.1
+	github.com/beevik/ntp v1.4.3
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/uuid v1.6.0
+	github.com/json-iterator/go v1.1.12
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/nufangqiangwei/timewheel v0.0.3
 	github.com/nutsdb/nutsdb v1.0.4
 	github.com/panjf2000/ants/v2 v2.9.0
 	github.com/redis/go-redis/v9 v9.3.1
-	golang.org/x/crypto v0.22.0
+	github.com/tidwall/gjson v1.17.1
+	github.com/tidwall/sjson v1.2.5
+	golang.org/x/crypto v0.23.0
 	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.34.0
 	gorm.io/driver/mysql v1.5.2
@@ -38,7 +41,6 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jonboulle/clockwork v0.4.0 // indirect
-	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
@@ -48,17 +50,17 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/tidwall/btree v1.6.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/xujiajun/mmap-go v1.0.1 // indirect
 	github.com/xujiajun/utils v0.0.0-20220904132955-5f7c5b914235 // indirect
 	golang.org/x/arch v0.3.0 // indirect
-	golang.org/x/exp v0.0.0-20220321173239-a90fa8a75705 // indirect
-	golang.org/x/net v0.21.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/net v0.25.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
+	golang.org/x/text v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240227224415-6ceb2ff114de // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
